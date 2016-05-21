@@ -1,33 +1,54 @@
 macro_rules! op_codes {
-    ($($element: ident: ($tostring: expr, $hex: expr, $cycles: expr)),+) => {
+    // First the unprefixed op codes
+    ($($element: ident: ($tostring: expr, $hex: expr, $cycles: expr)),+;
+    // Then the 0XCB prefixed op codes
+     $($cb_element: ident: ($cb_tostring: expr, $cb_hex: expr, $cb_cycles: expr)),+) => {
         #[derive(Debug, Copy, Clone, PartialEq)]
         pub enum OpCode {
-            $($element),+
+            $($element),+,
+            $($cb_element),+
         }
 
         impl OpCode {
             pub fn to_byte(&self) -> u8 {
                 match self {
                     $(&OpCode::$element => $hex),*,
+                    $(&OpCode::$cb_element => $cb_hex),*,
                 }
             }
 
-            pub fn from_byte(hex: u8) -> OpCode {
-                match hex {
-                    $($hex => OpCode::$element),*,
-                    _ => panic!("Op code not implemented")
+            pub fn from_byte(hex: u8, prefixed: bool) -> OpCode {
+                if prefixed {
+                    match hex {
+                        $($cb_hex => OpCode::$cb_element),*,
+                        _ => panic!("Op code not implemented")
+                    }
+                } else {
+                    match hex {
+                        $($hex => OpCode::$element),*,
+                        _ => panic!("Op code not implemented")
+                    }
+                }
+            }
+
+            pub fn is_prefixed(&self) -> bool {
+                match self {
+                    $(&OpCode::$cb_element => true),*,
+                    $(&OpCode::$element => false),*,
                 }
             }
 
             pub fn to_string(&self) -> &'static str {
                 match self {
                     $(&OpCode::$element => $tostring),*,
+                    $(&OpCode::$cb_element => $cb_tostring),*,
                 }
             }
 
             pub fn get_cycles(&self) -> usize {
                 match self {
                     $(&OpCode::$element => $cycles),*,
+                    $(&OpCode::$cb_element => $cb_cycles),*,
                 }
             }
         }
@@ -35,6 +56,10 @@ macro_rules! op_codes {
 }
 
 op_codes!(
+    // ===========================
+    // Unprefixed op codes
+    // ===========================
+
     // LD nn,n
     //
     // Put value nn into n
@@ -733,5 +758,220 @@ op_codes!(
     //
     // Pop two bytes from stack and jump to that address then
     // enable interrupts
-    Reti: ("RETI", 0xD9, 8)
+    Reti: ("RETI", 0xD9, 8);
+
+    // ===========================
+    // Op codes prefixed with 0xCB
+    // ===========================
+
+    // SWAP n
+    //
+    // Swap upper & lower nibbles of n
+    //
+    // n = A,B,C,D,E,H,L,(HL)
+    //
+    // Flags:
+    // Z - Set if result is zero
+    // N - Reset
+    // H - Reset
+    // C - Reset
+    SwapA:  ("SWAP A",    0x37, 8),
+    SwapB:  ("SWAP B",    0x30, 8),
+    SwapC:  ("SWAP C",    0x31, 8),
+    SwapD:  ("SWAP D",    0x32, 8),
+    SwapE:  ("SWAP E",    0x33, 8),
+    SwapH:  ("SWAP H",    0x34, 8),
+    SwapL:  ("SWAP L",    0x35, 8),
+    SwapHL: ("SWAP (HL)", 0x36, 16),
+
+    // RLC n
+    //
+    // Rotate n left. Old bit 7 to Carry flag.
+    //
+    // n = A,B,C,D,E,H,L,(HL)
+    //
+    // Flags:
+    // Z - Set if result is zero
+    // N - Reset
+    // H - Reset
+    // C - Contains old bit 7 data.
+    RlcA:  ("RLC A",    0x07, 8),
+    RlcB:  ("RLC B",    0x00, 8),
+    RlcC:  ("RLC C",    0x01, 8),
+    RlcD:  ("RLC D",    0x02, 8),
+    RlcE:  ("RLC E",    0x03, 8),
+    RlcH:  ("RLC H",    0x04, 8),
+    RlcL:  ("RLC L",    0x05, 8),
+    RlcHL: ("RLC (HL)", 0x06, 16),
+
+    // RL n
+    //
+    // Rotate n left through Carry flag.
+    //
+    // n = A,B,C,D,E,H,L,(HL)
+    //
+    // Flags:
+    // Z - Set if result is zero
+    // N - Reset
+    // H - Reset
+    // C - Contains old bit 7 data
+    RlA:  ("RL A",    0x17, 8),
+    RlB:  ("RL B",    0x10, 8),
+    RlC:  ("RL C",    0x11, 8),
+    RlD:  ("RL D",    0x12, 8),
+    RlE:  ("RL E",    0x13, 8),
+    RlH:  ("RL H",    0x14, 8),
+    RlL:  ("RL L",    0x15, 8),
+    RlHL: ("RL (HL)", 0x16, 16),
+
+    // RRC n
+    //
+    // Rotate n right. Old bit 0 to Carry flag.
+    //
+    // n = A,B,C,D,E,H,L,(HL)
+    //
+    // Flags:
+    // Z - Set if result is zero.
+    // N - Reset
+    // H - Reset
+    // C - Contains old bit 0 data.
+    RrcA:  ("RRC A",    0x0F, 8),
+    RrcB:  ("RRC B",    0x08, 8),
+    RrcC:  ("RRC C",    0x09, 8),
+    RrcD:  ("RRC D",    0x0A, 8),
+    RrcE:  ("RRC E",    0x0B, 8),
+    RrcH:  ("RRC H",    0x0C, 8),
+    RrcL:  ("RRC L",    0x0D, 8),
+    RrcHL: ("RRC (HL)", 0x0E, 16),
+
+    // RR n
+    //
+    // Rotate n right through Carry flag.
+    //
+    // n = A,B,C,D,E,H,L,(HL)
+    //
+    // Flags:
+    // Z - Set if result is zero
+    // N - Reset
+    // H - Reset
+    // C - Contains old bit 0 data
+    RrA:  ("RR A",    0x1F, 8),
+    RrB:  ("RR B",    0x18, 8),
+    RrC:  ("RR C",    0x19, 8),
+    RrD:  ("RR D",    0x1A, 8),
+    RrE:  ("RR E",    0x1B, 8),
+    RrH:  ("RR H",    0x1C, 8),
+    RrL:  ("RR L",    0x1D, 8),
+    RrHL: ("RR (HL)", 0x1E, 16),
+
+    // SLA n
+    //
+    // Shift n left into Carry. LSB of n set to 0.
+    //
+    // n = A,B,C,D,E,H,L,(HL)
+    //
+    // Flags:
+    // Z - Set if result is zero
+    // N - Reset
+    // H - Reset
+    // C - Contains old bit 7 data
+    SlaA:  ("SLA A",    0x27, 8),
+    SlaB:  ("SLA B",    0x20, 8),
+    SlaC:  ("SLA C",    0x21, 8),
+    SlaD:  ("SLA D",    0x22, 8),
+    SlaE:  ("SLA E",    0x23, 8),
+    SlaH:  ("SLA H",    0x24, 8),
+    SlaL:  ("SLA L",    0x25, 8),
+    SlaHL: ("SLA (HL)", 0x26, 16),
+
+    // SRA n
+    //
+    // Shift n left into Carry. MSB doesn't change.
+    //
+    // n = A,B,C,D,E,H,L,(HL)
+    //
+    // Flags:
+    // Z - Set if result is zero
+    // N - Reset
+    // H - Reset
+    // C - Contains old bit 0 data
+    SraA:  ("SRA A",    0x2F, 8),
+    SraB:  ("SRA B",    0x28, 8),
+    SraC:  ("SRA C",    0x29, 8),
+    SraD:  ("SRA D",    0x2A, 8),
+    SraE:  ("SRA E",    0x2B, 8),
+    SraH:  ("SRA H",    0x2C, 8),
+    SraL:  ("SRA L",    0x2D, 8),
+    SraHL: ("SRA (HL)", 0x2E, 16),
+
+    // SRL n
+    //
+    // Shift n right into Carry. MSB set to 0.
+    //
+    // n = A,B,C,D,E,H,L,(HL)
+    //
+    // Flags:
+    // Z - Set if result is zero
+    // N - Reset
+    // H - Reset
+    // C - Contains old bit 0 data
+    SrlA:  ("SRL A",    0x3F, 8),
+    SrlB:  ("SRL B",    0x38, 8),
+    SrlC:  ("SRL C",    0x39, 8),
+    SrlD:  ("SRL D",    0x3A, 8),
+    SrlE:  ("SRL E",    0x3B, 8),
+    SrlH:  ("SRL H",    0x3C, 8),
+    SrlL:  ("SRL L",    0x3D, 8),
+    SrlHL: ("SRL (HL)", 0x3E, 16),
+
+    // BIT b,r
+    //
+    // Test bit b in register r
+    //
+    // b = 0 - 7
+    // r = A,B,C,D,E,H,L,(HL)
+    //
+    // Flags:
+    // Z - Set if bit b of register r is 0
+    // N - Reset
+    // H - Set
+    // C - Not affected
+    BitbA:  ("BIT b,A",    0x47, 8),
+    BitbB:  ("BIT b,B",    0x40, 8),
+    BitbC:  ("BIT b,C",    0x41, 8),
+    BitbD:  ("BIT b,D",    0x42, 8),
+    BitbE:  ("BIT b,E",    0x43, 8),
+    BitbH:  ("BIT b,H",    0x44, 8),
+    BitbL:  ("BIT b,L",    0x45, 8),
+    BitbHL: ("BIT b,(HL)", 0x46, 16),
+
+    // SET b,r
+    //
+    // Set bit b in register r
+    //
+    // b = 0 - 7
+    // r = A,B,C,D,E,H,L,(HL)
+    SetbA:  ("SET b,A",    0xC7, 8),
+    SetbB:  ("SET b,B",    0xC0, 8),
+    SetbC:  ("SET b,C",    0xC1, 8),
+    SetbD:  ("SET b,D",    0xC2, 8),
+    SetbE:  ("SET b,E",    0xC3, 8),
+    SetbH:  ("SET b,H",    0xC4, 8),
+    SetbL:  ("SET b,L",    0xC5, 8),
+    SetbHL: ("SET b,(HL)", 0xC6, 16),
+
+    // RES b,r
+    //
+    // Reset bit b in register r
+    //
+    // b = 0 - 7
+    // r = A,B,C,D,E,H,L,(HL)
+    ResbA:  ("RES b,A",    0x87, 8),
+    ResbB:  ("RES b,B",    0x80, 8),
+    ResbC:  ("RES b,C",    0x81, 8),
+    ResbD:  ("RES b,D",    0x82, 8),
+    ResbE:  ("RES b,E",    0x83, 8),
+    ResbH:  ("RES b,H",    0x84, 8),
+    ResbL:  ("RES b,L",    0x85, 8),
+    ResbHL: ("RES b,(HL)", 0x86, 16)
 );
