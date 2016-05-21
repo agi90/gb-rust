@@ -1,0 +1,6 @@
+[package]
+name = "gb"
+version = "0.1.0"
+authors = ["Giovanni Sferro <agi.novanta@gmail.com>"]
+
+[dependencies]
