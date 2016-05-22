@@ -71,10 +71,6 @@ macro_rules! op_codes {
     }
 }
 
-fn unimplemented(_: &mut Cpu) {
-    unimplemented!();
-}
-
 fn no_op(_: &mut Cpu) {}
 
 /* Get the value (8-bit) pointed by the Program Counter (PC) */
@@ -1173,7 +1169,7 @@ fn ei(cpu: &mut Cpu) {
     cpu.enable_interrupts();
 }
 
-fn rlca(x: u8, cpu: &mut Cpu) -> u8 {
+fn rlc(x: u8, cpu: &mut Cpu) -> u8 {
     let bit_7 = x >> 7;
 
     if bit_7 == 1 {
@@ -1196,9 +1192,9 @@ fn rlca(x: u8, cpu: &mut Cpu) -> u8 {
     result
 }
 
-fn rlca_A(cpu: &mut Cpu) { op_A(rlca, cpu); }
+fn rlc_A(cpu: &mut Cpu) { op_A(rlc, cpu); }
 
-fn rla(x: u8, cpu: &mut Cpu) -> u8 {
+fn rl(x: u8, cpu: &mut Cpu) -> u8 {
     let c_flag = if cpu.get_C_flag() { 1 } else { 0 };
 
     if (x >> 7) == 1 {
@@ -1221,9 +1217,9 @@ fn rla(x: u8, cpu: &mut Cpu) -> u8 {
     result
 }
 
-fn rla_A(cpu: &mut Cpu) { op_A(rla, cpu); }
+fn rl_A(cpu: &mut Cpu) { op_A(rl, cpu); }
 
-fn rrca(x: u8, cpu: &mut Cpu) -> u8 {
+fn rrc(x: u8, cpu: &mut Cpu) -> u8 {
     let bit_7 = x << 7;
 
     if bit_7 == 0x80 {
@@ -1246,9 +1242,9 @@ fn rrca(x: u8, cpu: &mut Cpu) -> u8 {
     result
 }
 
-fn rrca_A(cpu: &mut Cpu) { op_A(rrca, cpu); }
+fn rrc_A(cpu: &mut Cpu) { op_A(rrc, cpu); }
 
-fn rca(x: u8, cpu: &mut Cpu) -> u8 {
+fn rr(x: u8, cpu: &mut Cpu) -> u8 {
     let c_flag = if cpu.get_C_flag() { 0x80 } else { 0 };
 
     if (x << 7) == 0x80 {
@@ -1271,7 +1267,7 @@ fn rca(x: u8, cpu: &mut Cpu) -> u8 {
     result
 }
 
-fn rca_A(cpu: &mut Cpu) { op_A(rca, cpu); }
+fn rr_A(cpu: &mut Cpu) { op_A(rr, cpu); }
 
 fn jp_nn(cpu: &mut Cpu) {
     let nn = next_pointer(cpu);
@@ -1434,6 +1430,477 @@ fn reti(cpu: &mut Cpu) {
     ret(cpu);
     ei(cpu);
 }
+
+fn swap(x: u8, cpu: &mut Cpu) -> u8 {
+    let result = (x >> 4) + (x << 4);
+
+    if result == 0 {
+        cpu.set_Z_flag();
+    } else {
+        cpu.reset_Z();
+    }
+
+    cpu.reset_N();
+    cpu.reset_H();
+    cpu.reset_C();
+
+    result
+}
+
+fn swap_A(cpu: &mut Cpu)  {   op_A(swap, cpu); }
+fn swap_B(cpu: &mut Cpu)  {   op_B(swap, cpu); }
+fn swap_C(cpu: &mut Cpu)  {   op_C(swap, cpu); }
+fn swap_D(cpu: &mut Cpu)  {   op_D(swap, cpu); }
+fn swap_E(cpu: &mut Cpu)  {   op_E(swap, cpu); }
+fn swap_H(cpu: &mut Cpu)  {   op_H(swap, cpu); }
+fn swap_L(cpu: &mut Cpu)  {   op_L(swap, cpu); }
+fn swap_HL(cpu: &mut Cpu) { op_HLp(swap, cpu); }
+
+fn rlc_B(cpu: &mut Cpu)  {   op_B(rlc, cpu); }
+fn rlc_C(cpu: &mut Cpu)  {   op_C(rlc, cpu); }
+fn rlc_D(cpu: &mut Cpu)  {   op_D(rlc, cpu); }
+fn rlc_E(cpu: &mut Cpu)  {   op_E(rlc, cpu); }
+fn rlc_H(cpu: &mut Cpu)  {   op_H(rlc, cpu); }
+fn rlc_L(cpu: &mut Cpu)  {   op_L(rlc, cpu); }
+fn rlc_HL(cpu: &mut Cpu) { op_HLp(rlc, cpu); }
+
+fn rl_B(cpu: &mut Cpu)  {   op_B(rl, cpu); }
+fn rl_C(cpu: &mut Cpu)  {   op_C(rl, cpu); }
+fn rl_D(cpu: &mut Cpu)  {   op_D(rl, cpu); }
+fn rl_E(cpu: &mut Cpu)  {   op_E(rl, cpu); }
+fn rl_H(cpu: &mut Cpu)  {   op_H(rl, cpu); }
+fn rl_L(cpu: &mut Cpu)  {   op_L(rl, cpu); }
+fn rl_HL(cpu: &mut Cpu) { op_HLp(rl, cpu); }
+
+fn rrc_B(cpu: &mut Cpu)  {   op_B(rrc, cpu); }
+fn rrc_C(cpu: &mut Cpu)  {   op_C(rrc, cpu); }
+fn rrc_D(cpu: &mut Cpu)  {   op_D(rrc, cpu); }
+fn rrc_E(cpu: &mut Cpu)  {   op_E(rrc, cpu); }
+fn rrc_H(cpu: &mut Cpu)  {   op_H(rrc, cpu); }
+fn rrc_L(cpu: &mut Cpu)  {   op_L(rrc, cpu); }
+fn rrc_HL(cpu: &mut Cpu) { op_HLp(rrc, cpu); }
+
+fn rr_B(cpu: &mut Cpu)  {   op_B(rr, cpu); }
+fn rr_C(cpu: &mut Cpu)  {   op_C(rr, cpu); }
+fn rr_D(cpu: &mut Cpu)  {   op_D(rr, cpu); }
+fn rr_E(cpu: &mut Cpu)  {   op_E(rr, cpu); }
+fn rr_H(cpu: &mut Cpu)  {   op_H(rr, cpu); }
+fn rr_L(cpu: &mut Cpu)  {   op_L(rr, cpu); }
+fn rr_HL(cpu: &mut Cpu) { op_HLp(rr, cpu); }
+
+fn sla(x: u8, cpu: &mut Cpu) -> u8 {
+    let bit_7 = x >> 7;
+    if bit_7 == 1 {
+        cpu.set_C_flag();
+    } else {
+        cpu.reset_C();
+    }
+
+    cpu.reset_N();
+    cpu.reset_H();
+
+    let result = x << 1;
+
+    if result == 0 {
+        cpu.set_Z_flag();
+    } else {
+        cpu.reset_Z();
+    }
+
+    result
+}
+
+fn sla_A(cpu: &mut Cpu)  {   op_A(sla, cpu); }
+fn sla_B(cpu: &mut Cpu)  {   op_B(sla, cpu); }
+fn sla_C(cpu: &mut Cpu)  {   op_C(sla, cpu); }
+fn sla_D(cpu: &mut Cpu)  {   op_D(sla, cpu); }
+fn sla_E(cpu: &mut Cpu)  {   op_E(sla, cpu); }
+fn sla_H(cpu: &mut Cpu)  {   op_H(sla, cpu); }
+fn sla_L(cpu: &mut Cpu)  {   op_L(sla, cpu); }
+fn sla_HL(cpu: &mut Cpu) { op_HLp(sla, cpu); }
+
+fn sra(x: u8, cpu: &mut Cpu) -> u8 {
+    let bit_0 = x << 7;
+    if bit_0 == 0x80 {
+        cpu.set_C_flag();
+    } else {
+        cpu.reset_C();
+    }
+
+    cpu.reset_N();
+    cpu.reset_H();
+
+    let result = x >> 1 + ((x >> 7) << 7);
+
+    if result == 0 {
+        cpu.set_Z_flag();
+    } else {
+        cpu.reset_Z();
+    }
+
+    result
+}
+
+fn sra_A(cpu: &mut Cpu)  {   op_A(sra, cpu); }
+fn sra_B(cpu: &mut Cpu)  {   op_B(sra, cpu); }
+fn sra_C(cpu: &mut Cpu)  {   op_C(sra, cpu); }
+fn sra_D(cpu: &mut Cpu)  {   op_D(sra, cpu); }
+fn sra_E(cpu: &mut Cpu)  {   op_E(sra, cpu); }
+fn sra_H(cpu: &mut Cpu)  {   op_H(sra, cpu); }
+fn sra_L(cpu: &mut Cpu)  {   op_L(sra, cpu); }
+fn sra_HL(cpu: &mut Cpu) { op_HLp(sra, cpu); }
+
+fn srl(x: u8, cpu: &mut Cpu) -> u8 {
+    let bit_0 = x << 7;
+    if bit_0 == 0x80 {
+        cpu.set_C_flag();
+    } else {
+        cpu.reset_C();
+    }
+
+    cpu.reset_N();
+    cpu.reset_H();
+
+    let result = x >> 1;
+
+    if result == 0 {
+        cpu.set_Z_flag();
+    } else {
+        cpu.reset_Z();
+    }
+
+    result
+}
+
+fn srl_A(cpu: &mut Cpu)  {   op_A(srl, cpu); }
+fn srl_B(cpu: &mut Cpu)  {   op_B(srl, cpu); }
+fn srl_C(cpu: &mut Cpu)  {   op_C(srl, cpu); }
+fn srl_D(cpu: &mut Cpu)  {   op_D(srl, cpu); }
+fn srl_E(cpu: &mut Cpu)  {   op_E(srl, cpu); }
+fn srl_H(cpu: &mut Cpu)  {   op_H(srl, cpu); }
+fn srl_L(cpu: &mut Cpu)  {   op_L(srl, cpu); }
+fn srl_HL(cpu: &mut Cpu) { op_HLp(srl, cpu); }
+
+fn bit(b: u8, x: u8, cpu: &mut Cpu) -> u8 {
+    let mask = match b {
+        0 => 0b00000001,
+        1 => 0b00000010,
+        2 => 0b00000100,
+        3 => 0b00001000,
+        4 => 0b00010000,
+        5 => 0b00100000,
+        6 => 0b01000000,
+        7 => 0b10000000,
+        _ => panic!()
+    };
+
+    if (mask & x) == 0 {
+        cpu.set_Z_flag();
+    } else {
+        cpu.reset_Z();
+    }
+
+    cpu.reset_N();
+    cpu.set_H_flag();
+
+    x
+}
+
+fn op_bit_A(func: fn(b: u8, x: u8, cpu: &mut Cpu) -> u8, b: u8, cpu: &mut Cpu) {
+    let x = cpu.get_A_reg();
+    let result = func(b, x, cpu);
+    cpu.set_A_reg(result);
+}
+
+fn op_bit_B(func: fn(b: u8, x: u8, cpu: &mut Cpu) -> u8, b: u8, cpu: &mut Cpu) {
+    let x = cpu.get_B_reg();
+    let result = func(b, x, cpu);
+    cpu.set_B_reg(result);
+}
+
+fn op_bit_C(func: fn(b: u8, x: u8, cpu: &mut Cpu) -> u8, b: u8, cpu: &mut Cpu) {
+    let x = cpu.get_C_reg();
+    let result = func(b, x, cpu);
+    cpu.set_C_reg(result);
+}
+
+fn op_bit_D(func: fn(b: u8, x: u8, cpu: &mut Cpu) -> u8, b: u8, cpu: &mut Cpu) {
+    let x = cpu.get_D_reg();
+    let result = func(b, x, cpu);
+    cpu.set_D_reg(result);
+}
+
+fn op_bit_E(func: fn(b: u8, x: u8, cpu: &mut Cpu) -> u8, b: u8, cpu: &mut Cpu) {
+    let x = cpu.get_E_reg();
+    let result = func(b, x, cpu);
+    cpu.set_E_reg(result);
+}
+
+fn op_bit_H(func: fn(b: u8, x: u8, cpu: &mut Cpu) -> u8, b: u8, cpu: &mut Cpu) {
+    let x = cpu.get_H_reg();
+    let result = func(b, x, cpu);
+    cpu.set_H_reg(result);
+}
+
+fn op_bit_L(func: fn(b: u8, x: u8, cpu: &mut Cpu) -> u8, b: u8, cpu: &mut Cpu) {
+    let x = cpu.get_L_reg();
+    let result = func(b, x, cpu);
+    cpu.set_L_reg(result);
+}
+
+fn op_bit_HL(func: fn(b: u8, x: u8, cpu: &mut Cpu) -> u8, b: u8, cpu: &mut Cpu) {
+    let x = cpu.deref_HL();
+    let result = func(b, x, cpu);
+    cpu.set_deref_HL(result);
+}
+
+fn bit_0_A(cpu: &mut Cpu)  {  op_bit_A(bit, 0, cpu); }
+fn bit_0_B(cpu: &mut Cpu)  {  op_bit_B(bit, 0, cpu); }
+fn bit_0_C(cpu: &mut Cpu)  {  op_bit_C(bit, 0, cpu); }
+fn bit_0_D(cpu: &mut Cpu)  {  op_bit_D(bit, 0, cpu); }
+fn bit_0_E(cpu: &mut Cpu)  {  op_bit_E(bit, 0, cpu); }
+fn bit_0_H(cpu: &mut Cpu)  {  op_bit_H(bit, 0, cpu); }
+fn bit_0_L(cpu: &mut Cpu)  {  op_bit_L(bit, 0, cpu); }
+fn bit_0_HL(cpu: &mut Cpu) { op_bit_HL(bit, 0, cpu); }
+
+fn bit_1_A(cpu: &mut Cpu)  {  op_bit_A(bit, 1, cpu); }
+fn bit_1_B(cpu: &mut Cpu)  {  op_bit_B(bit, 1, cpu); }
+fn bit_1_C(cpu: &mut Cpu)  {  op_bit_C(bit, 1, cpu); }
+fn bit_1_D(cpu: &mut Cpu)  {  op_bit_D(bit, 1, cpu); }
+fn bit_1_E(cpu: &mut Cpu)  {  op_bit_E(bit, 1, cpu); }
+fn bit_1_H(cpu: &mut Cpu)  {  op_bit_H(bit, 1, cpu); }
+fn bit_1_L(cpu: &mut Cpu)  {  op_bit_L(bit, 1, cpu); }
+fn bit_1_HL(cpu: &mut Cpu) { op_bit_HL(bit, 1, cpu); }
+
+fn bit_2_A(cpu: &mut Cpu)  {  op_bit_A(bit, 2, cpu); }
+fn bit_2_B(cpu: &mut Cpu)  {  op_bit_B(bit, 2, cpu); }
+fn bit_2_C(cpu: &mut Cpu)  {  op_bit_C(bit, 2, cpu); }
+fn bit_2_D(cpu: &mut Cpu)  {  op_bit_D(bit, 2, cpu); }
+fn bit_2_E(cpu: &mut Cpu)  {  op_bit_E(bit, 2, cpu); }
+fn bit_2_H(cpu: &mut Cpu)  {  op_bit_H(bit, 2, cpu); }
+fn bit_2_L(cpu: &mut Cpu)  {  op_bit_L(bit, 2, cpu); }
+fn bit_2_HL(cpu: &mut Cpu) { op_bit_HL(bit, 2, cpu); }
+
+fn bit_3_A(cpu: &mut Cpu)  {  op_bit_A(bit, 3, cpu); }
+fn bit_3_B(cpu: &mut Cpu)  {  op_bit_B(bit, 3, cpu); }
+fn bit_3_C(cpu: &mut Cpu)  {  op_bit_C(bit, 3, cpu); }
+fn bit_3_D(cpu: &mut Cpu)  {  op_bit_D(bit, 3, cpu); }
+fn bit_3_E(cpu: &mut Cpu)  {  op_bit_E(bit, 3, cpu); }
+fn bit_3_H(cpu: &mut Cpu)  {  op_bit_H(bit, 3, cpu); }
+fn bit_3_L(cpu: &mut Cpu)  {  op_bit_L(bit, 3, cpu); }
+fn bit_3_HL(cpu: &mut Cpu) { op_bit_HL(bit, 3, cpu); }
+
+fn bit_4_A(cpu: &mut Cpu)  {  op_bit_A(bit, 4, cpu); }
+fn bit_4_B(cpu: &mut Cpu)  {  op_bit_B(bit, 4, cpu); }
+fn bit_4_C(cpu: &mut Cpu)  {  op_bit_C(bit, 4, cpu); }
+fn bit_4_D(cpu: &mut Cpu)  {  op_bit_D(bit, 4, cpu); }
+fn bit_4_E(cpu: &mut Cpu)  {  op_bit_E(bit, 4, cpu); }
+fn bit_4_H(cpu: &mut Cpu)  {  op_bit_H(bit, 4, cpu); }
+fn bit_4_L(cpu: &mut Cpu)  {  op_bit_L(bit, 4, cpu); }
+fn bit_4_HL(cpu: &mut Cpu) { op_bit_HL(bit, 4, cpu); }
+
+fn bit_5_A(cpu: &mut Cpu)  {  op_bit_A(bit, 5, cpu); }
+fn bit_5_B(cpu: &mut Cpu)  {  op_bit_B(bit, 5, cpu); }
+fn bit_5_C(cpu: &mut Cpu)  {  op_bit_C(bit, 5, cpu); }
+fn bit_5_D(cpu: &mut Cpu)  {  op_bit_D(bit, 5, cpu); }
+fn bit_5_E(cpu: &mut Cpu)  {  op_bit_E(bit, 5, cpu); }
+fn bit_5_H(cpu: &mut Cpu)  {  op_bit_H(bit, 5, cpu); }
+fn bit_5_L(cpu: &mut Cpu)  {  op_bit_L(bit, 5, cpu); }
+fn bit_5_HL(cpu: &mut Cpu) { op_bit_HL(bit, 5, cpu); }
+
+fn bit_6_A(cpu: &mut Cpu)  {  op_bit_A(bit, 6, cpu); }
+fn bit_6_B(cpu: &mut Cpu)  {  op_bit_B(bit, 6, cpu); }
+fn bit_6_C(cpu: &mut Cpu)  {  op_bit_C(bit, 6, cpu); }
+fn bit_6_D(cpu: &mut Cpu)  {  op_bit_D(bit, 6, cpu); }
+fn bit_6_E(cpu: &mut Cpu)  {  op_bit_E(bit, 6, cpu); }
+fn bit_6_H(cpu: &mut Cpu)  {  op_bit_H(bit, 6, cpu); }
+fn bit_6_L(cpu: &mut Cpu)  {  op_bit_L(bit, 6, cpu); }
+fn bit_6_HL(cpu: &mut Cpu) { op_bit_HL(bit, 6, cpu); }
+
+fn bit_7_A(cpu: &mut Cpu)  {  op_bit_A(bit, 7, cpu); }
+fn bit_7_B(cpu: &mut Cpu)  {  op_bit_B(bit, 7, cpu); }
+fn bit_7_C(cpu: &mut Cpu)  {  op_bit_C(bit, 7, cpu); }
+fn bit_7_D(cpu: &mut Cpu)  {  op_bit_D(bit, 7, cpu); }
+fn bit_7_E(cpu: &mut Cpu)  {  op_bit_E(bit, 7, cpu); }
+fn bit_7_H(cpu: &mut Cpu)  {  op_bit_H(bit, 7, cpu); }
+fn bit_7_L(cpu: &mut Cpu)  {  op_bit_L(bit, 7, cpu); }
+fn bit_7_HL(cpu: &mut Cpu) { op_bit_HL(bit, 7, cpu); }
+
+fn set(b: u8, x: u8, _: &mut Cpu) -> u8 {
+    let mask = match b {
+        0 => 0b00000001,
+        1 => 0b00000010,
+        2 => 0b00000100,
+        3 => 0b00001000,
+        4 => 0b00010000,
+        5 => 0b00100000,
+        6 => 0b01000000,
+        7 => 0b10000000,
+        _ => panic!()
+    };
+
+    mask | x
+}
+
+fn set_0_A(cpu: &mut Cpu)  {  op_bit_A(set, 0, cpu); }
+fn set_0_B(cpu: &mut Cpu)  {  op_bit_B(set, 0, cpu); }
+fn set_0_C(cpu: &mut Cpu)  {  op_bit_C(set, 0, cpu); }
+fn set_0_D(cpu: &mut Cpu)  {  op_bit_D(set, 0, cpu); }
+fn set_0_E(cpu: &mut Cpu)  {  op_bit_E(set, 0, cpu); }
+fn set_0_H(cpu: &mut Cpu)  {  op_bit_H(set, 0, cpu); }
+fn set_0_L(cpu: &mut Cpu)  {  op_bit_L(set, 0, cpu); }
+fn set_0_HL(cpu: &mut Cpu) { op_bit_HL(set, 0, cpu); }
+
+fn set_1_A(cpu: &mut Cpu)  {  op_bit_A(set, 1, cpu); }
+fn set_1_B(cpu: &mut Cpu)  {  op_bit_B(set, 1, cpu); }
+fn set_1_C(cpu: &mut Cpu)  {  op_bit_C(set, 1, cpu); }
+fn set_1_D(cpu: &mut Cpu)  {  op_bit_D(set, 1, cpu); }
+fn set_1_E(cpu: &mut Cpu)  {  op_bit_E(set, 1, cpu); }
+fn set_1_H(cpu: &mut Cpu)  {  op_bit_H(set, 1, cpu); }
+fn set_1_L(cpu: &mut Cpu)  {  op_bit_L(set, 1, cpu); }
+fn set_1_HL(cpu: &mut Cpu) { op_bit_HL(set, 1, cpu); }
+
+fn set_2_A(cpu: &mut Cpu)  {  op_bit_A(set, 2, cpu); }
+fn set_2_B(cpu: &mut Cpu)  {  op_bit_B(set, 2, cpu); }
+fn set_2_C(cpu: &mut Cpu)  {  op_bit_C(set, 2, cpu); }
+fn set_2_D(cpu: &mut Cpu)  {  op_bit_D(set, 2, cpu); }
+fn set_2_E(cpu: &mut Cpu)  {  op_bit_E(set, 2, cpu); }
+fn set_2_H(cpu: &mut Cpu)  {  op_bit_H(set, 2, cpu); }
+fn set_2_L(cpu: &mut Cpu)  {  op_bit_L(set, 2, cpu); }
+fn set_2_HL(cpu: &mut Cpu) { op_bit_HL(set, 2, cpu); }
+
+fn set_3_A(cpu: &mut Cpu)  {  op_bit_A(set, 3, cpu); }
+fn set_3_B(cpu: &mut Cpu)  {  op_bit_B(set, 3, cpu); }
+fn set_3_C(cpu: &mut Cpu)  {  op_bit_C(set, 3, cpu); }
+fn set_3_D(cpu: &mut Cpu)  {  op_bit_D(set, 3, cpu); }
+fn set_3_E(cpu: &mut Cpu)  {  op_bit_E(set, 3, cpu); }
+fn set_3_H(cpu: &mut Cpu)  {  op_bit_H(set, 3, cpu); }
+fn set_3_L(cpu: &mut Cpu)  {  op_bit_L(set, 3, cpu); }
+fn set_3_HL(cpu: &mut Cpu) { op_bit_HL(set, 3, cpu); }
+
+fn set_4_A(cpu: &mut Cpu)  {  op_bit_A(set, 4, cpu); }
+fn set_4_B(cpu: &mut Cpu)  {  op_bit_B(set, 4, cpu); }
+fn set_4_C(cpu: &mut Cpu)  {  op_bit_C(set, 4, cpu); }
+fn set_4_D(cpu: &mut Cpu)  {  op_bit_D(set, 4, cpu); }
+fn set_4_E(cpu: &mut Cpu)  {  op_bit_E(set, 4, cpu); }
+fn set_4_H(cpu: &mut Cpu)  {  op_bit_H(set, 4, cpu); }
+fn set_4_L(cpu: &mut Cpu)  {  op_bit_L(set, 4, cpu); }
+fn set_4_HL(cpu: &mut Cpu) { op_bit_HL(set, 4, cpu); }
+
+fn set_5_A(cpu: &mut Cpu)  {  op_bit_A(set, 5, cpu); }
+fn set_5_B(cpu: &mut Cpu)  {  op_bit_B(set, 5, cpu); }
+fn set_5_C(cpu: &mut Cpu)  {  op_bit_C(set, 5, cpu); }
+fn set_5_D(cpu: &mut Cpu)  {  op_bit_D(set, 5, cpu); }
+fn set_5_E(cpu: &mut Cpu)  {  op_bit_E(set, 5, cpu); }
+fn set_5_H(cpu: &mut Cpu)  {  op_bit_H(set, 5, cpu); }
+fn set_5_L(cpu: &mut Cpu)  {  op_bit_L(set, 5, cpu); }
+fn set_5_HL(cpu: &mut Cpu) { op_bit_HL(set, 5, cpu); }
+
+fn set_6_A(cpu: &mut Cpu)  {  op_bit_A(set, 6, cpu); }
+fn set_6_B(cpu: &mut Cpu)  {  op_bit_B(set, 6, cpu); }
+fn set_6_C(cpu: &mut Cpu)  {  op_bit_C(set, 6, cpu); }
+fn set_6_D(cpu: &mut Cpu)  {  op_bit_D(set, 6, cpu); }
+fn set_6_E(cpu: &mut Cpu)  {  op_bit_E(set, 6, cpu); }
+fn set_6_H(cpu: &mut Cpu)  {  op_bit_H(set, 6, cpu); }
+fn set_6_L(cpu: &mut Cpu)  {  op_bit_L(set, 6, cpu); }
+fn set_6_HL(cpu: &mut Cpu) { op_bit_HL(set, 6, cpu); }
+
+fn set_7_A(cpu: &mut Cpu)  {  op_bit_A(set, 7, cpu); }
+fn set_7_B(cpu: &mut Cpu)  {  op_bit_B(set, 7, cpu); }
+fn set_7_C(cpu: &mut Cpu)  {  op_bit_C(set, 7, cpu); }
+fn set_7_D(cpu: &mut Cpu)  {  op_bit_D(set, 7, cpu); }
+fn set_7_E(cpu: &mut Cpu)  {  op_bit_E(set, 7, cpu); }
+fn set_7_H(cpu: &mut Cpu)  {  op_bit_H(set, 7, cpu); }
+fn set_7_L(cpu: &mut Cpu)  {  op_bit_L(set, 7, cpu); }
+fn set_7_HL(cpu: &mut Cpu) { op_bit_HL(set, 7, cpu); }
+
+fn reset(b: u8, x: u8, _: &mut Cpu) -> u8 {
+    let mask = match b {
+        0 => 0b11111110,
+        1 => 0b11111101,
+        2 => 0b11111011,
+        3 => 0b11110111,
+        4 => 0b11101111,
+        5 => 0b11011111,
+        6 => 0b10111111,
+        7 => 0b01111111,
+        _ => panic!()
+    };
+
+    mask & x
+}
+
+fn reset_0_A(cpu: &mut Cpu)  {  op_bit_A(reset, 0, cpu); }
+fn reset_0_B(cpu: &mut Cpu)  {  op_bit_B(reset, 0, cpu); }
+fn reset_0_C(cpu: &mut Cpu)  {  op_bit_C(reset, 0, cpu); }
+fn reset_0_D(cpu: &mut Cpu)  {  op_bit_D(reset, 0, cpu); }
+fn reset_0_E(cpu: &mut Cpu)  {  op_bit_E(reset, 0, cpu); }
+fn reset_0_H(cpu: &mut Cpu)  {  op_bit_H(reset, 0, cpu); }
+fn reset_0_L(cpu: &mut Cpu)  {  op_bit_L(reset, 0, cpu); }
+fn reset_0_HL(cpu: &mut Cpu) { op_bit_HL(reset, 0, cpu); }
+
+fn reset_1_A(cpu: &mut Cpu)  {  op_bit_A(reset, 1, cpu); }
+fn reset_1_B(cpu: &mut Cpu)  {  op_bit_B(reset, 1, cpu); }
+fn reset_1_C(cpu: &mut Cpu)  {  op_bit_C(reset, 1, cpu); }
+fn reset_1_D(cpu: &mut Cpu)  {  op_bit_D(reset, 1, cpu); }
+fn reset_1_E(cpu: &mut Cpu)  {  op_bit_E(reset, 1, cpu); }
+fn reset_1_H(cpu: &mut Cpu)  {  op_bit_H(reset, 1, cpu); }
+fn reset_1_L(cpu: &mut Cpu)  {  op_bit_L(reset, 1, cpu); }
+fn reset_1_HL(cpu: &mut Cpu) { op_bit_HL(reset, 1, cpu); }
+
+fn reset_2_A(cpu: &mut Cpu)  {  op_bit_A(reset, 2, cpu); }
+fn reset_2_B(cpu: &mut Cpu)  {  op_bit_B(reset, 2, cpu); }
+fn reset_2_C(cpu: &mut Cpu)  {  op_bit_C(reset, 2, cpu); }
+fn reset_2_D(cpu: &mut Cpu)  {  op_bit_D(reset, 2, cpu); }
+fn reset_2_E(cpu: &mut Cpu)  {  op_bit_E(reset, 2, cpu); }
+fn reset_2_H(cpu: &mut Cpu)  {  op_bit_H(reset, 2, cpu); }
+fn reset_2_L(cpu: &mut Cpu)  {  op_bit_L(reset, 2, cpu); }
+fn reset_2_HL(cpu: &mut Cpu) { op_bit_HL(reset, 2, cpu); }
+
+fn reset_3_A(cpu: &mut Cpu)  {  op_bit_A(reset, 3, cpu); }
+fn reset_3_B(cpu: &mut Cpu)  {  op_bit_B(reset, 3, cpu); }
+fn reset_3_C(cpu: &mut Cpu)  {  op_bit_C(reset, 3, cpu); }
+fn reset_3_D(cpu: &mut Cpu)  {  op_bit_D(reset, 3, cpu); }
+fn reset_3_E(cpu: &mut Cpu)  {  op_bit_E(reset, 3, cpu); }
+fn reset_3_H(cpu: &mut Cpu)  {  op_bit_H(reset, 3, cpu); }
+fn reset_3_L(cpu: &mut Cpu)  {  op_bit_L(reset, 3, cpu); }
+fn reset_3_HL(cpu: &mut Cpu) { op_bit_HL(reset, 3, cpu); }
+
+fn reset_4_A(cpu: &mut Cpu)  {  op_bit_A(reset, 4, cpu); }
+fn reset_4_B(cpu: &mut Cpu)  {  op_bit_B(reset, 4, cpu); }
+fn reset_4_C(cpu: &mut Cpu)  {  op_bit_C(reset, 4, cpu); }
+fn reset_4_D(cpu: &mut Cpu)  {  op_bit_D(reset, 4, cpu); }
+fn reset_4_E(cpu: &mut Cpu)  {  op_bit_E(reset, 4, cpu); }
+fn reset_4_H(cpu: &mut Cpu)  {  op_bit_H(reset, 4, cpu); }
+fn reset_4_L(cpu: &mut Cpu)  {  op_bit_L(reset, 4, cpu); }
+fn reset_4_HL(cpu: &mut Cpu) { op_bit_HL(reset, 4, cpu); }
+
+fn reset_5_A(cpu: &mut Cpu)  {  op_bit_A(reset, 5, cpu); }
+fn reset_5_B(cpu: &mut Cpu)  {  op_bit_B(reset, 5, cpu); }
+fn reset_5_C(cpu: &mut Cpu)  {  op_bit_C(reset, 5, cpu); }
+fn reset_5_D(cpu: &mut Cpu)  {  op_bit_D(reset, 5, cpu); }
+fn reset_5_E(cpu: &mut Cpu)  {  op_bit_E(reset, 5, cpu); }
+fn reset_5_H(cpu: &mut Cpu)  {  op_bit_H(reset, 5, cpu); }
+fn reset_5_L(cpu: &mut Cpu)  {  op_bit_L(reset, 5, cpu); }
+fn reset_5_HL(cpu: &mut Cpu) { op_bit_HL(reset, 5, cpu); }
+
+fn reset_6_A(cpu: &mut Cpu)  {  op_bit_A(reset, 6, cpu); }
+fn reset_6_B(cpu: &mut Cpu)  {  op_bit_B(reset, 6, cpu); }
+fn reset_6_C(cpu: &mut Cpu)  {  op_bit_C(reset, 6, cpu); }
+fn reset_6_D(cpu: &mut Cpu)  {  op_bit_D(reset, 6, cpu); }
+fn reset_6_E(cpu: &mut Cpu)  {  op_bit_E(reset, 6, cpu); }
+fn reset_6_H(cpu: &mut Cpu)  {  op_bit_H(reset, 6, cpu); }
+fn reset_6_L(cpu: &mut Cpu)  {  op_bit_L(reset, 6, cpu); }
+fn reset_6_HL(cpu: &mut Cpu) { op_bit_HL(reset, 6, cpu); }
+
+fn reset_7_A(cpu: &mut Cpu)  {  op_bit_A(reset, 7, cpu); }
+fn reset_7_B(cpu: &mut Cpu)  {  op_bit_B(reset, 7, cpu); }
+fn reset_7_C(cpu: &mut Cpu)  {  op_bit_C(reset, 7, cpu); }
+fn reset_7_D(cpu: &mut Cpu)  {  op_bit_D(reset, 7, cpu); }
+fn reset_7_E(cpu: &mut Cpu)  {  op_bit_E(reset, 7, cpu); }
+fn reset_7_H(cpu: &mut Cpu)  {  op_bit_H(reset, 7, cpu); }
+fn reset_7_L(cpu: &mut Cpu)  {  op_bit_L(reset, 7, cpu); }
+fn reset_7_HL(cpu: &mut Cpu) { op_bit_HL(reset, 7, cpu); }
 
 op_codes!(
     // ===========================
@@ -1997,7 +2464,7 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Contains old bit 7 data.
-    Rlca: ("RLCA", 0x07, 4, rlca_A),
+    Rlca: ("RLCA", 0x07, 4, rlc_A),
 
     // RLA
     //
@@ -2008,7 +2475,7 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Contains old bit 7 data
-    Rla: ("RLA", 0x17, 4, rla_A),
+    Rla: ("RLA", 0x17, 4, rl_A),
 
     // RRCA
     //
@@ -2019,7 +2486,7 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Contains old bit 0 data
-    Rrca: ("RRCA", 0x0F, 4, rrca_A),
+    Rrca: ("RRCA", 0x0F, 4, rrc_A),
 
     // RRA
     //
@@ -2030,7 +2497,7 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Contains old bit 0 data
-    Rra: ("Rra", 0x1F, 4, rca_A),
+    Rra: ("Rra", 0x1F, 4, rr_A),
 
     // JP nn
     //
@@ -2155,14 +2622,14 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Reset
-    SwapA:  ("SWAP A",    0x37, 8,  unimplemented),
-    SwapB:  ("SWAP B",    0x30, 8,  unimplemented),
-    SwapC:  ("SWAP C",    0x31, 8,  unimplemented),
-    SwapD:  ("SWAP D",    0x32, 8,  unimplemented),
-    SwapE:  ("SWAP E",    0x33, 8,  unimplemented),
-    SwapH:  ("SWAP H",    0x34, 8,  unimplemented),
-    SwapL:  ("SWAP L",    0x35, 8,  unimplemented),
-    SwapHL: ("SWAP (HL)", 0x36, 16, unimplemented),
+    SwapA:  ("SWAP A",    0x37, 8,  swap_A),
+    SwapB:  ("SWAP B",    0x30, 8,  swap_B),
+    SwapC:  ("SWAP C",    0x31, 8,  swap_C),
+    SwapD:  ("SWAP D",    0x32, 8,  swap_D),
+    SwapE:  ("SWAP E",    0x33, 8,  swap_E),
+    SwapH:  ("SWAP H",    0x34, 8,  swap_H),
+    SwapL:  ("SWAP L",    0x35, 8,  swap_L),
+    SwapHL: ("SWAP (HL)", 0x36, 16, swap_HL),
 
     // RLC n
     //
@@ -2175,14 +2642,14 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Contains old bit 7 data.
-    RlcA:  ("RLC A",    0x07, 8,  unimplemented),
-    RlcB:  ("RLC B",    0x00, 8,  unimplemented),
-    RlcC:  ("RLC C",    0x01, 8,  unimplemented),
-    RlcD:  ("RLC D",    0x02, 8,  unimplemented),
-    RlcE:  ("RLC E",    0x03, 8,  unimplemented),
-    RlcH:  ("RLC H",    0x04, 8,  unimplemented),
-    RlcL:  ("RLC L",    0x05, 8,  unimplemented),
-    RlcHL: ("RLC (HL)", 0x06, 16, unimplemented),
+    RlcA:  ("RLC A",    0x07, 8,  rlc_A),
+    RlcB:  ("RLC B",    0x00, 8,  rlc_B),
+    RlcC:  ("RLC C",    0x01, 8,  rlc_C),
+    RlcD:  ("RLC D",    0x02, 8,  rlc_D),
+    RlcE:  ("RLC E",    0x03, 8,  rlc_E),
+    RlcH:  ("RLC H",    0x04, 8,  rlc_H),
+    RlcL:  ("RLC L",    0x05, 8,  rlc_L),
+    RlcHL: ("RLC (HL)", 0x06, 16, rlc_HL),
 
     // RL n
     //
@@ -2195,14 +2662,14 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Contains old bit 7 data
-    RlA:  ("RL A",    0x17, 8,  unimplemented),
-    RlB:  ("RL B",    0x10, 8,  unimplemented),
-    RlC:  ("RL C",    0x11, 8,  unimplemented),
-    RlD:  ("RL D",    0x12, 8,  unimplemented),
-    RlE:  ("RL E",    0x13, 8,  unimplemented),
-    RlH:  ("RL H",    0x14, 8,  unimplemented),
-    RlL:  ("RL L",    0x15, 8,  unimplemented),
-    RlHL: ("RL (HL)", 0x16, 16, unimplemented),
+    RlA:  ("RL A",    0x17, 8,  rl_A),
+    RlB:  ("RL B",    0x10, 8,  rl_B),
+    RlC:  ("RL C",    0x11, 8,  rl_C),
+    RlD:  ("RL D",    0x12, 8,  rl_D),
+    RlE:  ("RL E",    0x13, 8,  rl_E),
+    RlH:  ("RL H",    0x14, 8,  rl_H),
+    RlL:  ("RL L",    0x15, 8,  rl_L),
+    RlHL: ("RL (HL)", 0x16, 16, rl_HL),
 
     // RRC n
     //
@@ -2215,14 +2682,14 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Contains old bit 0 data.
-    RrcA:  ("RRC A",    0x0F, 8,  unimplemented),
-    RrcB:  ("RRC B",    0x08, 8,  unimplemented),
-    RrcC:  ("RRC C",    0x09, 8,  unimplemented),
-    RrcD:  ("RRC D",    0x0A, 8,  unimplemented),
-    RrcE:  ("RRC E",    0x0B, 8,  unimplemented),
-    RrcH:  ("RRC H",    0x0C, 8,  unimplemented),
-    RrcL:  ("RRC L",    0x0D, 8,  unimplemented),
-    RrcHL: ("RRC (HL)", 0x0E, 16, unimplemented),
+    RrcA:  ("RRC A",    0x0F, 8,  rrc_A),
+    RrcB:  ("RRC B",    0x08, 8,  rrc_B),
+    RrcC:  ("RRC C",    0x09, 8,  rrc_C),
+    RrcD:  ("RRC D",    0x0A, 8,  rrc_D),
+    RrcE:  ("RRC E",    0x0B, 8,  rrc_E),
+    RrcH:  ("RRC H",    0x0C, 8,  rrc_H),
+    RrcL:  ("RRC L",    0x0D, 8,  rrc_L),
+    RrcHL: ("RRC (HL)", 0x0E, 16, rrc_HL),
 
     // RR n
     //
@@ -2235,14 +2702,14 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Contains old bit 0 data
-    RrA:  ("RR A",    0x1F, 8,  unimplemented),
-    RrB:  ("RR B",    0x18, 8,  unimplemented),
-    RrC:  ("RR C",    0x19, 8,  unimplemented),
-    RrD:  ("RR D",    0x1A, 8,  unimplemented),
-    RrE:  ("RR E",    0x1B, 8,  unimplemented),
-    RrH:  ("RR H",    0x1C, 8,  unimplemented),
-    RrL:  ("RR L",    0x1D, 8,  unimplemented),
-    RrHL: ("RR (HL)", 0x1E, 16, unimplemented),
+    RrA:  ("RR A",    0x1F, 8,  rr_A),
+    RrB:  ("RR B",    0x18, 8,  rr_B),
+    RrC:  ("RR C",    0x19, 8,  rr_C),
+    RrD:  ("RR D",    0x1A, 8,  rr_D),
+    RrE:  ("RR E",    0x1B, 8,  rr_E),
+    RrH:  ("RR H",    0x1C, 8,  rr_H),
+    RrL:  ("RR L",    0x1D, 8,  rr_L),
+    RrHL: ("RR (HL)", 0x1E, 16, rr_HL),
 
     // SLA n
     //
@@ -2255,18 +2722,18 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Contains old bit 7 data
-    SlaA:  ("SLA A",    0x27, 8,  unimplemented),
-    SlaB:  ("SLA B",    0x20, 8,  unimplemented),
-    SlaC:  ("SLA C",    0x21, 8,  unimplemented),
-    SlaD:  ("SLA D",    0x22, 8,  unimplemented),
-    SlaE:  ("SLA E",    0x23, 8,  unimplemented),
-    SlaH:  ("SLA H",    0x24, 8,  unimplemented),
-    SlaL:  ("SLA L",    0x25, 8,  unimplemented),
-    SlaHL: ("SLA (HL)", 0x26, 16, unimplemented),
+    SlaA:  ("SLA A",    0x27, 8,  sla_A),
+    SlaB:  ("SLA B",    0x20, 8,  sla_B),
+    SlaC:  ("SLA C",    0x21, 8,  sla_C),
+    SlaD:  ("SLA D",    0x22, 8,  sla_D),
+    SlaE:  ("SLA E",    0x23, 8,  sla_E),
+    SlaH:  ("SLA H",    0x24, 8,  sla_H),
+    SlaL:  ("SLA L",    0x25, 8,  sla_L),
+    SlaHL: ("SLA (HL)", 0x26, 16, sla_HL),
 
     // SRA n
     //
-    // Shift n left into Carry. MSB doesn't change.
+    // Shift n right into Carry. MSB doesn't change.
     //
     // n = A,B,C,D,E,H,L,(HL)
     //
@@ -2275,14 +2742,14 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Contains old bit 0 data
-    SraA:  ("SRA A",    0x2F, 8,  unimplemented),
-    SraB:  ("SRA B",    0x28, 8,  unimplemented),
-    SraC:  ("SRA C",    0x29, 8,  unimplemented),
-    SraD:  ("SRA D",    0x2A, 8,  unimplemented),
-    SraE:  ("SRA E",    0x2B, 8,  unimplemented),
-    SraH:  ("SRA H",    0x2C, 8,  unimplemented),
-    SraL:  ("SRA L",    0x2D, 8,  unimplemented),
-    SraHL: ("SRA (HL)", 0x2E, 16, unimplemented),
+    SraA:  ("SRA A",    0x2F, 8,  sra_A),
+    SraB:  ("SRA B",    0x28, 8,  sra_B),
+    SraC:  ("SRA C",    0x29, 8,  sra_C),
+    SraD:  ("SRA D",    0x2A, 8,  sra_D),
+    SraE:  ("SRA E",    0x2B, 8,  sra_E),
+    SraH:  ("SRA H",    0x2C, 8,  sra_H),
+    SraL:  ("SRA L",    0x2D, 8,  sra_L),
+    SraHL: ("SRA (HL)", 0x2E, 16, sra_HL),
 
     // SRL n
     //
@@ -2295,14 +2762,14 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Contains old bit 0 data
-    SrlA:  ("SRL A",    0x3F, 8,  unimplemented),
-    SrlB:  ("SRL B",    0x38, 8,  unimplemented),
-    SrlC:  ("SRL C",    0x39, 8,  unimplemented),
-    SrlD:  ("SRL D",    0x3A, 8,  unimplemented),
-    SrlE:  ("SRL E",    0x3B, 8,  unimplemented),
-    SrlH:  ("SRL H",    0x3C, 8,  unimplemented),
-    SrlL:  ("SRL L",    0x3D, 8,  unimplemented),
-    SrlHL: ("SRL (HL)", 0x3E, 16, unimplemented),
+    SrlA:  ("SRL A",    0x3F, 8,  srl_A),
+    SrlB:  ("SRL B",    0x38, 8,  srl_B),
+    SrlC:  ("SRL C",    0x39, 8,  srl_C),
+    SrlD:  ("SRL D",    0x3A, 8,  srl_D),
+    SrlE:  ("SRL E",    0x3B, 8,  srl_E),
+    SrlH:  ("SRL H",    0x3C, 8,  srl_H),
+    SrlL:  ("SRL L",    0x3D, 8,  srl_L),
+    SrlHL: ("SRL (HL)", 0x3E, 16, srl_HL),
 
     // BIT b,r
     //
@@ -2316,14 +2783,77 @@ op_codes!(
     // N - Reset
     // H - Set
     // C - Not affected
-    BitbA:  ("BIT b,A",    0x47, 8,  unimplemented),
-    BitbB:  ("BIT b,B",    0x40, 8,  unimplemented),
-    BitbC:  ("BIT b,C",    0x41, 8,  unimplemented),
-    BitbD:  ("BIT b,D",    0x42, 8,  unimplemented),
-    BitbE:  ("BIT b,E",    0x43, 8,  unimplemented),
-    BitbH:  ("BIT b,H",    0x44, 8,  unimplemented),
-    BitbL:  ("BIT b,L",    0x45, 8,  unimplemented),
-    BitbHL: ("BIT b,(HL)", 0x46, 16, unimplemented),
+    Bit0A:  ("BIT 0,A",    0x47, 8,  bit_0_A),
+    Bit0B:  ("BIT 0,B",    0x40, 8,  bit_0_B),
+    Bit0C:  ("BIT 0,C",    0x41, 8,  bit_0_C),
+    Bit0D:  ("BIT 0,D",    0x42, 8,  bit_0_D),
+    Bit0E:  ("BIT 0,E",    0x43, 8,  bit_0_E),
+    Bit0H:  ("BIT 0,H",    0x44, 8,  bit_0_H),
+    Bit0L:  ("BIT 0,L",    0x45, 8,  bit_0_L),
+    Bit0HL: ("BIT 0,(HL)", 0x46, 16, bit_0_HL),
+
+    Bit1A:  ("BIT 1,A",    0x4F, 8,  bit_1_A),
+    Bit1B:  ("BIT 1,B",    0x48, 8,  bit_1_B),
+    Bit1C:  ("BIT 1,C",    0x49, 8,  bit_1_C),
+    Bit1D:  ("BIT 1,D",    0x4A, 8,  bit_1_D),
+    Bit1E:  ("BIT 1,E",    0x4B, 8,  bit_1_E),
+    Bit1H:  ("BIT 1,H",    0x4C, 8,  bit_1_H),
+    Bit1L:  ("BIT 1,L",    0x4D, 8,  bit_1_L),
+    Bit1HL: ("BIT 1,(HL)", 0x4E, 16, bit_1_HL),
+
+    Bit2A:  ("BIT 2,A",    0x57, 8,  bit_2_A),
+    Bit2B:  ("BIT 2,B",    0x50, 8,  bit_2_B),
+    Bit2C:  ("BIT 2,C",    0x51, 8,  bit_2_C),
+    Bit2D:  ("BIT 2,D",    0x52, 8,  bit_2_D),
+    Bit2E:  ("BIT 2,E",    0x53, 8,  bit_2_E),
+    Bit2H:  ("BIT 2,H",    0x54, 8,  bit_2_H),
+    Bit2L:  ("BIT 2,L",    0x55, 8,  bit_2_L),
+    Bit2HL: ("BIT 2,(HL)", 0x56, 16, bit_2_HL),
+
+    Bit3A:  ("BIT 3,A",    0x5F, 8,  bit_3_A),
+    Bit3B:  ("BIT 3,B",    0x58, 8,  bit_3_B),
+    Bit3C:  ("BIT 3,C",    0x59, 8,  bit_3_C),
+    Bit3D:  ("BIT 3,D",    0x5A, 8,  bit_3_D),
+    Bit3E:  ("BIT 3,E",    0x5B, 8,  bit_3_E),
+    Bit3H:  ("BIT 3,H",    0x5C, 8,  bit_3_H),
+    Bit3L:  ("BIT 3,L",    0x5D, 8,  bit_3_L),
+    Bit3HL: ("BIT 3,(HL)", 0x5E, 16, bit_3_HL),
+
+    Bit4A:  ("BIT 4,A",    0x67, 8,  bit_4_A),
+    Bit4B:  ("BIT 4,B",    0x60, 8,  bit_4_B),
+    Bit4C:  ("BIT 4,C",    0x61, 8,  bit_4_C),
+    Bit4D:  ("BIT 4,D",    0x62, 8,  bit_4_D),
+    Bit4E:  ("BIT 4,E",    0x63, 8,  bit_4_E),
+    Bit4H:  ("BIT 4,H",    0x64, 8,  bit_4_H),
+    Bit4L:  ("BIT 4,L",    0x65, 8,  bit_4_L),
+    Bit4HL: ("BIT 4,(HL)", 0x66, 16, bit_4_HL),
+
+    Bit5A:  ("BIT 5,A",    0x6F, 8,  bit_5_A),
+    Bit5B:  ("BIT 5,B",    0x68, 8,  bit_5_B),
+    Bit5C:  ("BIT 5,C",    0x69, 8,  bit_5_C),
+    Bit5D:  ("BIT 5,D",    0x6A, 8,  bit_5_D),
+    Bit5E:  ("BIT 5,E",    0x6B, 8,  bit_5_E),
+    Bit5H:  ("BIT 5,H",    0x6C, 8,  bit_5_H),
+    Bit5L:  ("BIT 5,L",    0x6D, 8,  bit_5_L),
+    Bit5HL: ("BIT 5,(HL)", 0x6E, 16, bit_5_HL),
+
+    Bit6A:  ("BIT 6,A",    0x77, 8,  bit_6_A),
+    Bit6B:  ("BIT 6,B",    0x70, 8,  bit_6_B),
+    Bit6C:  ("BIT 6,C",    0x71, 8,  bit_6_C),
+    Bit6D:  ("BIT 6,D",    0x72, 8,  bit_6_D),
+    Bit6E:  ("BIT 6,E",    0x73, 8,  bit_6_E),
+    Bit6H:  ("BIT 6,H",    0x74, 8,  bit_6_H),
+    Bit6L:  ("BIT 6,L",    0x75, 8,  bit_6_L),
+    Bit6HL: ("BIT 6,(HL)", 0x76, 16, bit_6_HL),
+
+    Bit7A:  ("BIT 7,A",    0x7F, 8,  bit_7_A),
+    Bit7B:  ("BIT 7,B",    0x78, 8,  bit_7_B),
+    Bit7C:  ("BIT 7,C",    0x79, 8,  bit_7_C),
+    Bit7D:  ("BIT 7,D",    0x7A, 8,  bit_7_D),
+    Bit7E:  ("BIT 7,E",    0x7B, 8,  bit_7_E),
+    Bit7H:  ("BIT 7,H",    0x7C, 8,  bit_7_H),
+    Bit7L:  ("BIT 7,L",    0x7D, 8,  bit_7_L),
+    Bit7HL: ("BIT 7,(HL)", 0x7E, 16, bit_7_HL),
 
     // SET b,r
     //
@@ -2331,14 +2861,77 @@ op_codes!(
     //
     // b = 0 - 7
     // r = A,B,C,D,E,H,L,(HL)
-    SetbA:  ("SET b,A",    0xC7, 8,  unimplemented),
-    SetbB:  ("SET b,B",    0xC0, 8,  unimplemented),
-    SetbC:  ("SET b,C",    0xC1, 8,  unimplemented),
-    SetbD:  ("SET b,D",    0xC2, 8,  unimplemented),
-    SetbE:  ("SET b,E",    0xC3, 8,  unimplemented),
-    SetbH:  ("SET b,H",    0xC4, 8,  unimplemented),
-    SetbL:  ("SET b,L",    0xC5, 8,  unimplemented),
-    SetbHL: ("SET b,(HL)", 0xC6, 16, unimplemented),
+    Set0A:  ("SET 0,A",    0xC7, 8,  set_0_A),
+    Set0B:  ("SET 0,B",    0xC0, 8,  set_0_B),
+    Set0C:  ("SET 0,C",    0xC1, 8,  set_0_C),
+    Set0D:  ("SET 0,D",    0xC2, 8,  set_0_D),
+    Set0E:  ("SET 0,E",    0xC3, 8,  set_0_E),
+    Set0H:  ("SET 0,H",    0xC4, 8,  set_0_H),
+    Set0L:  ("SET 0,L",    0xC5, 8,  set_0_L),
+    Set0HL: ("SET 0,(HL)", 0xC6, 16, set_0_HL),
+
+    Set1A:  ("SET 1,A",    0xCF, 8,  set_1_A),
+    Set1B:  ("SET 1,B",    0xC8, 8,  set_1_B),
+    Set1C:  ("SET 1,C",    0xC9, 8,  set_1_C),
+    Set1D:  ("SET 1,D",    0xCA, 8,  set_1_D),
+    Set1E:  ("SET 1,E",    0xCB, 8,  set_1_E),
+    Set1H:  ("SET 1,H",    0xCC, 8,  set_1_H),
+    Set1L:  ("SET 1,L",    0xCD, 8,  set_1_L),
+    Set1HL: ("SET 1,(HL)", 0xCE, 16, set_1_HL),
+
+    Set2A:  ("SET 2,A",    0xD7, 8,  set_2_A),
+    Set2B:  ("SET 2,B",    0xD0, 8,  set_2_B),
+    Set2C:  ("SET 2,C",    0xD1, 8,  set_2_C),
+    Set2D:  ("SET 2,D",    0xD2, 8,  set_2_D),
+    Set2E:  ("SET 2,E",    0xD3, 8,  set_2_E),
+    Set2H:  ("SET 2,H",    0xD4, 8,  set_2_H),
+    Set2L:  ("SET 2,L",    0xD5, 8,  set_2_L),
+    Set2HL: ("SET 2,(HL)", 0xD6, 16, set_2_HL),
+
+    Set3A:  ("SET 3,A",    0xDF, 8,  set_3_A),
+    Set3B:  ("SET 3,B",    0xD8, 8,  set_3_B),
+    Set3C:  ("SET 3,C",    0xD9, 8,  set_3_C),
+    Set3D:  ("SET 3,D",    0xDA, 8,  set_3_D),
+    Set3E:  ("SET 3,E",    0xDB, 8,  set_3_E),
+    Set3H:  ("SET 3,H",    0xDC, 8,  set_3_H),
+    Set3L:  ("SET 3,L",    0xDD, 8,  set_3_L),
+    Set3HL: ("SET 3,(HL)", 0xDE, 16, set_3_HL),
+
+    Set4A:  ("SET 4,A",    0xE7, 8,  set_4_A),
+    Set4B:  ("SET 4,B",    0xE0, 8,  set_4_B),
+    Set4C:  ("SET 4,C",    0xE1, 8,  set_4_C),
+    Set4D:  ("SET 4,D",    0xE2, 8,  set_4_D),
+    Set4E:  ("SET 4,E",    0xE3, 8,  set_4_E),
+    Set4H:  ("SET 4,H",    0xE4, 8,  set_4_H),
+    Set4L:  ("SET 4,L",    0xE5, 8,  set_4_L),
+    Set4HL: ("SET 4,(HL)", 0xE6, 16, set_4_HL),
+
+    Set5A:  ("SET 5,A",    0xEF, 8,  set_5_A),
+    Set5B:  ("SET 5,B",    0xE8, 8,  set_5_B),
+    Set5C:  ("SET 5,C",    0xE9, 8,  set_5_C),
+    Set5D:  ("SET 5,D",    0xEA, 8,  set_5_D),
+    Set5E:  ("SET 5,E",    0xEB, 8,  set_5_E),
+    Set5H:  ("SET 5,H",    0xEC, 8,  set_5_H),
+    Set5L:  ("SET 5,L",    0xED, 8,  set_5_L),
+    Set5HL: ("SET 5,(HL)", 0xEE, 16, set_5_HL),
+
+    Set6A:  ("SET 6,A",    0xF7, 8,  set_6_A),
+    Set6B:  ("SET 6,B",    0xF0, 8,  set_6_B),
+    Set6C:  ("SET 6,C",    0xF1, 8,  set_6_C),
+    Set6D:  ("SET 6,D",    0xF2, 8,  set_6_D),
+    Set6E:  ("SET 6,E",    0xF3, 8,  set_6_E),
+    Set6H:  ("SET 6,H",    0xF4, 8,  set_6_H),
+    Set6L:  ("SET 6,L",    0xF5, 8,  set_6_L),
+    Set6HL: ("SET 6,(HL)", 0xF6, 16, set_6_HL),
+
+    Set7A:  ("SET 7,A",    0xFF, 8,  set_7_A),
+    Set7B:  ("SET 7,B",    0xF8, 8,  set_7_B),
+    Set7C:  ("SET 7,C",    0xF9, 8,  set_7_C),
+    Set7D:  ("SET 7,D",    0xFA, 8,  set_7_D),
+    Set7E:  ("SET 7,E",    0xFB, 8,  set_7_E),
+    Set7H:  ("SET 7,H",    0xFC, 8,  set_7_H),
+    Set7L:  ("SET 7,L",    0xFD, 8,  set_7_L),
+    Set7HL: ("SET 7,(HL)", 0xFE, 16, set_7_HL),
 
     // RES b,r
     //
@@ -2346,12 +2939,75 @@ op_codes!(
     //
     // b = 0 - 7
     // r = A,B,C,D,E,H,L,(HL)
-    ResbA:  ("RES b,A",    0x87, 8,  unimplemented),
-    ResbB:  ("RES b,B",    0x80, 8,  unimplemented),
-    ResbC:  ("RES b,C",    0x81, 8,  unimplemented),
-    ResbD:  ("RES b,D",    0x82, 8,  unimplemented),
-    ResbE:  ("RES b,E",    0x83, 8,  unimplemented),
-    ResbH:  ("RES b,H",    0x84, 8,  unimplemented),
-    ResbL:  ("RES b,L",    0x85, 8,  unimplemented),
-    ResbHL: ("RES b,(HL)", 0x86, 16, unimplemented)
+    Reset0A:  ("RES 0,A",    0x87, 8,  reset_0_A),
+    Reset0B:  ("RES 0,B",    0x80, 8,  reset_0_B),
+    Reset0C:  ("RES 0,C",    0x81, 8,  reset_0_C),
+    Reset0D:  ("RES 0,D",    0x82, 8,  reset_0_D),
+    Reset0E:  ("RES 0,E",    0x83, 8,  reset_0_E),
+    Reset0H:  ("RES 0,H",    0x84, 8,  reset_0_H),
+    Reset0L:  ("RES 0,L",    0x85, 8,  reset_0_L),
+    Reset0HL: ("RES 0,(HL)", 0x86, 16, reset_0_HL),
+
+    Reset1A:  ("RES 1,A",    0x8F, 8,  reset_1_A),
+    Reset1B:  ("RES 1,B",    0x88, 8,  reset_1_B),
+    Reset1C:  ("RES 1,C",    0x89, 8,  reset_1_C),
+    Reset1D:  ("RES 1,D",    0x8A, 8,  reset_1_D),
+    Reset1E:  ("RES 1,E",    0x8B, 8,  reset_1_E),
+    Reset1H:  ("RES 1,H",    0x8C, 8,  reset_1_H),
+    Reset1L:  ("RES 1,L",    0x8D, 8,  reset_1_L),
+    Reset1HL: ("RES 1,(HL)", 0x8E, 16, reset_1_HL),
+
+    Reset2A:  ("RES 2,A",    0x97, 8,  reset_2_A),
+    Reset2B:  ("RES 2,B",    0x90, 8,  reset_2_B),
+    Reset2C:  ("RES 2,C",    0x91, 8,  reset_2_C),
+    Reset2D:  ("RES 2,D",    0x92, 8,  reset_2_D),
+    Reset2E:  ("RES 2,E",    0x93, 8,  reset_2_E),
+    Reset2H:  ("RES 2,H",    0x94, 8,  reset_2_H),
+    Reset2L:  ("RES 2,L",    0x95, 8,  reset_2_L),
+    Reset2HL: ("RES 2,(HL)", 0x96, 16, reset_2_HL),
+
+    Reset3A:  ("RES 3,A",    0x9F, 8,  reset_3_A),
+    Reset3B:  ("RES 3,B",    0x98, 8,  reset_3_B),
+    Reset3C:  ("RES 3,C",    0x99, 8,  reset_3_C),
+    Reset3D:  ("RES 3,D",    0x9A, 8,  reset_3_D),
+    Reset3E:  ("RES 3,E",    0x9B, 8,  reset_3_E),
+    Reset3H:  ("RES 3,H",    0x9C, 8,  reset_3_H),
+    Reset3L:  ("RES 3,L",    0x9D, 8,  reset_3_L),
+    Reset3HL: ("RES 3,(HL)", 0x9E, 16, reset_3_HL),
+
+    Reset4A:  ("RES 4,A",    0xA7, 8,  reset_4_A),
+    Reset4B:  ("RES 4,B",    0xA0, 8,  reset_4_B),
+    Reset4C:  ("RES 4,C",    0xA1, 8,  reset_4_C),
+    Reset4D:  ("RES 4,D",    0xA2, 8,  reset_4_D),
+    Reset4E:  ("RES 4,E",    0xA3, 8,  reset_4_E),
+    Reset4H:  ("RES 4,H",    0xA4, 8,  reset_4_H),
+    Reset4L:  ("RES 4,L",    0xA5, 8,  reset_4_L),
+    Reset4HL: ("RES 4,(HL)", 0xA6, 16, reset_4_HL),
+
+    Reset5A:  ("RES 5,A",    0xAF, 8,  reset_5_A),
+    Reset5B:  ("RES 5,B",    0xA8, 8,  reset_5_B),
+    Reset5C:  ("RES 5,C",    0xA9, 8,  reset_5_C),
+    Reset5D:  ("RES 5,D",    0xAA, 8,  reset_5_D),
+    Reset5E:  ("RES 5,E",    0xAB, 8,  reset_5_E),
+    Reset5H:  ("RES 5,H",    0xAC, 8,  reset_5_H),
+    Reset5L:  ("RES 5,L",    0xAD, 8,  reset_5_L),
+    Reset5HL: ("RES 5,(HL)", 0xAE, 16, reset_5_HL),
+
+    Reset6A:  ("RES 6,A",    0xB7, 8,  reset_6_A),
+    Reset6B:  ("RES 6,B",    0xB0, 8,  reset_6_B),
+    Reset6C:  ("RES 6,C",    0xB1, 8,  reset_6_C),
+    Reset6D:  ("RES 6,D",    0xB2, 8,  reset_6_D),
+    Reset6E:  ("RES 6,E",    0xB3, 8,  reset_6_E),
+    Reset6H:  ("RES 6,H",    0xB4, 8,  reset_6_H),
+    Reset6L:  ("RES 6,L",    0xB5, 8,  reset_6_L),
+    Reset6HL: ("RES 6,(HL)", 0xB6, 16, reset_6_HL),
+
+    Reset7A:  ("RES 7,A",    0xBF, 8,  reset_7_A),
+    Reset7B:  ("RES 7,B",    0xB8, 8,  reset_7_B),
+    Reset7C:  ("RES 7,C",    0xB9, 8,  reset_7_C),
+    Reset7D:  ("RES 7,D",    0xBA, 8,  reset_7_D),
+    Reset7E:  ("RES 7,E",    0xBB, 8,  reset_7_E),
+    Reset7H:  ("RES 7,H",    0xBC, 8,  reset_7_H),
+    Reset7L:  ("RES 7,L",    0xBD, 8,  reset_7_L),
+    Reset7HL: ("RES 7,(HL)", 0xBE, 16, reset_7_HL)
 );
