@@ -30,12 +30,12 @@ macro_rules! op_codes {
                 if prefixed {
                     match hex {
                         $($cb_hex => OpCode::$cb_element),*,
-                        _ => panic!("Op code not implemented")
+                        _ => panic!(format!("Op code not implemented 0xCB 0x{:x}", hex))
                     }
                 } else {
                     match hex {
                         $($hex => OpCode::$element),*,
-                        _ => panic!("Op code not implemented")
+                        _ => panic!(format!("Op code not implemented 0x{:x}", hex))
                     }
                 }
             }
@@ -76,7 +76,9 @@ fn no_op(_: &mut Cpu) {}
 /* Get the value (8-bit) pointed by the Program Counter (PC) */
 fn next_value(cpu: &mut Cpu) -> u8 {
     cpu.inc_PC();
-    cpu.deref_PC()
+    let v = cpu.deref_PC();
+    println!("v = ${:02X}", v);
+    v
 }
 
 /* Get the pointer (16-bit value) pointed  by the Program Counter (PC) */
@@ -87,7 +89,9 @@ fn next_pointer(cpu: &mut Cpu) -> u16 {
     cpu.inc_PC();
     let h = cpu.deref_PC();
 
-    ((h as u16) << 8) + (l as u16)
+    let v = ((h as u16) << 8) + (l as u16);
+    println!("nn = ${:04X}", v);
+    v
 }
 
 fn ld_B_n(cpu: &mut Cpu) {
@@ -155,6 +159,11 @@ fn ld_A_HL(cpu: &mut Cpu) {
     cpu.set_A_reg(v);
 }
 
+fn ld_B_A(cpu: &mut Cpu) {
+    let v = cpu.get_A_reg();
+    cpu.set_B_reg(v);
+}
+
 fn ld_B_C(cpu: &mut Cpu) {
     let v = cpu.get_C_reg();
     cpu.set_B_reg(v);
@@ -183,6 +192,11 @@ fn ld_B_L(cpu: &mut Cpu) {
 fn ld_B_HL(cpu: &mut Cpu) {
     let v = cpu.deref_HL();
     cpu.set_B_reg(v);
+}
+
+fn ld_C_A(cpu: &mut Cpu) {
+    let v = cpu.get_A_reg();
+    cpu.set_C_reg(v);
 }
 
 fn ld_C_B(cpu: &mut Cpu) {
@@ -215,6 +229,11 @@ fn ld_C_HL(cpu: &mut Cpu) {
     cpu.set_C_reg(v);
 }
 
+fn ld_D_A(cpu: &mut Cpu) {
+    let v = cpu.get_A_reg();
+    cpu.set_D_reg(v);
+}
+
 fn ld_D_B(cpu: &mut Cpu) {
     let v = cpu.get_B_reg();
     cpu.set_D_reg(v);
@@ -243,6 +262,11 @@ fn ld_D_L(cpu: &mut Cpu) {
 fn ld_D_HL(cpu: &mut Cpu) {
     let v = cpu.deref_HL();
     cpu.set_D_reg(v);
+}
+
+fn ld_E_A(cpu: &mut Cpu) {
+    let v = cpu.get_A_reg();
+    cpu.set_E_reg(v);
 }
 
 fn ld_E_B(cpu: &mut Cpu) {
@@ -275,6 +299,10 @@ fn ld_E_HL(cpu: &mut Cpu) {
     cpu.set_E_reg(v);
 }
 
+fn ld_H_A(cpu: &mut Cpu) {
+    let v = cpu.get_A_reg();
+    cpu.set_H_reg(v);
+}
 fn ld_H_B(cpu: &mut Cpu) {
     let v = cpu.get_B_reg();
     cpu.set_H_reg(v);
@@ -305,6 +333,10 @@ fn ld_H_HL(cpu: &mut Cpu) {
     cpu.set_H_reg(v);
 }
 
+fn ld_L_A(cpu: &mut Cpu) {
+    let v = cpu.get_A_reg();
+    cpu.set_L_reg(v);
+}
 fn ld_L_B(cpu: &mut Cpu) {
     let v = cpu.get_B_reg();
     cpu.set_L_reg(v);
@@ -720,7 +752,7 @@ fn adc_A_x(cpu: &mut Cpu)  {  op_A_x(adc, cpu); }
 fn sub(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     // TODO: revisit if this is too slow
     let x_i16 = x as i16;
-    let y_i16 = x as i16;
+    let y_i16 = y as i16;
 
     let x_half = (x >> 4) as i8;
     let y_half = (y >> 4) as i8;
@@ -777,6 +809,7 @@ fn sbc_A_E(cpu: &mut Cpu)  {  op_A_E(sbc, cpu); }
 fn sbc_A_H(cpu: &mut Cpu)  {  op_A_H(sbc, cpu); }
 fn sbc_A_L(cpu: &mut Cpu)  {  op_A_L(sbc, cpu); }
 fn sbc_A_HL(cpu: &mut Cpu) { op_A_HL(sbc, cpu); }
+fn sbc_A_x(cpu: &mut Cpu)  {  op_A_x(sbc, cpu); }
 
 /* Performs x & y and sets the relevant flags. */
 fn and(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
@@ -1278,8 +1311,8 @@ fn jp_cond_nn(cond: bool, cpu: &mut Cpu) {
     if cond {
         jp_nn(cpu);
     } else {
-        cpu.inc_PC();
-        cpu.inc_PC();
+        // discard operand
+        next_pointer(cpu);
     }
 }
 
@@ -1306,7 +1339,14 @@ fn jp_HL(cpu: &mut Cpu) {
 
 fn jr_n(cpu: &mut Cpu) {
     let n = next_value(cpu);
-    let next = cpu.get_PC() + n as u16;
+
+    let offset = if n > 0x81 {
+        n as i32 - 256
+    } else {
+        n as i32
+    };
+
+    let next = (cpu.get_PC() as i32 + offset + 1) as u16;
     cpu.set_PC(next);
 }
 
@@ -1314,7 +1354,8 @@ fn jr_cond_n(cond: bool, cpu: &mut Cpu) {
     if cond {
         jr_n(cpu);
     } else {
-        cpu.inc_PC();
+        // Discard operand
+        next_value(cpu);
     }
 }
 
@@ -1353,8 +1394,8 @@ fn call_cond_nn(cond: bool, cpu: &mut Cpu) {
     if cond {
         call_nn(cpu);
     } else {
-        cpu.inc_PC();
-        cpu.inc_PC();
+        // discard operand
+        next_pointer(cpu);
     }
 }
 
@@ -1934,6 +1975,7 @@ op_codes!(
     LdAL:  ("LD A,L",    0x7D, 4, ld_A_L),
     LdAHL: ("LD A,(HL)", 0x7E, 8, ld_A_HL),
 
+    LdBA:  ("LD B,A",    0x47, 4, ld_B_A),
     LdBB:  ("LD B,B",    0x40, 4, no_op),
     LdBC:  ("LD B,C",    0x41, 4, ld_B_C),
     LdBD:  ("LD B,D",    0x42, 4, ld_B_D),
@@ -1942,6 +1984,7 @@ op_codes!(
     LdBL:  ("LD B,L",    0x45, 4, ld_B_L),
     LdBHL: ("LD B,(HL)", 0x46, 8, ld_B_HL),
 
+    LdCA:  ("LD C,A",    0x4F, 4, ld_C_A),
     LdCB:  ("LD C,B",    0x48, 4, ld_C_B),
     LdCC:  ("LD C,C",    0x49, 4, no_op),
     LdCD:  ("LD C,D",    0x4A, 4, ld_C_D),
@@ -1950,6 +1993,7 @@ op_codes!(
     LdCL:  ("LD C,L",    0x4D, 4, ld_C_L),
     LdCHL: ("LD C,(HL)", 0x4E, 8, ld_C_HL),
 
+    LdDA:  ("LD D,A",    0x57, 4, ld_D_A),
     LdDB:  ("LD D,B",    0x50, 4, ld_D_B),
     LdDC:  ("LD D,C",    0x51, 4, ld_D_C),
     LdDD:  ("LD D,D",    0x52, 4, no_op),
@@ -1958,6 +2002,7 @@ op_codes!(
     LdDL:  ("LD D,L",    0x55, 4, ld_D_L),
     LdDHL: ("LD D,(HL)", 0x56, 8, ld_D_HL),
 
+    LdEA:  ("LD E,A",    0x5F, 4, ld_E_A),
     LdEB:  ("LD E,B",    0x58, 4, ld_E_B),
     LdEC:  ("LD E,C",    0x59, 4, ld_E_C),
     LdED:  ("LD E,D",    0x5A, 4, ld_E_D),
@@ -1966,6 +2011,7 @@ op_codes!(
     LdEL:  ("LD E,L",    0x5D, 4, ld_E_L),
     LdEHL: ("LD E,(HL)", 0x5E, 8, ld_E_HL),
 
+    LdHA:  ("LD H,A",    0x67, 4, ld_H_A),
     LdHB:  ("LD H,B",    0x60, 4, ld_H_B),
     LdHC:  ("LD H,C",    0x61, 4, ld_H_C),
     LdHD:  ("LD H,D",    0x62, 4, ld_H_D),
@@ -1974,6 +2020,7 @@ op_codes!(
     LdHL:  ("LD H,L",    0x65, 4, ld_H_L),
     LdHHL: ("LD H,(HL)", 0x66, 8, ld_H_HL),
 
+    LdLA:  ("LD L,A",    0x6F, 4, ld_L_A),
     LdLB:  ("LD L,B",    0x68, 4, ld_L_B),
     LdLC:  ("LD L,C",    0x69, 4, ld_L_C),
     LdLD:  ("LD L,D",    0x6A, 4, ld_L_D),
@@ -1982,24 +2029,24 @@ op_codes!(
     LdLL:  ("LD L,L",    0x6D, 4, no_op),
     LdLHL: ("LD L,(HL)", 0x6E, 8, ld_L_HL),
 
-    LdHLB:  ("LD (HL),B", 0x70, 8,  ld_HL_B),
-    LdHLC:  ("LD (HL),C", 0x71, 8,  ld_HL_C),
-    LdHLD:  ("LD (HL),D", 0x72, 8,  ld_HL_D),
-    LdHLE:  ("LD (HL),E", 0x73, 8,  ld_HL_E),
-    LdHLH:  ("LD (HL),H", 0x74, 8,  ld_HL_H),
-    LdHLL:  ("LD (HL),L", 0x75, 8,  ld_HL_L),
-    LdHLHL: ("LD (HL),n", 0x36, 12, ld_HL_n),
+    LdHLB: ("LD (HL),B", 0x70, 8,  ld_HL_B),
+    LdHLC: ("LD (HL),C", 0x71, 8,  ld_HL_C),
+    LdHLD: ("LD (HL),D", 0x72, 8,  ld_HL_D),
+    LdHLE: ("LD (HL),E", 0x73, 8,  ld_HL_E),
+    LdHLH: ("LD (HL),H", 0x74, 8,  ld_HL_H),
+    LdHLL: ("LD (HL),L", 0x75, 8,  ld_HL_L),
+    LdHLn: ("LD (HL),n", 0x36, 12, ld_HL_n),
 
     // LD A,n
     //
     // Put value n into A
     //
-    // n = A,B,C,D,E,H,L,(BC),(DE),(HL),(nn),#
+    // n = A,B,C,D,E,H,L,(BC),(DE),(HL),(nn),n
     // nn = two byte immediate value. (LS byte first.)
     LdABC: ("LD A,(BC)", 0x0A, 8,  ld_A_BC),
     LdADE: ("LD A,(DE)", 0x1A, 8,  ld_A_DE),
     LdAnn: ("LD A,(nn)", 0xFA, 16, ld_A_nn),
-    LdAx:  ("LD A,#",    0x3E, 8,  ld_A_x),
+    LdAx:  ("LD A,n",    0x3E, 8,  ld_A_x),
 
     // LD n,A
     //
@@ -2052,14 +2099,14 @@ op_codes!(
     // Put A into memory address $FF00+n
     //
     // n = one byte immediate value
-    LdhNA: ("LD ($FF00+n),A", 0xE0, 12, ldh_n_A),
+    LdhnA: ("LD ($FF00+n),A", 0xE0, 12, ldh_n_A),
 
     // LDH A,(n)
     //
     // Put memory address $FF00+n into A.
     //
     // n = one byte immediate value
-    LdhAHL: ("LD A,($FF00+n)", 0xF0, 12, ldh_A_n),
+    LdhAn: ("LD A,($FF00+n)", 0xF0, 12, ldh_A_n),
 
     // LD n,nn
     //
@@ -2088,14 +2135,14 @@ op_codes!(
     // N - Reset
     // H - Set or reset according to operation
     // C - Set or reset according to operation
-    LDHLSPn: ("LDHL SP,n", 0xF8, 12, ldhl_SP_n),
+    LdhlSPn: ("LDHL SP,n", 0xF8, 12, ldhl_SP_n),
 
     // LD (nn),SP
     //
     // Put Stack Pointer (SP) at address nn
     //
     // nn = two byte immediate address.
-    LDnnSP: ("LD (nn),SP", 0x08, 20, ld_nn_SP),
+    LdnnSP: ("LD (nn),SP", 0x08, 20, ld_nn_SP),
 
     // PUSH nn
     //
@@ -2123,7 +2170,7 @@ op_codes!(
     //
     // Add n to A
     //
-    // n = A,B,C,D,E,H,L,(HL),#
+    // n = A,B,C,D,E,H,L,(HL),n
     //
     // Flags:
     // Z - Set if result is zero
@@ -2138,13 +2185,13 @@ op_codes!(
     AddAH:  ("ADD A,H",    0x84, 4, add_A_H),
     AddAL:  ("ADD A,L",    0x85, 4, add_A_L),
     AddAHL: ("ADD A,(HL)", 0x86, 8, add_A_HL),
-    AddAx:  ("ADD A,#",    0xC6, 8, add_A_x),
+    AddAx:  ("ADD A,n",    0xC6, 8, add_A_x),
 
     // ADC A,n
     //
     // Add n + Carry flag to A
     //
-    // n = A,B,C,D,E,H,L,(HL),#
+    // n = A,B,C,D,E,H,L,(HL),n
     //
     // Flags:
     // Z - Set if result is zero
@@ -2159,13 +2206,13 @@ op_codes!(
     AdcAH:  ("ADC A,H",    0x8C, 4, adc_A_H),
     AdcAL:  ("ADC A,L",    0x8D, 4, adc_A_L),
     AdcAHL: ("ADC A,(HL)", 0x8E, 8, adc_A_HL),
-    AdcAx:  ("ADC A,#",    0xCE, 8, adc_A_x),
+    AdcAx:  ("ADC A,n",    0xCE, 8, adc_A_x),
 
     // SUB n
     //
     // Subtract n from A
     //
-    // n = A,B,C,D,E,H,L,(HL),#
+    // n = A,B,C,D,E,H,L,(HL),n
     //
     // Flags:
     // Z - Set if result is zero
@@ -2180,13 +2227,13 @@ op_codes!(
     SubAH:  ("SUB A,H",    0x94, 4, sub_A_H),
     SubAL:  ("SUB A,L",    0x95, 4, sub_A_L),
     SubAHL: ("SUB A,(HL)", 0x96, 8, sub_A_HL),
-    SubAx:  ("SUB A,#",    0xD6, 8, sub_A_x),
+    SubAx:  ("SUB A,n",    0xD6, 8, sub_A_x),
 
     // SBC A,n
     //
     // Subtract n + Carry flag from A
     //
-    // n = A,B,C,D,E,H,L,(HL),#
+    // n = A,B,C,D,E,H,L,(HL),n
     //
     // Flags:
     // Z - Set if result is zero
@@ -2201,12 +2248,13 @@ op_codes!(
     SbcAH:  ("SBC A,H",    0x9C, 4, sbc_A_H),
     SbcAL:  ("SBC A,L",    0x9D, 4, sbc_A_L),
     SbcAHL: ("SBC A,(HL)", 0x9E, 8, sbc_A_HL),
+    SbcAx:  ("SBC A,n",    0xDE, 8, sbc_A_x),
 
     // AND n
     //
     // Logically AND n with A, result in A
     //
-    // n = A,B,C,D,E,H,L,(HL),#
+    // n = A,B,C,D,E,H,L,(HL),n
     //
     // Flags:
     // Z - Set if result is zero
@@ -2221,13 +2269,13 @@ op_codes!(
     AndAH:  ("AND A,H",    0xA4, 4, and_A_H),
     AndAL:  ("AND A,L",    0xA5, 4, and_A_L),
     AndAHL: ("AND A,(HL)", 0xA6, 8, and_A_HL),
-    AndAx:  ("AND A,#",    0xE6, 8, and_A_x),
+    AndAx:  ("AND A,n",    0xE6, 8, and_A_x),
 
     // OR n
     //
     // Logical OR n with register A, result in A
     //
-    // n = A,B,C,D,E,H,L,(HL),#
+    // n = A,B,C,D,E,H,L,(HL),n
     //
     // Flags:
     // Z - Set if result is zero
@@ -2242,13 +2290,13 @@ op_codes!(
     OrAH:  ("OR A,H",    0xB4, 4, or_A_H),
     OrAL:  ("OR A,L",    0xB5, 4, or_A_L),
     OrAHL: ("OR A,(HL)", 0xB6, 8, or_A_HL),
-    OrAx:  ("OR A,#",    0xF6, 8, or_A_x),
+    OrAx:  ("OR A,n",    0xF6, 8, or_A_x),
 
     // XOR n
     //
     // Logical exclusive OR n with register A, result in A
     //
-    // n = A,B,C,D,E,H,L,(HL),#
+    // n = A,B,C,D,E,H,L,(HL),n
     //
     // Flags:
     // Z - Set if result is zero
@@ -2263,14 +2311,14 @@ op_codes!(
     XorAH:  ("XOR A,H",    0xAC, 4, xor_A_H),
     XorAL:  ("XOR A,L",    0xAD, 4, xor_A_L),
     XorAHL: ("XOR A,(HL)", 0xAE, 8, xor_A_HL),
-    XorAx:  ("XOR A,#",    0xEE, 8, xor_A_x),
+    XorAx:  ("XOR A,n",    0xEE, 8, xor_A_x),
 
     // CP n
     //
     // Compare A with n. This is basically an A - n subtraction
     // instruction but the results are thrown away
     //
-    // n = A,B,C,D,E,H,L,(HL),#
+    // n = A,B,C,D,E,H,L,(HL),n
     //
     // Flags:
     // Z - Set if result is zero. (Set if A = n)
@@ -2285,7 +2333,7 @@ op_codes!(
     CpAH:  ("CP A,H",    0xBC, 4, cp_A_H),
     CpAL:  ("CP A,L",    0xBD, 4, cp_A_L),
     CpAHL: ("CP A,(HL)", 0xBE, 8, cp_A_HL),
-    CpAx:  ("CP A,#",    0xFE, 8, cp_A_x),
+    CpAx:  ("CP A,n",    0xFE, 8, cp_A_x),
 
     // INC n
     //
@@ -2347,14 +2395,14 @@ op_codes!(
     //
     // Add n to Stack Pointer (SP)
     //
-    // n = one byte signed immediate value (#)
+    // n = one byte signed immediate value (n)
     //
     // Flags:
     // Z - Reset
     // N - Reset
     // H - Set or reset according to operation
     // C - Set or reset according to operation
-    AddSPx: ("ADD SP,#", 0xE8, 16, add_SP_x),
+    AddSPx: ("ADD SP,n", 0xE8, 16, add_SP_x),
 
     // INC nn
     //
@@ -2497,14 +2545,14 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Contains old bit 0 data
-    Rra: ("Rra", 0x1F, 4, rr_A),
+    Rra: ("RRA", 0x1F, 4, rr_A),
 
     // JP nn
     //
     // Jump to address nn
     //
     // nn = two bytes immediate value. (LS byte first)
-    Jp: ("JP", 0xC3, 12, jp_nn),
+    Jpnn: ("JP", 0xC3, 12, jp_nn),
 
     // JP cc,nn
     //
@@ -2553,7 +2601,7 @@ op_codes!(
     // jump to address nn
     //
     // nn = two byte immediate value. (LS byte first.)
-    Call: ("CALL nn", 0xCD, 12, call_nn),
+    Callnn: ("CALL nn", 0xCD, 12, call_nn),
 
     // CALL cc,nn
     //
