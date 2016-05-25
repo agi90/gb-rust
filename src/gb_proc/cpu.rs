@@ -3,6 +3,8 @@ use gb_proc::video_controller::VideoController;
 use gb_proc::timer_controller::TimerController;
 use gb_proc::sound_controller::SoundController;
 
+use std::num::Wrapping;
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum CpuState {
     Running,
@@ -23,7 +25,6 @@ pub struct Cpu {
     C_reg: u8,
     D_reg: u8,
     E_reg: u8,
-    F_reg: u8,
     H_reg: u8,
     L_reg: u8,
     SP_reg: u16,
@@ -43,6 +44,25 @@ pub struct Cpu {
 
     called_set_PC: bool,
     io_registers: IORegisters,
+
+    cycles: usize,
+    timers: Timers,
+
+    debug: bool,
+}
+
+struct Timers {
+    last_v_blank: usize,
+    last_divider: usize,
+}
+
+impl Timers {
+    pub fn new() -> Timers {
+        Timers {
+            last_v_blank: 0,
+            last_divider: 0,
+        }
+    }
 }
 
 impl Cpu {
@@ -60,7 +80,6 @@ impl Cpu {
             C_reg: 0x13,
             D_reg: 0x00,
             E_reg: 0xD8,
-            F_reg: 0xB0,
             H_reg: 0x01,
             L_reg: 0x4D,
             SP_reg: 0xFFFE,
@@ -80,6 +99,10 @@ impl Cpu {
 
             called_set_PC: false,
             io_registers: IORegisters::new(),
+            cycles: 0,
+            timers: Timers::new(),
+
+            debug: false,
         };
 
         cpu
@@ -141,7 +164,14 @@ impl Cpu {
     pub fn set_C_reg(&mut self, v: u8) { self.C_reg = v }
     pub fn set_D_reg(&mut self, v: u8) { self.D_reg = v }
     pub fn set_E_reg(&mut self, v: u8) { self.E_reg = v }
-    pub fn set_F_reg(&mut self, v: u8) { self.F_reg = v }
+
+    pub fn set_F_reg(&mut self, v: u8) {
+        self.Z_flag = (v & 0b10000000) > 0;
+        self.N_flag = (v & 0b01000000) > 0;
+        self.H_flag = (v & 0b00100000) > 0;
+        self.C_flag = (v & 0b00010000) > 0;
+    }
+
     pub fn set_H_reg(&mut self, v: u8) { self.H_reg = v }
     pub fn set_L_reg(&mut self, v: u8) { self.L_reg = v }
 
@@ -150,7 +180,14 @@ impl Cpu {
     pub fn get_C_reg(&self) -> u8 { self.C_reg }
     pub fn get_D_reg(&self) -> u8 { self.D_reg }
     pub fn get_E_reg(&self) -> u8 { self.E_reg }
-    pub fn get_F_reg(&self) -> u8 { self.F_reg }
+
+    pub fn get_F_reg(&self) -> u8 {
+        (if self.Z_flag { 0b10000000 } else { 0 }) +
+        (if self.N_flag { 0b01000000 } else { 0 }) +
+        (if self.H_flag { 0b00100000 } else { 0 }) +
+        (if self.C_flag { 0b00010000 } else { 0 })
+    }
+
     pub fn get_H_reg(&self) -> u8 { self.H_reg }
     pub fn get_L_reg(&self) -> u8 { self.L_reg }
 
@@ -176,7 +213,13 @@ impl Cpu {
     }
 
     pub fn get_SP(&self) -> u16 { self.SP_reg }
-    pub fn set_SP(&mut self, v: u16) { self.SP_reg = v }
+    pub fn set_SP(&mut self, v: u16) {
+        if (v < 0xA000 || (v > 0xE000 && v < 0xFF80) || v == 0xFFFF) {
+            // Likely a bug in the emulator
+            panic!("SP outside of valid range.");
+        }
+        self.SP_reg = v
+    }
 
     pub fn get_PC(&self) -> u16 { self.PC_reg }
     pub fn inc_PC(&mut self) {
@@ -184,13 +227,51 @@ impl Cpu {
     }
 
     pub fn set_PC(&mut self, v: u16) {
-        if v > 0x8000 {
+        if (v > 0x8000 && v < 0xC000) || (v > 0xE000 && v < 0xFF80) {
             // Likely a bug in the emulator
-            panic!("PC outside of ROM range.");
+            panic!("PC outside of valid range.");
         }
         self.PC_reg = v;
         self.called_set_PC = true;
     }
+
+    pub fn add_cycles(&mut self, cycles: usize) { self.cycles += cycles }
+    pub fn get_cycles(&self) -> usize { self.cycles.clone() }
+
+    pub fn handle_interrupts(&mut self) {
+        if self.cycles - self.timers.last_divider > 256 {
+            self.io_registers.divider += Wrapping(1);
+            self.timers.last_divider = self.cycles;
+        }
+
+        if !self.interrupts_enabled {
+            return;
+        }
+
+        if self.io_registers.interrupt_register.v_blank_enabled &&
+            self.cycles - self.timers.last_v_blank > 17685 {
+            self.timers.last_v_blank = self.cycles;
+            self.interrupt(0x40);
+        }
+    }
+
+    fn interrupt(&mut self, address: u16) {
+        self.interrupts_enabled = false;
+        // TODO: set IF and other iterrupt stuff
+        self.inc_PC();
+        let next = self.get_PC();
+
+        let h = (next >> 8) as u8;
+        self.push_SP(h);
+
+        let l = ((next << 8) >> 8) as u8;
+        self.push_SP(l);
+
+        self.set_PC(address);
+    }
+
+    pub fn get_debug(&self) -> bool { self.debug }
+    pub fn set_debug(&mut self, debug: bool) { self.debug = debug }
 
     pub fn did_call_set_PC(&self) -> bool { self.called_set_PC }
     pub fn reset_call_set_PC(&mut self) { self.called_set_PC = false }
@@ -200,6 +281,7 @@ impl Cpu {
     pub fn get_HL(&self) -> u16 { ((self.H_reg as u16) << 8) + (self.L_reg as u16) }
 
     pub fn deref_PC(&self) -> u8 {
+        let pc = self.get_PC();
         self.deref(self.get_PC())
     }
 
@@ -208,7 +290,7 @@ impl Cpu {
     }
 
     pub fn deref_DE(&self) -> u8 {
-        self.deref(self.get_BC())
+        self.deref(self.get_DE())
     }
 
     pub fn deref_HL(&self) -> u8 {
@@ -261,6 +343,7 @@ struct IORegisters {
     serial_transfer_controller: SerialTransferController,
     timer_controller: TimerController,
     sound_controller: SoundController,
+    divider: Wrapping<u8>,
 }
 
 impl IORegisters {
@@ -272,12 +355,14 @@ impl IORegisters {
             serial_transfer_controller: SerialTransferController::new(),
             timer_controller: TimerController::new(),
             sound_controller: SoundController::new(),
+            divider: Wrapping(0),
         }
     }
 
     pub fn read(&self, address: u16) -> u8 {
         match address {
             0xFF00            => self.joypad_register.read(),
+            0xFF04            => self.divider.0,
             0xFF01 ... 0xFF02 => self.serial_transfer_controller.read(address),
             0xFF04 ... 0xFF07 => self.timer_controller.read(address),
             0xFF0F            => self.interrupt_register.read(address),
@@ -291,6 +376,7 @@ impl IORegisters {
     pub fn write(&mut self, address: u16, v: u8) {
         match address {
             0xFF00            => self.joypad_register.write(v),
+            0xFF04            => { self.divider.0 = 0 },
             0xFF01 ... 0xFF02 => self.serial_transfer_controller.write(address, v),
             0xFF04 ... 0xFF07 => self.timer_controller.write(address, v),
             0xFF0F            => self.interrupt_register.write(address, v),

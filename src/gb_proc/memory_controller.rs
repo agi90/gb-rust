@@ -61,8 +61,11 @@ pub struct MemoryController {
 impl MemoryController {
     pub fn from_bytes(bytes: Vec<u8>) -> MemoryController {
         let controller = match bytes[0x147] {
-            0x0F | 0x10 | 0x11 | 0x12 | 0x13 => Box::new(Mbc3::new(bytes)),
-            _ => { panic!(); }
+            0x0F | 0x10 | 0x11 | 0x12 | 0x13 | 0x01 => Box::new(Mbc3::new(bytes)),
+            _ => {
+                println!("Unrecognized type {:02X}", bytes[0x147]);
+                panic!();
+            }
         };
 
         MemoryController {

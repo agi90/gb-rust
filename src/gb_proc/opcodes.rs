@@ -77,7 +77,9 @@ fn no_op(_: &mut Cpu) {}
 fn next_value(cpu: &mut Cpu) -> u8 {
     cpu.inc_PC();
     let v = cpu.deref_PC();
-    println!("v = ${:02X}", v);
+    if cpu.get_debug() {
+        println!("v = ${:02X}", v);
+    }
     v
 }
 
@@ -90,7 +92,9 @@ fn next_pointer(cpu: &mut Cpu) -> u16 {
     let h = cpu.deref_PC();
 
     let v = ((h as u16) << 8) + (l as u16);
-    println!("nn = ${:04X}", v);
+    if cpu.get_debug() {
+        println!("nn = ${:04X}", v);
+    }
     v
 }
 
@@ -540,7 +544,9 @@ fn ldd_HL_A(cpu: &mut Cpu) {
 fn ldi_A_HL(cpu: &mut Cpu) {
     let v = cpu.deref_HL();
     let hl = cpu.get_HL();
+    println!("hl = {:04X}", hl);
     cpu.set_HL(hl + 1);
+    println!("v = {:02X}",v);
     cpu.set_A_reg(v);
 }
 
@@ -618,7 +624,11 @@ fn ldhl_SP_n(cpu: &mut Cpu) {
 
 fn ld_nn_SP(cpu: &mut Cpu) {
     let address = next_pointer(cpu);
-    cpu.set_SP(address);
+    let l = (cpu.get_SP() & 0xFF) as u8;
+    let h = ((cpu.get_SP() & 0xFF00) >> 8) as u8;
+
+    cpu.set_deref(address, l);
+    cpu.set_deref(address + 1, h);
 }
 
 fn push_AF(cpu: &mut Cpu) {
@@ -732,7 +742,11 @@ fn add_A_x(cpu: &mut Cpu)  {  op_A_x(add, cpu); }
 
 fn adc(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     if cpu.get_C_flag() {
-        add(x, y + 1, cpu)
+        if y == 0xFF {
+            add(x, 0, cpu)
+        } else {
+            add(x, y + 1, cpu)
+        }
     } else {
         add(x, y, cpu)
     }
@@ -795,7 +809,11 @@ fn sub_A_x(cpu: &mut Cpu)  {  op_A_x(sub, cpu); }
 
 fn sbc(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     if cpu.get_C_flag() {
-        sub(x + 1, y, cpu)
+        if x == 0xFF {
+            sub(0, y, cpu)
+        } else {
+            sub(x + 1, y, cpu)
+        }
     } else {
         sub(x, y, cpu)
     }
@@ -1261,7 +1279,7 @@ fn rrc(x: u8, cpu: &mut Cpu) -> u8 {
         cpu.reset_C();
     }
 
-    let result = x >> 1 + bit_7;
+    let result = (x >> 1) + bit_7;
 
     if result == 0 {
         cpu.set_Z_flag();
@@ -1286,7 +1304,7 @@ fn rr(x: u8, cpu: &mut Cpu) -> u8 {
         cpu.reset_C();
     }
 
-    let result = x >> 1 + c_flag;
+    let result = (x >> 1) + c_flag;
 
     if result == 0 {
         cpu.set_Z_flag();
@@ -1571,7 +1589,7 @@ fn sra(x: u8, cpu: &mut Cpu) -> u8 {
     cpu.reset_N();
     cpu.reset_H();
 
-    let result = x >> 1 + ((x >> 7) << 7);
+    let result = (x >> 1) + ((x >> 7) << 7);
 
     if result == 0 {
         cpu.set_Z_flag();

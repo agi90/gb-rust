@@ -107,6 +107,10 @@ impl VideoController {
         // TODO:
     }
 
+    fn copy_memory_to_vram(&mut self, v: u8) {
+
+    }
+
     pub fn read(&self, address: u16) -> u8 {
         match address {
             0xFF40 => self.lcd_controller.read(),
@@ -114,6 +118,7 @@ impl VideoController {
             0xFF42 => self.scroll_bg_y,
             0xFF43 => self.scroll_bg_x,
             0xFF44 => 0x91,//self.lcd_y_coordinate,
+            0xFF46 => panic!("Cannot read from $FF46"),
             0xFF47 => self.read_bgp(),
             0xFF48 => self.read_obp0(),
             0xFF49 => self.read_obp1(),
@@ -130,6 +135,7 @@ impl VideoController {
             0xFF42 => { self.scroll_bg_y = v },
             0xFF43 => { self.scroll_bg_x = v },
             0xFF44 => { self.lcd_y_coordinate = 0 },
+            0xFF46 => { self.copy_memory_to_vram(v) },
             0xFF47 => { self.write_bgp(v) },
             0xFF48 => { self.write_obp0(v) },
             0xFF49 => { self.write_obp1(v) },

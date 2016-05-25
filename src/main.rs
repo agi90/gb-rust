@@ -15,6 +15,7 @@ pub fn main() {
 
     let mut cpu = Cpu::new(cartridge);
 
+    let mut stepping = false;
     loop {
         let hex = cpu.deref_PC();
 
@@ -27,8 +28,15 @@ pub fn main() {
             OpCode::from_byte(hex, false)
         };
 
-        println!("{:04X} [{:02X}] {}", pc, hex, op.to_string());
+        if cpu.get_cycles() % 10001 == 0 {
+            cpu.set_debug(true);
+            print_cpu_status(&cpu);
+            println!("{:04X} [{:02X}] {}", pc, hex, op.to_string());
+        }
+
         op.execute(&mut cpu);
+
+        cpu.set_debug(false);
 
         if !cpu.did_call_set_PC() {
             // No jump happened so we need to increase PC
@@ -37,9 +45,11 @@ pub fn main() {
             cpu.reset_call_set_PC();
         }
 
-        print_cpu_status(&cpu);
+        cpu.add_cycles(op.get_cycles());
+        cpu.handle_interrupts();
 
-        if cpu.get_PC() == 0x38 || cpu.get_state() != &CpuState::Running {
+        if cpu.get_PC() == 0x0 || stepping {
+            stepping = true;
             io::stdin().read_line(&mut String::new()).unwrap();
         }
     }
@@ -52,16 +62,17 @@ fn print_cpu_status(cpu: &Cpu) {
              cpu.get_H_flag(),
              cpu.get_C_flag());
 
-    println!("A = ${:02X}",  cpu.get_A_reg());
-    println!("B = ${:02X}",  cpu.get_B_reg());
-    println!("C = ${:02X}",  cpu.get_C_reg());
-    println!("D = ${:02X}",  cpu.get_D_reg());
-    println!("E = ${:02X}",  cpu.get_E_reg());
-    println!("F = ${:02X}",  cpu.get_F_reg());
-    println!("H = ${:02X}",  cpu.get_H_reg());
-    println!("L = ${:02X}",  cpu.get_L_reg());
-    println!("PC = ${:02X}", cpu.get_PC());
-    println!("SP = ${:02X}", cpu.get_SP());
-    println!("state = {:?}", cpu.get_state());
+    println!("A = ${:02X}",   cpu.get_A_reg());
+    println!("B = ${:02X}",   cpu.get_B_reg());
+    println!("C = ${:02X}",   cpu.get_C_reg());
+    println!("D = ${:02X}",   cpu.get_D_reg());
+    println!("E = ${:02X}",   cpu.get_E_reg());
+    println!("F = ${:02X}",   cpu.get_F_reg());
+    println!("H = ${:02X}",   cpu.get_H_reg());
+    println!("L = ${:02X}",   cpu.get_L_reg());
+    println!("PC = ${:02X}",  cpu.get_PC());
+    println!("SP = ${:02X}",  cpu.get_SP());
+    println!("state = {:?}",  cpu.get_state());
+    println!("cycles = {:?}", cpu.get_cycles());
     println!("");
 }
