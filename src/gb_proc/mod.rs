@@ -10,3 +10,5 @@ pub mod sound_controller;
 
 pub mod cartridge;
 
+pub mod handler_holder;
+

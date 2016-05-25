@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::Read;
 
 use gb_proc::memory_controller::MemoryController;
+use gb_proc::cpu::Handler;
 
 pub struct Cartridge {
     startup_graphic: Vec<u8>,
@@ -44,6 +45,16 @@ fn get_ram_size(byte: u8) -> usize {
     }
 }
 
+impl Handler for Cartridge {
+    fn read(&self, address: u16) -> u8 {
+        self.memory_controller.read(address)
+    }
+
+    fn write(&mut self, address: u16, v: u8) {
+        self.memory_controller.write(address, v);
+    }
+}
+
 impl Cartridge {
     pub fn from_file(file: &mut File) -> Cartridge {
         let mut s = vec![];
@@ -61,13 +72,5 @@ impl Cartridge {
             mask_rom_version_number: s[0x14C],
             memory_controller: MemoryController::from_bytes(s),
         }
-    }
-
-    pub fn read(&self, address: u16) -> u8 {
-        self.memory_controller.read(address)
-    }
-
-    pub fn write(&mut self, address: u16, v: u8) {
-        self.memory_controller.write(address, v);
     }
 }
