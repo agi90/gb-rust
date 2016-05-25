@@ -1,4 +1,5 @@
 use std::num::Wrapping;
+use gb_proc::opcodes::OpCode;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CpuState {
@@ -182,10 +183,6 @@ impl Cpu {
 
     pub fn get_SP(&self) -> u16 { self.SP_reg }
     pub fn set_SP(&mut self, v: u16) {
-        if v < 0xA000 || (v > 0xE000 && v < 0xFF80) || v == 0xFFFF {
-            // Likely a bug in the emulator
-            panic!("SP outside of valid range.");
-        }
         self.SP_reg = v
     }
 
@@ -205,24 +202,6 @@ impl Cpu {
 
     pub fn add_cycles(&mut self, cycles: usize) { self.cycles += cycles }
     pub fn get_cycles(&self) -> usize { self.cycles.clone() }
-
-    pub fn handle_interrupts(&mut self) {
-        /* TODO: decide what to do with this
-         * if self.cycles - self.timers.last_divider > 256 {
-            self.io_registers.divider += Wrapping(1);
-            self.timers.last_divider = self.cycles;
-        }
-
-        if !self.interrupts_enabled {
-            return;
-        }
-
-        if self.io_registers.interrupt_register.v_blank_enabled &&
-            self.cycles - self.timers.last_v_blank > 17685 {
-            self.timers.last_v_blank = self.cycles;
-            self.interrupt(0x40);
-        } */
-    }
 
     fn interrupt(&mut self, address: u16) {
         self.interrupts_enabled = false;
@@ -303,4 +282,51 @@ impl Cpu {
         self.inc_SP();
         v
     }
+
+    fn next_opcode(&mut self) -> OpCode {
+        let hex = self.deref_PC();
+
+        if hex == 0xCB {
+            self.inc_PC();
+            OpCode::from_byte(self.deref_PC(), true)
+        } else {
+            OpCode::from_byte(hex, false)
+        }
+    }
+
+    pub fn next_instruction(&mut self) {
+        let op = self.next_opcode();
+        op.execute(self);
+
+        if !self.did_call_set_PC() {
+            // No jump happened so we need to increase PC
+            self.inc_PC();
+        } else {
+            self.reset_call_set_PC();
+        }
+
+        self.add_cycles(op.get_cycles());
+    }
+}
+
+pub fn print_cpu_status(cpu: &Cpu) {
+    println!("[Z,N,H,C] = [{},{},{},{}]",
+             cpu.get_Z_flag(),
+             cpu.get_N_flag(),
+             cpu.get_H_flag(),
+             cpu.get_C_flag());
+
+    println!("A = ${:02X}",   cpu.get_A_reg());
+    println!("B = ${:02X}",   cpu.get_B_reg());
+    println!("C = ${:02X}",   cpu.get_C_reg());
+    println!("D = ${:02X}",   cpu.get_D_reg());
+    println!("E = ${:02X}",   cpu.get_E_reg());
+    println!("F = ${:02X}",   cpu.get_F_reg());
+    println!("H = ${:02X}",   cpu.get_H_reg());
+    println!("L = ${:02X}",   cpu.get_L_reg());
+    println!("PC = ${:02X}",  cpu.get_PC());
+    println!("SP = ${:02X}",  cpu.get_SP());
+    println!("state = {:?}",  cpu.get_state());
+    println!("cycles = {:?}", cpu.get_cycles());
+    println!("");
 }
