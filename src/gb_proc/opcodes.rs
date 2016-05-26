@@ -701,9 +701,6 @@ fn add(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     let x_u16 = x as u16;
     let y_u16 = y as u16;
 
-    let x_half = x >> 4;
-    let y_half = y >> 4;
-
     let result = x_u16 + y_u16;
     let result_u8 = result as u8;
 
@@ -721,7 +718,7 @@ fn add(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
         cpu.reset_C();
     }
 
-    if x_half + y_half > 0xF {
+    if ((x & 0x0F) + (y & 0x0F)) & 0x10 > 0x0 {
         cpu.set_H_flag();
     } else {
         cpu.reset_H();
