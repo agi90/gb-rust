@@ -1,5 +1,6 @@
 use std::num::Wrapping;
 use gb_proc::opcodes::OpCode;
+use gb_proc::timer_controller::TimerController;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CpuState {
@@ -27,31 +28,16 @@ pub struct Cpu {
     PC_reg: u16,
 
     state: CpuState,
-    interrupts_enabled: bool,
-
     called_set_PC: bool,
 
     cycles: usize,
-    timers: Timers,
+    interrupt_handler: InterruptHandler,
 
     debug: bool,
 
     handler_holder: Box<HandlerHolder>,
 }
 
-struct Timers {
-    last_v_blank: usize,
-    last_divider: usize,
-}
-
-impl Timers {
-    pub fn new() -> Timers {
-        Timers {
-            last_v_blank: 0,
-            last_divider: 0,
-        }
-    }
-}
 
 /** Each Handler will handle a specific region of memory
   in write/read access. */
@@ -91,11 +77,9 @@ impl Cpu {
             handler_holder: handler_holder,
 
             state: CpuState::Running,
-            interrupts_enabled: true,
-
             called_set_PC: false,
             cycles: 0,
-            timers: Timers::new(),
+            interrupt_handler: InterruptHandler::new(),
 
             debug: false,
         };
@@ -104,13 +88,19 @@ impl Cpu {
     }
 
     pub fn deref(&self, address: u16) -> u8 {
-        self.handler_holder.get_handler_read(address)
-            .read(address)
+        match address {
+            0xFF04 ... 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.read(address),
+            _ => self.handler_holder.get_handler_read(address)
+                     .read(address)
+        }
     }
 
     pub fn set_deref(&mut self, address: u16, v: u8) {
-        self.handler_holder.get_handler_write(address)
-            .write(address, v);
+        match address {
+            0xFF04 ... 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.write(address, v),
+            _ => self.handler_holder.get_handler_write(address)
+                     .write(address, v),
+        }
     }
 
     pub fn set_Z_flag(&mut self) { self.Z_flag = true }
@@ -163,8 +153,13 @@ impl Cpu {
     pub fn set_state(&mut self, state: CpuState) { self.state = state }
     pub fn get_state(&self) -> &CpuState { &self.state }
 
-    pub fn disable_interrupts(&mut self) { self.interrupts_enabled = false }
-    pub fn enable_interrupts(&mut self) { self.interrupts_enabled = true }
+    pub fn disable_interrupts(&mut self) {
+        self.interrupt_handler.disable();
+    }
+
+    pub fn enable_interrupts(&mut self) {
+        self.interrupt_handler.enable();
+    }
 
     pub fn set_BC(&mut self, v: u16) {
         self.B_reg = (v >> 8) as u8;
@@ -203,8 +198,14 @@ impl Cpu {
     pub fn add_cycles(&mut self, cycles: usize) { self.cycles += cycles }
     pub fn get_cycles(&self) -> usize { self.cycles.clone() }
 
-    fn interrupt(&mut self, address: u16) {
-        self.interrupts_enabled = false;
+    fn interrupt(&mut self, interrupt: Interrupt) {
+        if self.debug {
+            println!("=================================");
+            println!("Interrupt {:?}", interrupt);
+            println!("=================================");
+        }
+
+        self.interrupt_handler.disable();
         // TODO: set IF and other iterrupt stuff
         self.inc_PC();
         let next = self.get_PC();
@@ -214,6 +215,11 @@ impl Cpu {
 
         let l = ((next << 8) >> 8) as u8;
         self.push_SP(l);
+
+        let address = match interrupt {
+            Interrupt::VBlank => 0x40,
+            Interrupt::Divider => 0x50,
+        };
 
         self.set_PC(address);
     }
@@ -295,6 +301,13 @@ impl Cpu {
     }
 
     pub fn next_instruction(&mut self) {
+        let interrupt = self.interrupt_handler.check_interrupts();
+
+        if let Some(int) = interrupt {
+            self.interrupt(int);
+            return;
+        }
+
         let op = self.next_opcode();
 
         if self.debug {
@@ -311,6 +324,7 @@ impl Cpu {
         }
 
         self.add_cycles(op.get_cycles());
+        self.interrupt_handler.add_cycles(op.get_cycles());
     }
 }
 
@@ -334,4 +348,190 @@ pub fn print_cpu_status(cpu: &Cpu) {
     println!("state = {:?}",  cpu.get_state());
     println!("cycles = {:?}", cpu.get_cycles());
     println!("");
+}
+
+struct InterruptHandler {
+    last_v_blank: usize,
+    last_divider: usize,
+    last_clock: usize,
+    enabled: bool,
+    register: InterruptRegister,
+    timer_controller: TimerController,
+}
+
+#[derive(Debug)]
+enum Interrupt {
+    VBlank,
+    Divider,
+}
+
+impl InterruptHandler {
+    pub fn new() -> InterruptHandler {
+        InterruptHandler {
+            last_v_blank: 0,
+            last_divider: 0,
+            last_clock: 0,
+            enabled: true,
+            register: InterruptRegister::new(),
+            timer_controller: TimerController::new(),
+        }
+    }
+
+    pub fn enable(&mut self) { self.enabled = true; }
+    pub fn disable(&mut self) { self.enabled = false; }
+
+    pub fn read(&self, address: u16) -> u8 {
+        match address {
+            0xFF0F | 0xFFFF => self.register.read(address),
+            0xFF04 ... 0xFF07 => self.timer_controller.read(address),
+            _ => panic!(),
+        }
+    }
+
+    pub fn write(&mut self, address: u16, v: u8) {
+        match address {
+            0xFF0F | 0xFFFF => self.register.write(address, v),
+            0xFF04 ... 0xFF07 => self.timer_controller.write(address, v),
+            _ => panic!(),
+        }
+    }
+
+    pub fn add_cycles(&mut self, cycles: usize) {
+        self.last_v_blank += cycles;
+        self.last_divider += cycles;
+        self.last_clock += cycles;
+    }
+
+    pub fn check_interrupts(&mut self) -> Option<Interrupt> {
+        let mut interrupt = None;
+
+        if self.last_v_blank > 70224 {
+            self.last_v_blank -= 70224;
+            if self.register.v_blank_enabled {
+                interrupt = Some(Interrupt::VBlank);
+            }
+        }
+
+        if self.last_divider > 256 {
+            self.last_divider -= 256;
+            if self.timer_controller.inc_divider() &&
+                self.register.timer_enabled && interrupt.is_none() {
+                interrupt = Some(Interrupt::Divider);
+            }
+        }
+
+        if self.last_clock > 16 {
+            self.last_clock -= 16;
+            if self.timer_controller.inc_clock() &&
+                self.register.timer_enabled && interrupt.is_none() {
+                    interrupt = Some(Interrupt::Divider);
+            }
+        }
+
+        match interrupt {
+            Some(Interrupt::VBlank) => self.register.set_v_blank(),
+            Some(Interrupt::Divider) => self.register.set_timer(),
+            None => {},
+        }
+
+        interrupt
+    }
+}
+
+struct InterruptRegister {
+    v_blank: bool,
+    lcd_stat: bool,
+    timer: bool,
+    serial: bool,
+    joypad: bool,
+
+    v_blank_enabled: bool,
+    lcd_stat_enabled: bool,
+    timer_enabled: bool,
+    serial_enabled: bool,
+    joypad_enabled: bool,
+}
+
+impl InterruptRegister {
+    pub fn new() -> InterruptRegister {
+        InterruptRegister {
+            v_blank: false,
+            lcd_stat: false,
+            timer: false,
+            serial: false,
+            joypad: false,
+
+            v_blank_enabled: false,
+            lcd_stat_enabled: false,
+            timer_enabled: false,
+            serial_enabled: false,
+            joypad_enabled: false,
+        }
+    }
+
+    pub fn read(&self, address: u16) -> u8 {
+        match address {
+            0xFF0F => self.read_interrupt(),
+            0xFFFF => self.read_enabled(),
+            _      => panic!(),
+        }
+    }
+
+    pub fn write(&mut self, address: u16, v: u8) {
+        match address {
+            0xFF0F => self.write_interrupt(v),
+            0xFFFF => self.write_enabled(v),
+            _      => panic!(),
+        }
+    }
+
+    fn clear_flags(&mut self) {
+        self.v_blank = false;
+        self.lcd_stat = false;
+        self.timer = false;
+        self.serial = false;
+        self.joypad = false;
+    }
+
+    pub fn set_v_blank(&mut self) {
+        self.clear_flags();
+        self.v_blank = true;
+    }
+
+    pub fn set_timer(&mut self) {
+        self.clear_flags();
+        self.timer = true;
+    }
+
+    fn read_enabled(&self) -> u8 {
+        (if self.v_blank_enabled  { 0b00000001 } else { 0 }) +
+        (if self.lcd_stat_enabled { 0b00000010 } else { 0 }) +
+        (if self.timer_enabled    { 0b00000100 } else { 0 }) +
+        (if self.serial_enabled   { 0b00001000 } else { 0 }) +
+        (if self.joypad_enabled   { 0b00010000 } else { 0 })
+    }
+
+    fn write_enabled(&mut self, v: u8) {
+        self.v_blank_enabled  = (v & 0b00000001) > 0;
+        self.lcd_stat_enabled = (v & 0b00000010) > 0;
+        self.timer_enabled    = (v & 0b00000100) > 0;
+        self.serial_enabled   = (v & 0b00001000) > 0;
+        self.joypad_enabled   = (v & 0b00010000) > 0;
+    }
+
+    fn read_interrupt(&self) -> u8 {
+        (if self.v_blank && self.v_blank_enabled   { 0b00000001 } else { 0 }) +
+        (if self.lcd_stat && self.lcd_stat_enabled { 0b00000010 } else { 0 }) +
+        (if self.timer && self.timer_enabled       { 0b00000100 } else { 0 }) +
+        (if self.serial && self.serial_enabled     { 0b00001000 } else { 0 }) +
+        (if self.joypad && self.joypad_enabled     { 0b00010000 } else { 0 })
+    }
+
+    fn write_interrupt(&mut self, v: u8) {
+       self.v_blank  = (v & 0b00000001) > 0;
+       self.lcd_stat = (v & 0b00000010) > 0;
+       self.timer    = (v & 0b00000100) > 0;
+       self.serial   = (v & 0b00001000) > 0;
+       self.joypad   = (v & 0b00010000) > 0;
+    }
 }

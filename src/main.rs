@@ -19,20 +19,31 @@ pub fn main() {
 
     let handler = GBHandlerHolder::new(cartridge);
     let mut cpu = Cpu::new(Box::new(handler));
-    cpu.set_debug(false);
+    cpu.set_debug(true);
 
     let mut stepping = false;
     loop {
         cpu.next_instruction();
 
+        if cpu.get_PC() == 0x0040 {
+            cpu.set_debug(true);
+            stepping = true;
+            println!("Brakepoint hit! at {:04X}", cpu.get_PC());
+        }
+
         if cpu.get_debug() {
             print_cpu_status(&cpu);
         }
 
-        if cpu.get_PC() == 0x20B6 || stepping {
-            cpu.set_debug(true);
-            stepping = true;
-            io::stdin().read_line(&mut String::new()).unwrap();
+        if stepping {
+            let mut input = String::new();
+            io::stdin().read_line(&mut input).unwrap();
+            if input == "c\n" {
+                stepping = false;
+                cpu.set_debug(false);
+            } else if input == "d\n" {
+                stepping = false;
+            }
         }
     }
 }

@@ -104,7 +104,7 @@ impl VideoController {
     }
 
     fn stat_write(&mut self, v: u8) {
-        // TODO:
+        println!("stat_write v={}", v);
     }
 
     fn copy_memory_to_vram(&mut self, v: u8) {

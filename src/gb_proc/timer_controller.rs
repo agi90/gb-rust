@@ -1,3 +1,5 @@
+use std::num::Wrapping;
+
 // Every X clocks
 enum ClockSelect {
     C16,
@@ -7,7 +9,7 @@ enum ClockSelect {
 }
 
 pub struct TimerController {
-    clock_frequency: u8,
+    clock: usize,
     modulo: u8,
     divider: u8,
     timer_enabled: bool,
@@ -17,12 +19,32 @@ pub struct TimerController {
 impl TimerController {
     pub fn new() -> TimerController {
         TimerController {
-            clock_frequency: 0,
+            clock: 0,
             modulo: 0,
             divider: 0,
             timer_enabled: false,
             clock_select: ClockSelect::C1024,
         }
+    }
+
+    pub fn inc_clock(&mut self) -> bool {
+        self.clock = (Wrapping(self.clock) + Wrapping(1)).0;
+
+        if !self.timer_enabled {
+            false
+        } else {
+            match self.clock_select {
+                ClockSelect::C16   => true,
+                ClockSelect::C64   => (self.clock %  4) == 0,
+                ClockSelect::C256  => (self.clock % 16) == 0,
+                ClockSelect::C1024 => (self.clock % 64) == 0,
+            }
+        }
+    }
+
+    pub fn inc_divider(&mut self) -> bool {
+        self.divider = (Wrapping(self.divider) + Wrapping(1)).0;
+        self.divider == 0x00
     }
 
     fn write_counter(&mut self, v: u8) {
@@ -48,7 +70,7 @@ impl TimerController {
     }
 
     fn read_divider(&self) -> u8 {
-        unimplemented!();
+        self.divider
     }
 
     fn read_counter(&self) -> u8 {

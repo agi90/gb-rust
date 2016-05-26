@@ -32,6 +32,7 @@ impl Mbc for Mbc3 {
     }
 
     fn write(&mut self, address: u16, v: u8) {
+        println!("Attempt to write {:02X} to {:04X}", v, address);
         match address {
             0x2000 ... 0x3FFF => {
                 // Any write to this area will enable the bank of memory contained in v

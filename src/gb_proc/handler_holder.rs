@@ -1,6 +1,5 @@
 use gb_proc::cartridge::Cartridge;
 use gb_proc::video_controller::VideoController;
-use gb_proc::timer_controller::TimerController;
 use gb_proc::sound_controller::SoundController;
 use gb_proc::cpu::{Handler, HandlerHolder};
 
@@ -100,10 +99,8 @@ impl HandlerHolder for GBHandlerHolder {
 
 struct IORegisters {
     joypad_register: JoypadRegister,
-    interrupt_register: InterruptRegister,
     video_controller: VideoController,
     serial_transfer_controller: SerialTransferController,
-    timer_controller: TimerController,
     sound_controller: SoundController,
     divider: Wrapping<u8>,
 }
@@ -114,11 +111,8 @@ impl Handler for IORegisters {
             0xFF00            => self.joypad_register.read(),
             0xFF04            => self.divider.0,
             0xFF01 ... 0xFF02 => self.serial_transfer_controller.read(address),
-            0xFF04 ... 0xFF07 => self.timer_controller.read(address),
-            0xFF0F            => self.interrupt_register.read(address),
             0xFF09 ... 0xFF3F => self.sound_controller.read(address),
             0xFF40 ... 0xFF4B => self.video_controller.read(address),
-            0xFFFF            => self.interrupt_register.read(address),
             _ => panic!(),
         }
     }
@@ -128,11 +122,8 @@ impl Handler for IORegisters {
             0xFF00            => self.joypad_register.write(v),
             0xFF04            => { self.divider.0 = 0 },
             0xFF01 ... 0xFF02 => self.serial_transfer_controller.write(address, v),
-            0xFF04 ... 0xFF07 => self.timer_controller.write(address, v),
-            0xFF0F            => self.interrupt_register.write(address, v),
             0xFF09 ... 0xFF3F => self.sound_controller.write(address, v),
             0xFF40 ... 0xFF4B => self.video_controller.write(address, v),
-            0xFFFF            => self.interrupt_register.write(address, v),
             _ => panic!(),
         }
     }
@@ -142,10 +133,8 @@ impl IORegisters {
     pub fn new() -> IORegisters {
         IORegisters {
             joypad_register: JoypadRegister::new(),
-            interrupt_register: InterruptRegister::new(),
             video_controller: VideoController::new(),
             serial_transfer_controller: SerialTransferController::new(),
-            timer_controller: TimerController::new(),
             sound_controller: SoundController::new(),
             divider: Wrapping(0),
         }
@@ -211,85 +200,5 @@ impl JoypadRegister {
     pub fn write(&mut self, v: u8) {
         self.P14 = (0b00001000 & v) == 0;
         self.P15 = (0b00010000 & v) == 0;
-    }
-}
-
-struct InterruptRegister {
-    v_blank: bool,
-    lcd_stat: bool,
-    timer: bool,
-    serial: bool,
-    joypad: bool,
-
-    v_blank_enabled: bool,
-    lcd_stat_enabled: bool,
-    timer_enabled: bool,
-    serial_enabled: bool,
-    joypad_enabled: bool,
-}
-
-impl InterruptRegister {
-    pub fn new() -> InterruptRegister {
-        InterruptRegister {
-            v_blank: false,
-            lcd_stat: false,
-            timer: false,
-            serial: false,
-            joypad: false,
-
-            v_blank_enabled: false,
-            lcd_stat_enabled: false,
-            timer_enabled: false,
-            serial_enabled: false,
-            joypad_enabled: false,
-        }
-    }
-
-    pub fn read(&self, address: u16) -> u8 {
-        match address {
-            0xFF0F => self.read_interrupt(),
-            0xFFFF => self.read_enabled(),
-            _      => panic!(),
-        }
-    }
-
-    pub fn write(&mut self, address: u16, v: u8) {
-        match address {
-            0xFF0F => self.write_interrupt(v),
-            0xFFFF => self.write_enabled(v),
-            _      => panic!(),
-        }
-    }
-
-    fn read_enabled(&self) -> u8 {
-        (if self.v_blank_enabled  { 0b00000001 } else { 0 }) +
-        (if self.lcd_stat_enabled { 0b00000010 } else { 0 }) +
-        (if self.timer_enabled    { 0b00000100 } else { 0 }) +
-        (if self.serial_enabled   { 0b00001000 } else { 0 }) +
-        (if self.joypad_enabled   { 0b00010000 } else { 0 })
-    }
-
-    fn write_enabled(&mut self, v: u8) {
-        self.v_blank_enabled  = (v & 0b00000001) > 0;
-        self.lcd_stat_enabled = (v & 0b00000010) > 0;
-        self.timer_enabled    = (v & 0b00000100) > 0;
-        self.serial_enabled   = (v & 0b00001000) > 0;
-        self.joypad_enabled   = (v & 0b00010000) > 0;
-    }
-
-    fn read_interrupt(&self) -> u8 {
-        (if self.v_blank && self.v_blank_enabled   { 0b00000001 } else { 0 }) +
-        (if self.lcd_stat && self.lcd_stat_enabled { 0b00000010 } else { 0 }) +
-        (if self.timer && self.timer_enabled       { 0b00000100 } else { 0 }) +
-        (if self.serial && self.serial_enabled     { 0b00001000 } else { 0 }) +
-        (if self.joypad && self.joypad_enabled     { 0b00010000 } else { 0 })
-    }
-
-    fn write_interrupt(&mut self, v: u8) {
-       self.v_blank  = (v & 0b00000001) > 0;
-       self.lcd_stat = (v & 0b00000010) > 0;
-       self.timer    = (v & 0b00000100) > 0;
-       self.serial   = (v & 0b00001000) > 0;
-       self.joypad   = (v & 0b00010000) > 0;
     }
 }
