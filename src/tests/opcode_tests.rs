@@ -108,9 +108,68 @@ fn test_jr_n_backwards() {
 }
 
 #[test]
+fn test_adc_A_X() {
+    for a in 0x88 .. 0x90 {
+        for carry_flag in [false, true].into_iter() {
+            let mut handler = MockHandlerHolder::new();
+            handler.memory[0x0000] = a;
+            handler.memory[0x0001] = 0x08;
+
+            println!("Testing {:02X} {:?}", a, OpCode::from_byte(a, false));
+            let mut cpu = Cpu::new(Box::new(handler));
+            cpu.set_A_reg(0x01);
+            cpu.set_B_reg(0x02);
+            cpu.set_C_reg(0x03);
+            cpu.set_D_reg(0x04);
+            cpu.set_E_reg(0x05);
+            cpu.set_H_reg(0x06);
+            cpu.set_L_reg(0x07);
+            cpu.set_SP(0x0100);
+            cpu.set_PC(0x0000);
+            cpu.reset_call_set_PC();
+
+            if a == 0x8E {
+                // This is for ADC A,(HL)
+                cpu.set_H_reg(0x00);
+                cpu.set_L_reg(0x01);
+            }
+
+            if *carry_flag {
+                cpu.set_C_flag();
+            } else {
+                cpu.reset_C();
+            }
+
+            let expected = match a {
+                // ADC A, B
+                0x88 => 0x03,
+                // ADC A, C
+                0x89 => 0x04,
+                // ADC A, D
+                0x8A => 0x05,
+                // ADC A, E
+                0x8B => 0x06,
+                // ADC A, H
+                0x8C => 0x07,
+                // ADC A, L
+                0x8D => 0x08,
+                // ADC A, (HL)
+                0x8E => 0x09,
+                // ADC A, A
+                0x8F => 0x02,
+                _    => panic!(),
+            } + (if *carry_flag { 1 } else { 0 });
+
+            cpu.next_instruction();
+            assert_eq!(cpu.get_A_reg(), expected);
+        }
+    }
+}
+
+#[test]
 fn test_ld_X_Y() {
     // From LD B,B to LD A,A
-    for a in 0x40 .. 0x7F {
+    for a in 0x40 .. 0x80 {
         if a == 0x76 {
             // 0x76 is HALT
             continue;

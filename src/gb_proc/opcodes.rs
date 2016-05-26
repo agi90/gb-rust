@@ -699,7 +699,7 @@ fn pop_HL(cpu: &mut Cpu) {
 fn add(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     // TODO: revisit if this is too slow
     let x_u16 = x as u16;
-    let y_u16 = x as u16;
+    let y_u16 = y as u16;
 
     let x_half = x >> 4;
     let y_half = y >> 4;
