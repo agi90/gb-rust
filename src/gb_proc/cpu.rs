@@ -296,6 +296,11 @@ impl Cpu {
 
     pub fn next_instruction(&mut self) {
         let op = self.next_opcode();
+
+        if self.debug {
+            println!("[{:04X}] Executing {}", self.get_PC(), op.to_string());
+        }
+
         op.execute(self);
 
         if !self.did_call_set_PC() {

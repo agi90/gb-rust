@@ -544,9 +544,10 @@ fn ldd_HL_A(cpu: &mut Cpu) {
 fn ldi_A_HL(cpu: &mut Cpu) {
     let v = cpu.deref_HL();
     let hl = cpu.get_HL();
-    println!("hl = {:04X}", hl);
     cpu.set_HL(hl + 1);
-    println!("v = {:02X}",v);
+    if cpu.get_debug() {
+        println!("v = {:02X}",v);
+    }
     cpu.set_A_reg(v);
 }
 

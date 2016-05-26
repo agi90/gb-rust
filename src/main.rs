@@ -19,12 +19,18 @@ pub fn main() {
 
     let handler = GBHandlerHolder::new(cartridge);
     let mut cpu = Cpu::new(Box::new(handler));
+    cpu.set_debug(false);
 
     let mut stepping = false;
     loop {
         cpu.next_instruction();
 
-        if cpu.get_PC() == 0x0 || stepping {
+        if cpu.get_debug() {
+            print_cpu_status(&cpu);
+        }
+
+        if cpu.get_PC() == 0x20B6 || stepping {
+            cpu.set_debug(true);
             stepping = true;
             io::stdin().read_line(&mut String::new()).unwrap();
         }
