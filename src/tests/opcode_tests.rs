@@ -195,6 +195,7 @@ fn test_pop_XY() {
         assert_eq!(cpu.get_SP(), 0x0100);
     }
 }
+
 #[test]
 fn test_push_XY() {
     for a in [0xC5, 0xD5, 0xE5, 0xF5].into_iter() {
@@ -472,4 +473,107 @@ fn test_ld_X_Y() {
             _ => panic!(),
         }
     }
+}
+
+#[test]
+fn test_inc() {
+    inc(0x01, 0x02, 0x01, 0x03);
+    inc(0x01, 0xFF, 0x02, 0x00);
+    inc(0xFF, 0xFF, 0x00, 0x00);
+    inc(0x00, 0x00, 0x00, 0x01);
+    inc(0xFF, 0x00, 0xFF, 0x01);
+}
+
+fn inc(x: u8, y: u8, exp_x: u8, exp_y: u8) {
+    for a in [0x03, 0x13, 0x23, 0x33].into_iter() {
+        let mut handler = MockHandlerHolder::new();
+        handler.memory[0x0000] = *a;
+
+        let mut cpu = Cpu::new(Box::new(handler));
+        reset_all_registers(&mut cpu);
+
+        match *a {
+            0x03 => {
+                cpu.set_B_reg(x);
+                cpu.set_C_reg(y);
+            },
+            0x13 => {
+                cpu.set_D_reg(x);
+                cpu.set_E_reg(y);
+            },
+            0x23 => {
+                cpu.set_H_reg(x);
+                cpu.set_L_reg(y);
+            },
+            0x33 => {
+                cpu.set_SP((y as u16) + ((x as u16) << 8));
+            },
+            _ => panic!(),
+        }
+
+        cpu.next_instruction();
+
+        match *a {
+            0x03 => {
+                assert_eq!(cpu.get_B_reg(), exp_x);
+                assert_eq!(cpu.get_C_reg(), exp_y);
+            },
+            0x13 => {
+                assert_eq!(cpu.get_D_reg(), exp_x);
+                assert_eq!(cpu.get_E_reg(), exp_y);
+            },
+            0x23 => {
+                assert_eq!(cpu.get_H_reg(), exp_x);
+                assert_eq!(cpu.get_L_reg(), exp_y);
+            },
+            0x33 => {
+                assert_eq!(cpu.get_SP(), (exp_y as u16) + ((exp_x as u16) << 8));
+            },
+            _ => panic!(),
+        }
+
+        assert_eq!(cpu.get_Z_flag(), false);
+        assert_eq!(cpu.get_H_flag(), false);
+        assert_eq!(cpu.get_N_flag(), false);
+        assert_eq!(cpu.get_C_flag(), false);
+    }
+}
+
+#[test]
+fn test_call_nn() {
+    let mut handler = MockHandlerHolder::new();
+    // CALL nn
+    handler.memory[0x0000] = 0xCD;
+    handler.memory[0x0001] = 0x10;
+    handler.memory[0x0002] = 0x00;
+
+    // RET
+    handler.memory[0x0010] = 0xC9;
+
+    // This will be overwritten by CALL $0010
+    handler.memory[0x00FF] = 0xFF;
+    handler.memory[0x00FE] = 0xFF;
+
+    let mut cpu = Cpu::new(Box::new(handler));
+    reset_all_registers(&mut cpu);
+
+    // Execute CALL
+    cpu.next_instruction();
+    assert_eq!(cpu.get_PC(), 0x0010);
+    assert_eq!(cpu.get_SP(), 0x00FE);
+    assert_eq!(cpu.deref(0x00FF), 0x00);
+    assert_eq!(cpu.deref(0x00FE), 0x03);
+    assert_eq!(cpu.get_Z_flag(), false);
+    assert_eq!(cpu.get_H_flag(), false);
+    assert_eq!(cpu.get_N_flag(), false);
+    assert_eq!(cpu.get_C_flag(), false);
+
+    // Execute RET
+    cpu.next_instruction();
+    assert_eq!(cpu.get_PC(), 0x0003);
+    assert_eq!(cpu.get_SP(), 0x0100);
+    assert_eq!(cpu.get_Z_flag(), false);
+    assert_eq!(cpu.get_H_flag(), false);
+    assert_eq!(cpu.get_N_flag(), false);
+    assert_eq!(cpu.get_C_flag(), false);
 }
