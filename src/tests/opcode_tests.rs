@@ -577,3 +577,50 @@ fn test_call_nn() {
     assert_eq!(cpu.get_N_flag(), false);
     assert_eq!(cpu.get_C_flag(), false);
 }
+
+fn and(a: u8, x: u8, expected: u8) {
+    for op in 0xA0 .. 0xA7 {
+        println!("Testing {} a={:02X} x={:02X} expected={:02X}",
+                 OpCode::from_byte(op, false).to_string(), a, x, expected);
+
+        let mut handler = MockHandlerHolder::new();
+        handler.memory[0x0000] = op;
+        handler.memory[0x0010] = x;
+
+        let mut cpu = Cpu::new(Box::new(handler));
+        reset_all_registers(&mut cpu);
+
+        cpu.set_A_reg(a);
+
+        match op {
+            0xA0 => { cpu.set_B_reg(x); },
+            0xA1 => { cpu.set_C_reg(x); },
+            0xA2 => { cpu.set_D_reg(x); },
+            0xA3 => { cpu.set_E_reg(x); },
+            0xA4 => { cpu.set_H_reg(x); },
+            0xA5 => { cpu.set_L_reg(x); },
+            // AND (HL)
+            0xA6 => {
+                cpu.set_H_reg(0x00);
+                cpu.set_L_reg(0x10);
+            },
+            _ => panic!(),
+        }
+
+        cpu.next_instruction();
+
+        assert_eq!(cpu.get_A_reg(), expected);
+
+        assert_eq!(cpu.get_Z_flag(), expected == 0);
+        assert_eq!(cpu.get_H_flag(), true);
+        assert_eq!(cpu.get_C_flag(), false);
+        assert_eq!(cpu.get_N_flag(), false);
+    }
+}
+
+#[test]
+fn test_and() {
+    and(0x01, 0xFF, 0x01);
+    and(0xFF, 0xFF, 0xFF);
+    and(0xF0, 0x0F, 0x00);
+}
