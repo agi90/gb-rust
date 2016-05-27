@@ -25,14 +25,14 @@ pub fn main() {
     loop {
         cpu.next_instruction();
 
-        if cpu.get_PC() == 0x0040 {
+        if cpu.get_cycles() > 10000000 {
             cpu.set_debug(true);
             stepping = true;
             println!("Brakepoint hit! at {:04X}", cpu.get_PC());
         }
 
         if cpu.get_debug() {
-            print_cpu_status(&cpu);
+            //print_cpu_status(&cpu);
         }
 
         if stepping {

@@ -1,3 +1,5 @@
+use gb_proc::cpu::{Handler, Interrupt};
+
 /* Represents a shade of gray */
 enum GrayShade {
     C00,
@@ -44,6 +46,66 @@ pub struct VideoController {
     obp1_palette_11: GrayShade,
 
     lcd_controller: LCDController,
+
+    mode: LCDMode,
+
+    cycles: usize,
+    total_cycles: usize,
+}
+
+#[derive(Debug)]
+enum LCDMode {
+    C0,
+    C1,
+    C2,
+    C3,
+}
+
+impl LCDMode {
+    pub fn duration(&self) -> usize {
+        match self {
+            &LCDMode::C0 => 200,
+            &LCDMode::C1 => 456,
+            &LCDMode::C2 => 84,
+            &LCDMode::C3 => 172,
+        }
+    }
+}
+
+impl Handler for VideoController {
+    fn read(&self, address: u16) -> u8 {
+        match address {
+            0xFF40 => self.lcd_controller.read(),
+            0xFF41 => self.stat_read(),
+            0xFF42 => self.scroll_bg_y,
+            0xFF43 => self.scroll_bg_x,
+            0xFF44 => self.lcd_y_coordinate,
+            0xFF46 => panic!("Cannot read from $FF46"),
+            0xFF47 => self.read_bgp(),
+            0xFF48 => self.read_obp0(),
+            0xFF49 => self.read_obp1(),
+            0xFF4A => self.window_y,
+            0xFF4B => self.window_x,
+            _       => unimplemented!(),
+        }
+    }
+
+    fn write(&mut self, address: u16, v: u8) {
+        match address {
+            0xFF40 => { self.lcd_controller.write(v) },
+            0xFF41 => { self.stat_write(v) },
+            0xFF42 => { self.scroll_bg_y = v },
+            0xFF43 => { self.scroll_bg_x = v },
+            0xFF44 => { self.lcd_y_coordinate = 0 },
+            0xFF46 => { self.copy_memory_to_vram(v) },
+            0xFF47 => { self.write_bgp(v) },
+            0xFF48 => { self.write_obp0(v) },
+            0xFF49 => { self.write_obp1(v) },
+            0xFF4A => { self.window_y = v },
+            0xFF4B => { self.window_x = v },
+            _       => unimplemented!(),
+        }
+    }
 }
 
 impl VideoController {
@@ -71,7 +133,64 @@ impl VideoController {
             obp1_palette_11: GrayShade::C11,
 
             lcd_controller: LCDController::new(),
+
+            mode: LCDMode::C2,
+
+            cycles: 0,
+            total_cycles: 0,
         }
+    }
+
+    pub fn add_cycles(&mut self, cycles: usize) {
+        if !self.lcd_controller.lcd_on {
+            self.cycles = 0;
+            self.mode = LCDMode::C2;
+            self.lcd_y_coordinate = 0;
+
+            println!("LCD is off");
+            return;
+        }
+
+        self.cycles += cycles;
+        self.total_cycles += cycles;
+    }
+
+    pub fn check_interrupts(&mut self) -> Option<Interrupt> {
+        let mut interrupt = None;
+
+        if self.cycles > self.mode.duration() {
+            self.cycles -= self.mode.duration();
+
+            match self.mode {
+                LCDMode::C2 => { self.mode = LCDMode::C3; },
+                LCDMode::C3 => { self.mode = LCDMode::C0; },
+                LCDMode::C0 => {
+                    if self.lcd_y_coordinate < 143 {
+                        self.mode = LCDMode::C2;
+                    } else {
+                        self.mode = LCDMode::C1;
+                        interrupt = Some(Interrupt::VBlank);
+                    }
+
+                    self.lcd_y_coordinate += 1;
+                },
+                LCDMode::C1 => {
+                    if self.lcd_y_coordinate == 153 {
+                        self.mode = LCDMode::C2;
+                    }
+
+                    self.lcd_y_coordinate += 1;
+                }
+            }
+
+            self.lcd_y_coordinate %= 154;
+        }
+
+        println!("lcy_y_coordinate = {}", self.lcd_y_coordinate);
+        println!("cycles = {}", self.cycles);
+        println!("mode = {:?}", self.mode);
+
+        interrupt
     }
 
     fn read_obp1(&self) -> u8 { unimplemented!(); }
@@ -109,40 +228,6 @@ impl VideoController {
 
     fn copy_memory_to_vram(&mut self, v: u8) {
 
-    }
-
-    pub fn read(&self, address: u16) -> u8 {
-        match address {
-            0xFF40 => self.lcd_controller.read(),
-            0xFF41 => self.stat_read(),
-            0xFF42 => self.scroll_bg_y,
-            0xFF43 => self.scroll_bg_x,
-            0xFF44 => 0x91,//self.lcd_y_coordinate,
-            0xFF46 => panic!("Cannot read from $FF46"),
-            0xFF47 => self.read_bgp(),
-            0xFF48 => self.read_obp0(),
-            0xFF49 => self.read_obp1(),
-            0xFF4A => self.window_y,
-            0xFF4B => self.window_x,
-            _       => unimplemented!(),
-        }
-    }
-
-    pub fn write(&mut self, address: u16, v: u8) {
-        match address {
-            0xFF40 => { self.lcd_controller.write(v) },
-            0xFF41 => { self.stat_write(v) },
-            0xFF42 => { self.scroll_bg_y = v },
-            0xFF43 => { self.scroll_bg_x = v },
-            0xFF44 => { self.lcd_y_coordinate = 0 },
-            0xFF46 => { self.copy_memory_to_vram(v) },
-            0xFF47 => { self.write_bgp(v) },
-            0xFF48 => { self.write_obp0(v) },
-            0xFF49 => { self.write_obp1(v) },
-            0xFF4A => { self.window_y = v },
-            0xFF4B => { self.window_x = v },
-            _       => unimplemented!(),
-        }
     }
 }
 
@@ -207,13 +292,13 @@ impl LCDController {
     }
 
     pub fn write(&mut self, v: u8) {
-       self.bg_window_on      =    (v & 0b00000001) > 0;
-       self.obj_sprite_display=    (v & 0b00000010) > 0;
-       self.obj_sprite_size   = if (v & 0b00000100) > 0 { SpriteSize::C8by16 } else { SpriteSize::C8by8 };
-       self.bg_tile_map       = if (v & 0b00001000) > 0 { TileMap::C9C00 } else { TileMap::C9800 };
-       self.bg_tile_data      = if (v & 0b00010000) > 0 { BgTileData::C8000 } else { BgTileData::C8800 };
-       self.window_display_on =    (v & 0b00100000) > 0;
-       self.tile_map_selected = if (v & 0b01000000) > 0 { TileMap::C9C00 } else { TileMap::C9800 };
-       self.lcd_on            =    (v & 0b10000000) > 0;
+        self.bg_window_on      =    (v & 0b00000001) > 0;
+        self.obj_sprite_display=    (v & 0b00000010) > 0;
+        self.obj_sprite_size   = if (v & 0b00000100) > 0 { SpriteSize::C8by16 } else { SpriteSize::C8by8 };
+        self.bg_tile_map       = if (v & 0b00001000) > 0 { TileMap::C9C00 } else { TileMap::C9800 };
+        self.bg_tile_data      = if (v & 0b00010000) > 0 { BgTileData::C8000 } else { BgTileData::C8800 };
+        self.window_display_on =    (v & 0b00100000) > 0;
+        self.tile_map_selected = if (v & 0b01000000) > 0 { TileMap::C9C00 } else { TileMap::C9800 };
+        self.lcd_on            =    (v & 0b10000000) > 0;
     }
 }

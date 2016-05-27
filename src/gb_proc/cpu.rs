@@ -51,6 +51,8 @@ pub trait Handler {
 pub trait HandlerHolder {
     fn get_handler_read(&self, address: u16) -> &Handler;
     fn get_handler_write(&mut self, address: u16) -> &mut Handler;
+    fn add_cycles(&mut self, cycles: usize);
+    fn check_interrupts(&mut self) -> Option<Interrupt>;
 }
 
 impl Cpu {
@@ -200,9 +202,9 @@ impl Cpu {
 
     fn interrupt(&mut self, interrupt: Interrupt) {
         if self.debug {
-            println!("=================================");
-            println!("Interrupt {:?}", interrupt);
-            println!("=================================");
+            // println!("=================================");
+            // println!("Interrupt {:?}", interrupt);
+            // println!("=================================");
         }
 
         self.interrupt_handler.disable();
@@ -301,17 +303,19 @@ impl Cpu {
     }
 
     pub fn next_instruction(&mut self) {
-        let interrupt = self.interrupt_handler.check_interrupts();
+        let interrupt = self.handler_holder.check_interrupts();
 
-        if let Some(int) = interrupt {
-            self.interrupt(int);
-            return;
+        if self.interrupt_handler.enabled {
+            if let Some(int) = interrupt {
+                self.interrupt(int);
+                return;
+            }
         }
 
         let op = self.next_opcode();
 
         if self.debug {
-            println!("[{:04X}] Executing {}", self.get_PC(), op.to_string());
+            println!("[{:04X}] {}", self.get_PC(), op.to_string());
         }
 
         op.execute(self);
@@ -325,6 +329,7 @@ impl Cpu {
 
         self.add_cycles(op.get_cycles());
         self.interrupt_handler.add_cycles(op.get_cycles());
+        self.handler_holder.add_cycles(op.get_cycles());
     }
 }
 
@@ -360,7 +365,7 @@ struct InterruptHandler {
 }
 
 #[derive(Debug)]
-enum Interrupt {
+pub enum Interrupt {
     VBlank,
     Divider,
 }
@@ -416,7 +421,7 @@ impl InterruptHandler {
             self.last_divider -= 256;
             if self.timer_controller.inc_divider() &&
                 self.register.timer_enabled && interrupt.is_none() {
-                interrupt = Some(Interrupt::Divider);
+                // interrupt = Some(Interrupt::Divider);
             }
         }
 
@@ -424,8 +429,12 @@ impl InterruptHandler {
             self.last_clock -= 16;
             if self.timer_controller.inc_clock() &&
                 self.register.timer_enabled && interrupt.is_none() {
-                    interrupt = Some(Interrupt::Divider);
+                    // interrupt = Some(Interrupt::Divider);
             }
+        }
+
+        if !self.enabled {
+            return None;
         }
 
         match interrupt {

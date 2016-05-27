@@ -1,7 +1,7 @@
 use gb_proc::cartridge::Cartridge;
 use gb_proc::video_controller::VideoController;
 use gb_proc::sound_controller::SoundController;
-use gb_proc::cpu::{Handler, HandlerHolder};
+use gb_proc::cpu::{Handler, HandlerHolder, Interrupt};
 
 use std::num::Wrapping;
 
@@ -9,6 +9,7 @@ pub struct GBHandlerHolder {
     memory_holder: MemoryHolder,
     cartridge: Cartridge,
     io_registers: IORegisters,
+    video_controller: VideoController,
 }
 
 impl GBHandlerHolder {
@@ -17,6 +18,7 @@ impl GBHandlerHolder {
             memory_holder: MemoryHolder::new(),
             cartridge: cartridge,
             io_registers: IORegisters::new(),
+            video_controller: VideoController::new(),
         }
     }
 }
@@ -71,7 +73,8 @@ impl HandlerHolder for GBHandlerHolder {
             0xE000 ... 0xFDFF => panic!("Tried to access echo of internal ram"),
             0xFE00 ... 0xFE9F => &self.io_registers,
             0xFEA0 ... 0xFEFF => panic!("Unusable IO ports."),
-            0xFF00 ... 0xFF4B => &self.io_registers,
+            0xFF00 ... 0xFF39 => &self.io_registers,
+            0xFF40 ... 0xFF4B => &self.video_controller,
             0xFF4C ... 0xFF7F => panic!("Unusable IO ports."),
             0xFF80 ... 0xFFFE => &self.memory_holder,
             0xFFFF            => &self.io_registers,
@@ -88,18 +91,26 @@ impl HandlerHolder for GBHandlerHolder {
             0xE000 ... 0xFDFF => &mut self.memory_holder,
             0xFE00 ... 0xFE9F => &mut self.io_registers,
             0xFEA0 ... 0xFEFF => panic!("Unusable IO ports."),
-            0xFF00 ... 0xFF4B => &mut self.io_registers,
+            0xFF00 ... 0xFF39 => &mut self.io_registers,
+            0xFF40 ... 0xFF4B => &mut self.video_controller,
             0xFF4C ... 0xFF7F => panic!("Unusable IO ports."),
             0xFF80 ... 0xFFFE => &mut self.memory_holder,
             0xFFFF            => &mut self.io_registers,
             _ => unimplemented!(),
         }
     }
+
+    fn add_cycles(&mut self, cycles: usize) {
+        self.video_controller.add_cycles(cycles);
+    }
+
+    fn check_interrupts(&mut self) -> Option<Interrupt> {
+        self.video_controller.check_interrupts()
+    }
 }
 
 struct IORegisters {
     joypad_register: JoypadRegister,
-    video_controller: VideoController,
     serial_transfer_controller: SerialTransferController,
     sound_controller: SoundController,
     divider: Wrapping<u8>,
@@ -112,7 +123,6 @@ impl Handler for IORegisters {
             0xFF04            => self.divider.0,
             0xFF01 ... 0xFF02 => self.serial_transfer_controller.read(address),
             0xFF09 ... 0xFF3F => self.sound_controller.read(address),
-            0xFF40 ... 0xFF4B => self.video_controller.read(address),
             _ => panic!(),
         }
     }
@@ -123,7 +133,6 @@ impl Handler for IORegisters {
             0xFF04            => { self.divider.0 = 0 },
             0xFF01 ... 0xFF02 => self.serial_transfer_controller.write(address, v),
             0xFF09 ... 0xFF3F => self.sound_controller.write(address, v),
-            0xFF40 ... 0xFF4B => self.video_controller.write(address, v),
             _ => panic!(),
         }
     }
@@ -133,7 +142,6 @@ impl IORegisters {
     pub fn new() -> IORegisters {
         IORegisters {
             joypad_register: JoypadRegister::new(),
-            video_controller: VideoController::new(),
             serial_transfer_controller: SerialTransferController::new(),
             sound_controller: SoundController::new(),
             divider: Wrapping(0),

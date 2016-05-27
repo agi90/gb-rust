@@ -8,6 +8,7 @@ struct Mbc3 {
     data: Vec<u8>,
     offset: usize,
     ram: [u8; 8192],
+    ram_enabled: bool,
 }
 
 impl Mbc3 {
@@ -17,7 +18,24 @@ impl Mbc3 {
             data: data,
             offset: 0,
             ram: [0; 8192],
+            ram_enabled: false,
         }
+    }
+
+    fn write_ram(&mut self, address: u16, v: u8) {
+        if !self.ram_enabled {
+            panic!("MBC3 RAM has not been enabled.");
+        }
+
+        self.ram[(address - 0xA000) as usize] = v;
+    }
+
+    fn read_ram(&self, address: u16) -> u8 {
+        if !self.ram_enabled {
+            panic!("MBC3 RAM has not been enabled.");
+        }
+
+        self.ram[(address - 0xA000) as usize]
     }
 }
 
@@ -26,14 +44,21 @@ impl Mbc for Mbc3 {
         match address {
             0x0000 ... 0x3FFF => self.data[address as usize],
             0x4000 ... 0x7FFF => self.data[address as usize + self.offset],
-            0xA000 ... 0xBFFF => self.ram[(address - 0xA000) as usize],
+            0xA000 ... 0xBFFF => self.read_ram(address),
             _ => unimplemented!(),
         }
     }
 
     fn write(&mut self, address: u16, v: u8) {
-        println!("Attempt to write {:02X} to {:04X}", v, address);
+        // println!("Attempt to write {:02X} to {:04X}", v, address);
         match address {
+            0x0000 ... 0x1FFF => {
+                match v {
+                    0x00 => self.ram_enabled = false,
+                    0x0A => self.ram_enabled = true,
+                    _    => panic!("Unrecognized value for RAM enablement."),
+                }
+            },
             0x2000 ... 0x3FFF => {
                 // Any write to this area will enable the bank of memory contained in v
                 // if 0 is selected we will select 1 because 0 is already available
@@ -43,11 +68,9 @@ impl Mbc for Mbc3 {
                 } else {
                     self.offset = 0x0000;
                 }
-                println!("Setting offset to {:06X}", self.offset);
+                // println!("Setting offset to {:06X}", self.offset);
             },
-            0xA000 ... 0xBFFF => {
-                self.ram[(address - 0xA000) as usize] = v;
-            },
+            0xA000 ... 0xBFFF => { self.write_ram(address, v); },
             _ => unimplemented!(),
         }
     }
