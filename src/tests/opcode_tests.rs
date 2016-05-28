@@ -1,4 +1,4 @@
-use gb_proc::cpu::{Cpu, Handler, HandlerHolder, print_cpu_status};
+use gb_proc::cpu::{Cpu, Handler, HandlerHolder, Interrupt, print_cpu_status};
 use gb_proc::opcodes::OpCode;
 
 use std::num::Wrapping;
@@ -33,6 +33,8 @@ impl HandlerHolder for MockHandlerHolder {
     fn get_handler_write(&mut self, address: u16) -> &mut Handler {
         self as &mut Handler
     }
+    fn add_cycles(&mut self, cycles: usize) {}
+    fn check_interrupts(&mut self) -> Vec<Interrupt> { vec![] }
 }
 
 fn reset_all_registers(cpu: &mut Cpu) {
@@ -623,4 +625,107 @@ fn test_and() {
     and(0x01, 0xFF, 0x01);
     and(0xFF, 0xFF, 0xFF);
     and(0xF0, 0x0F, 0x00);
+}
+
+fn add_HL_BC(hl: u16, bc: u16, expected: u16, h: bool, c: bool) {
+    println!("Testing ADD HL={:04X}, BC={:04X}", hl, bc);
+    let mut handler = MockHandlerHolder::new();
+    handler.memory[0x0000] = 0x09;
+
+    let mut cpu = Cpu::new(Box::new(handler));
+    reset_all_registers(&mut cpu);
+
+    cpu.set_HL(hl);
+    cpu.set_BC(bc);
+
+    cpu.next_instruction();
+
+    assert_eq!(cpu.get_HL(), expected);
+    assert_eq!(cpu.get_BC(), bc);
+    assert_eq!(cpu.get_Z_flag(), false);
+    assert_eq!(cpu.get_N_flag(), false);
+    assert_eq!(cpu.get_H_flag(), h);
+    assert_eq!(cpu.get_C_flag(), c);
+}
+
+#[test]
+fn test_add_HL_BC() {
+    add_HL_BC(0x0FFF, 0x0001, 0x1000, true, false);
+    add_HL_BC(0x0800, 0x0800, 0x1000, true, false);
+    add_HL_BC(0x0001, 0x0FFF, 0x1000, true, false);
+    add_HL_BC(0x8000, 0x8000, 0x0000, false, true);
+    add_HL_BC(0xFFFF, 0x0001, 0x0000, true, true);
+    add_HL_BC(0x0001, 0xFFFF, 0x0000, true, true);
+    add_HL_BC(0x0080, 0x0080, 0x0100, false, false);
+}
+
+fn add_SP_n(sp: u16, n: u8, expected: u16, h: bool, c: bool) {
+    println!("Testing SP={:04X} n={:02X}", sp, n);
+    let mut handler = MockHandlerHolder::new();
+    handler.memory[0x0000] = 0xE8;
+    handler.memory[0x0001] = n;
+
+    let mut cpu = Cpu::new(Box::new(handler));
+    reset_all_registers(&mut cpu);
+
+    cpu.set_SP(sp);
+
+    cpu.next_instruction();
+
+    assert_eq!(cpu.get_SP(), expected);
+    assert_eq!(cpu.get_Z_flag(), false);
+    assert_eq!(cpu.get_N_flag(), false);
+    assert_eq!(cpu.get_H_flag(), h);
+    assert_eq!(cpu.get_C_flag(), c);
+}
+
+#[test]
+fn test_add_SP_n() {
+    add_SP_n(0x000F, 0x01, 0x0010, true, false);
+    add_SP_n(0x0008, 0x08, 0x0010, true, false);
+    add_SP_n(0x000F, 0x01, 0x0010, true, false);
+
+    add_SP_n(0x0001, 0xFF, 0x0000, true, true);
+    add_SP_n(0x00FF, 0x01, 0x0100, true, true);
+    add_SP_n(0x0080, 0x80, 0x0000, false, true);
+
+    add_SP_n(0x0000, 0xFF, 0xFFFF, false, false);
+    add_SP_n(0x0000, 0x7F, 0x007F, false, false);
+    add_SP_n(0x0001, 0x7F, 0x0080, true, false);
+}
+
+fn add_HL_SP_n(sp: u16, n: u8, expected: u16, h: bool, c: bool) {
+    println!("Testing SP={:04X} n={:02X}", sp, n);
+    let mut handler = MockHandlerHolder::new();
+    handler.memory[0x0000] = 0xF8;
+    handler.memory[0x0001] = n;
+
+    let mut cpu = Cpu::new(Box::new(handler));
+    reset_all_registers(&mut cpu);
+
+    cpu.set_SP(sp);
+
+    cpu.next_instruction();
+
+    assert_eq!(cpu.get_SP(), sp);
+    assert_eq!(cpu.get_HL(), expected);
+    assert_eq!(cpu.get_Z_flag(), false);
+    assert_eq!(cpu.get_N_flag(), false);
+    assert_eq!(cpu.get_H_flag(), h);
+    assert_eq!(cpu.get_C_flag(), c);
+}
+
+#[test]
+fn test_add_HL_SP_n() {
+    add_HL_SP_n(0x000F, 0x01, 0x0010, true, false);
+    add_HL_SP_n(0x0008, 0x08, 0x0010, true, false);
+    add_HL_SP_n(0x000F, 0x01, 0x0010, true, false);
+
+    add_HL_SP_n(0x0001, 0xFF, 0x0000, true, true);
+    add_HL_SP_n(0x00FF, 0x01, 0x0100, true, true);
+    add_HL_SP_n(0x0080, 0x80, 0x0000, false, true);
+
+    add_HL_SP_n(0x0000, 0xFF, 0xFFFF, false, false);
+    add_HL_SP_n(0x0000, 0x7F, 0x007F, false, false);
+    add_HL_SP_n(0x0001, 0x7F, 0x0080, true, false);
 }

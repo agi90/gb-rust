@@ -602,25 +602,10 @@ fn ld_SP_HL(cpu: &mut Cpu) {
 }
 
 fn ldhl_SP_n(cpu: &mut Cpu) {
-    let address = Wrapping(cpu.get_SP());
-    let n = Wrapping(next_value(cpu) as u16);
-
-    let result = address + n;
-
-    cpu.set_HL(result.0);
-    cpu.reset_Z();
-    cpu.reset_N();
-    if (address.0 as u8) as u16 + n.0 as u16 > 0xFF {
-        cpu.set_H_flag();
-    } else {
-        cpu.reset_H();
-    }
-
-    if result.0 < address.0 {
-        cpu.set_C_flag();
-    } else {
-        cpu.reset_C();
-    }
+    let sp = cpu.get_SP();
+    let n = next_value(cpu);
+    let result = add_16_8(sp, n, cpu);
+    cpu.set_HL(result);
 }
 
 fn ld_nn_SP(cpu: &mut Cpu) {
@@ -1072,10 +1057,7 @@ fn add_16(x: u16, y: u16, cpu: &mut Cpu) -> u16 {
         cpu.reset_C();
     }
 
-    let x_half = x << 4;
-    let y_half = y << 4;
-
-    if x_half as u32 + y_half as u32 > 0xFFFF {
+    if (x & 0x0FFF) + (y & 0x0FFF) > 0x0FFF {
         cpu.set_H_flag();
     } else {
         cpu.reset_H();
@@ -1099,7 +1081,26 @@ fn op_SP_x(func: fn(x: u16, y: u8, cpu: &mut Cpu) -> u16, cpu: &mut Cpu) {
 }
 
 fn add_16_8(x: u16, y: u8, cpu: &mut Cpu) -> u16 {
-    add_16(x, y as u16, cpu)
+    // The C and H Flags are based on the unsigned value of n,
+    // rather than the signed value and the lower byte
+    // of SP
+    if (x & 0x00FF) + y as u16 > 0x00FF {
+        cpu.set_C_flag();
+    } else {
+        cpu.reset_C();
+    }
+
+    if (x & 0x000F) + (y & 0x0F) as u16 > 0x000F {
+        cpu.set_H_flag();
+    } else {
+        cpu.reset_H();
+    }
+
+    cpu.reset_Z();
+    cpu.reset_N();
+
+    let y_signed = y as i8;
+    (x as i32 + y_signed as i32) as u16
 }
 
 fn add_SP_x(cpu: &mut Cpu) { op_SP_x(add_16_8, cpu); }
