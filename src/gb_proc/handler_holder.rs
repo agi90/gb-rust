@@ -86,7 +86,7 @@ impl HandlerHolder for GBHandlerHolder {
             0xE000 ... 0xFDFF => &mut self.memory_holder,
             0xFE00 ... 0xFE9F => &mut self.video_controller,
             0xFEA0 ... 0xFEFF => panic!("Unusable IO ports."),
-            0xFF00 ... 0xFF39 => &mut self.io_registers,
+            0xFF00 ... 0xFF3F => &mut self.io_registers,
             0xFF40 ... 0xFF4B => &mut self.video_controller,
             0xFF4C ... 0xFF7F => panic!("Unusable IO ports."),
             0xFF80 ... 0xFFFE => &mut self.memory_holder,
