@@ -7,7 +7,9 @@ struct Mbc3 {
     selected_bank: usize,
     data: Vec<u8>,
     offset: usize,
-    ram: [u8; 8192],
+    ram: [u8; 24576], // Up to 3 x 8KB banks
+
+    ram_offset: usize,
     ram_enabled: bool,
 }
 
@@ -17,7 +19,9 @@ impl Mbc3 {
             selected_bank: 1,
             data: data,
             offset: 0,
-            ram: [0; 8192],
+            ram: [0; 24576],
+
+            ram_offset: 0,
             ram_enabled: false,
         }
     }
@@ -27,7 +31,7 @@ impl Mbc3 {
             panic!("MBC3 RAM has not been enabled.");
         }
 
-        self.ram[(address - 0xA000) as usize] = v;
+        self.ram[(address - 0xA000) as usize + self.ram_offset] = v;
     }
 
     fn read_ram(&self, address: u16) -> u8 {
@@ -35,7 +39,7 @@ impl Mbc3 {
             panic!("MBC3 RAM has not been enabled.");
         }
 
-        self.ram[(address - 0xA000) as usize]
+        self.ram[(address - 0xA000) as usize + self.ram_offset]
     }
 }
 
@@ -69,6 +73,14 @@ impl Mbc for Mbc3 {
                     self.offset = 0x0000;
                 }
                 // println!("Setting offset to {:06X}", self.offset);
+            },
+            0x4000 ... 0x5FFF => {
+                match v {
+                    0x00 => self.ram_offset = 0,
+                    0x01 => self.ram_offset = 8192,
+                    0x02 => self.ram_offset = 16384,
+                    _ => unimplemented!(),
+                }
             },
             0xA000 ... 0xBFFF => { self.write_ram(address, v); },
             _ => unimplemented!(),

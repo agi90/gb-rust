@@ -5,6 +5,31 @@ use std::io::Read;
 use gb_proc::memory_controller::MemoryController;
 use gb_proc::cpu::Handler;
 
+pub struct BootRom {
+    data: Vec<u8>,
+}
+
+impl BootRom {
+    pub fn from_file(file: &mut File) -> BootRom {
+        let mut s = vec![];
+        file.read_to_end(&mut s).unwrap();
+
+        BootRom {
+            data: s,
+        }
+    }
+}
+
+impl Handler for BootRom {
+    fn read(&self, address: u16) -> u8 {
+        self.data[address as usize]
+    }
+
+    fn write(&mut self, address: u16, v: u8) {
+        panic!("Cannot write to boot rom.");
+    }
+}
+
 pub struct Cartridge {
     startup_graphic: Vec<u8>,
     game_title: String,

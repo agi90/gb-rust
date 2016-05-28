@@ -1,6 +1,9 @@
 use gb_proc::cpu::{Handler, Interrupt};
 
+extern crate ncurses;
+
 /* Represents a shade of gray */
+#[derive(Clone, Copy, Eq, PartialEq)]
 enum GrayShade {
     C00,
     C01,
@@ -30,10 +33,10 @@ pub struct VideoController {
     // Driver
     lcd_y_coordinate: u8,
 
-    dot_data_00: GrayShade,
-    dot_data_01: GrayShade,
-    dot_data_10: GrayShade,
-    dot_data_11: GrayShade,
+    bg_color_00: GrayShade,
+    bg_color_01: GrayShade,
+    bg_color_10: GrayShade,
+    bg_color_11: GrayShade,
 
     obp0_palette_00: GrayShade,
     obp0_palette_01: GrayShade,
@@ -51,23 +54,31 @@ pub struct VideoController {
 
     cycles: usize,
     total_cycles: usize,
+
+    video_ram: [u8; 8196],
+    oam_ram: [u8; 160],
+
+    lyc_ly_coincidence_interrupt: bool,
+    oam_interrupt: bool,
+    v_blank_interrupt: bool,
+    h_blank_interrupt: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum LCDMode {
     C0,
-    C1,
+    VBlank,
     C2,
-    C3,
+    LCDTransfer,
 }
 
 impl LCDMode {
     pub fn duration(&self) -> usize {
         match self {
             &LCDMode::C0 => 200,
-            &LCDMode::C1 => 456,
+            &LCDMode::VBlank => 456,
             &LCDMode::C2 => 84,
-            &LCDMode::C3 => 172,
+            &LCDMode::LCDTransfer=> 172,
         }
     }
 }
@@ -75,6 +86,8 @@ impl LCDMode {
 impl Handler for VideoController {
     fn read(&self, address: u16) -> u8 {
         match address {
+            0x8000 ... 0x9FFF => self.read_ram(address),
+            0xFE00 ... 0xFE9F => self.oam_ram[address as usize - 0xFE00],
             0xFF40 => self.lcd_controller.read(),
             0xFF41 => self.stat_read(),
             0xFF42 => self.scroll_bg_y,
@@ -92,12 +105,13 @@ impl Handler for VideoController {
 
     fn write(&mut self, address: u16, v: u8) {
         match address {
+            0x8000 ... 0x9FFF => self.write_ram(address, v),
+            0xFE00 ... 0xFE9F => self.oam_ram[address as usize - 0xFE00] = v,
             0xFF40 => { self.lcd_controller.write(v) },
             0xFF41 => { self.stat_write(v) },
             0xFF42 => { self.scroll_bg_y = v },
             0xFF43 => { self.scroll_bg_x = v },
             0xFF44 => { self.lcd_y_coordinate = 0 },
-            0xFF46 => { self.copy_memory_to_vram(v) },
             0xFF47 => { self.write_bgp(v) },
             0xFF48 => { self.write_obp0(v) },
             0xFF49 => { self.write_obp1(v) },
@@ -110,6 +124,8 @@ impl Handler for VideoController {
 
 impl VideoController {
     pub fn new() -> VideoController {
+        ncurses::initscr();
+
         VideoController {
             scroll_bg_x: 0,
             scroll_bg_y: 0,
@@ -117,10 +133,10 @@ impl VideoController {
             window_y: 0,
             lcd_y_coordinate: 0,
 
-            dot_data_00: GrayShade::C00,
-            dot_data_01: GrayShade::C11,
-            dot_data_10: GrayShade::C11,
-            dot_data_11: GrayShade::C11,
+            bg_color_00: GrayShade::C00,
+            bg_color_01: GrayShade::C11,
+            bg_color_10: GrayShade::C11,
+            bg_color_11: GrayShade::C11,
 
             obp0_palette_00: GrayShade::C11,
             obp0_palette_01: GrayShade::C11,
@@ -138,7 +154,251 @@ impl VideoController {
 
             cycles: 0,
             total_cycles: 0,
+
+            video_ram: [0; 8196],
+            oam_ram: [0; 160],
+
+            lyc_ly_coincidence_interrupt: false,
+            oam_interrupt: false,
+            v_blank_interrupt: false,
+            h_blank_interrupt: false,
         }
+    }
+
+    fn print_pixel(&self, pixel: GrayShade, x: usize, y: usize) {
+        let color = match pixel {
+            GrayShade::C00 => " ",
+            GrayShade::C01 => ".",
+            GrayShade::C10 => "*",
+            GrayShade::C11 => "#",
+        };
+
+        ncurses::mvprintw(y as i32, x as i32, color);
+    }
+
+    fn get_color(&self, data: u8) -> GrayShade {
+        match data {
+            0b00 => self.bg_color_00,
+            0b01 => self.bg_color_01,
+            0b10 => self.bg_color_10,
+            0b11 => self.bg_color_11,
+            _ => panic!(),
+        }
+    }
+
+    fn read_pattern(&self, offset: u16) -> [[GrayShade; 8]; 8] {
+        let mut pattern = [[GrayShade::C00; 8]; 8];
+
+        for j in 0..8 {
+            let l = self.video_ram[offset as usize + (j * 2)];
+            let h = self.video_ram[offset as usize + (j * 2) + 1];
+
+            pattern[j][7] = self.get_color( (0b00000001 & l)       + ((0b00000001 & h) << 1));
+            pattern[j][6] = self.get_color(((0b00000010 & l) >> 1) + ((0b00000010 & h)     ));
+            pattern[j][5] = self.get_color(((0b00000100 & l) >> 2) + ((0b00000100 & h) >> 1));
+            pattern[j][4] = self.get_color(((0b00001000 & l) >> 3) + ((0b00001000 & h) >> 2));
+            pattern[j][3] = self.get_color(((0b00010000 & l) >> 4) + ((0b00010000 & h) >> 3));
+            pattern[j][2] = self.get_color(((0b00100000 & l) >> 5) + ((0b00100000 & h) >> 4));
+            pattern[j][1] = self.get_color(((0b01000000 & l) >> 6) + ((0b01000000 & h) >> 5));
+            pattern[j][0] = self.get_color(((0b10000000 & l) >> 7) + ((0b10000000 & h) >> 6));
+        }
+
+        pattern
+    }
+
+    fn read_patterns(&self, offset: u16, inverse: bool) -> [[[GrayShade; 8]; 8]; 256] {
+        let mut patterns = [[[GrayShade::C00; 8]; 8]; 256];
+
+        for i in 0..256 {
+            let index = if !inverse { i } else {
+                if i < 0x80 {
+                    i + 0x80
+                } else {
+                    i - 0x80
+                }
+            };
+
+            patterns[index as usize] = self.read_pattern(offset + i * 16);
+        }
+
+        patterns
+    }
+
+    fn read_background(&self, offset: u16, patterns: [[[GrayShade; 8]; 8]; 256]) -> [[GrayShade; 256]; 256] {
+        let mut background = [[GrayShade::C00; 256]; 256];
+
+        for i in 0..32 {
+            for j in 0..32 {
+                let v = self.video_ram[offset as usize + i * 32 + j];
+
+                for k in 0..8 {
+                    for h in 0..8 {
+                        background[i * 8 + k][j * 8 + h] = patterns[v as usize][k][h];
+                    }
+                }
+            }
+        }
+
+        background
+    }
+
+    fn print_sprite_pixel(&self, color: GrayShade, x: i32, y: i32) {
+        if color == GrayShade::C00 || y > 160 || x >= 144 {
+            // C00 is transparent for sprites
+            return;
+        }
+
+        let string = match color {
+            GrayShade::C01 => ".",
+            GrayShade::C10 => "*",
+            GrayShade::C11 => "#",
+            GrayShade::C00 => unreachable!(),
+        };
+
+        ncurses::mvprintw(x, y, string);
+    }
+
+    fn get_sprite_color(&self, palette: SpritePalette, color: GrayShade) -> GrayShade {
+        match palette {
+            SpritePalette::C0 => {
+                match color {
+                    GrayShade::C00 => self.obp0_palette_00,
+                    GrayShade::C01 => self.obp0_palette_01,
+                    GrayShade::C10 => self.obp0_palette_10,
+                    GrayShade::C11 => self.obp0_palette_11,
+                }
+            },
+            SpritePalette::C1 => {
+                match color {
+                    GrayShade::C00 => self.obp1_palette_00,
+                    GrayShade::C01 => self.obp1_palette_01,
+                    GrayShade::C10 => self.obp1_palette_10,
+                    GrayShade::C11 => self.obp1_palette_11,
+                }
+            },
+        }
+    }
+
+    fn print_sprite(&self, tile: [[GrayShade; 8]; 8],
+                    behind_bg: bool,
+                    palette: SpritePalette,
+                    x: u8, y: u8) {
+        for i in 0..8 {
+            for j in 0..8 {
+                let color = self.get_sprite_color(palette, tile[i as usize][j as usize]);
+                self.print_sprite_pixel(color, i + y as i32 - 15, j + x as i32);
+            }
+        }
+    }
+
+    fn flip_tile(&self, tile: [[GrayShade; 8]; 8], y_flip: bool, x_flip: bool) -> [[GrayShade; 8]; 8] {
+        let mut new_tile = tile;
+
+        if y_flip {
+            for i in 0..8 {
+                new_tile[i] = tile[7 - i];
+            }
+        }
+
+        if x_flip {
+            for i in 0..8 {
+                for j in 0..8 {
+                    new_tile[i][j] = tile[i][7 - j];
+                }
+            }
+        }
+
+        new_tile
+    }
+
+    fn print_sprites(&self, patterns: [[[GrayShade; 8]; 8]; 256]) {
+        for i in 0..40 {
+            let y = self.oam_ram[i * 4];
+            let x = self.oam_ram[i * 4 + 1];
+            let tile_index = self.oam_ram[i * 4 + 2];
+            let flags = self.oam_ram[i * 4 + 3];
+
+            let behind_bg =     flags & (0b10000000) > 0;
+            let y_flip    =     flags & (0b01000000) > 0;
+            let x_flip    =     flags & (0b00100000) > 0;
+            let palette   =  if flags & (0b00010000) > 0 { SpritePalette::C1 } else { SpritePalette::C0 };
+
+            if self.lcd_controller.sprite_size == SpriteSize::C8by8 {
+                // TODO handle 8x16
+                let tile = patterns[tile_index as usize];
+
+                let flipped_tile = self.flip_tile(tile, y_flip, x_flip);
+
+                self.print_sprite(flipped_tile, behind_bg, palette, x, y);
+            } else {
+                unimplemented!();
+            }
+        }
+    }
+
+    fn refresh(&self) {
+        let sprite_patterns = self.read_patterns(0x0000, false);
+        let patterns = if self.lcd_controller.bg_tile_data == BgTileData::C8000 {
+            sprite_patterns
+        } else {
+            self.read_patterns(0x0800, true)
+        };
+
+        let background = if self.lcd_controller.bg_tile_map == TileMap::C9800 {
+            self.read_background(0x1800, patterns)
+        } else {
+            self.read_background(0x1C00, patterns)
+        };
+
+        let window = if self.lcd_controller.window_tile_map == TileMap::C9800 {
+            self.read_background(0x1800, patterns)
+        } else {
+            self.read_background(0x1C00, patterns)
+        };
+
+        for i in 0..160 {
+            ncurses::mvprintw(0, i, "=");
+        }
+
+        for i in 0..144 {
+            for j in 0..160 {
+                if self.lcd_controller.window_on &&
+                     i >= self.window_y as usize &&
+                     j >= self.window_x as usize - 7
+                {
+                    let x = (j - ((self.window_x as usize) - 7)) % 256;
+                    let y = (i - (self.window_y as usize)) % 256;
+                    self.print_pixel(window[y][x], j, i + 1);
+                } else {
+                    let x = (j + (self.scroll_bg_x as usize)) % 256;
+                    let y = (i + (self.scroll_bg_y as usize)) % 256;
+                    self.print_pixel(background[y][x], j, i + 1);
+                }
+            }
+        }
+
+        self.print_sprites(sprite_patterns);
+        for i in 0..160 {
+            ncurses::mvprintw(145, i, "=");
+        }
+
+        ncurses::refresh();
+    }
+
+    pub fn read_ram(&self, address: u16) -> u8 {
+        if self.mode == LCDMode::LCDTransfer {
+            0xFF
+        } else {
+            self.video_ram[(address - 0x8000) as usize]
+        }
+    }
+
+    pub fn write_ram(&mut self, address: u16, v: u8) {
+        if self.mode == LCDMode::LCDTransfer {
+            return;
+        }
+
+        self.video_ram[(address - 0x8000) as usize] = v;
     }
 
     pub fn add_cycles(&mut self, cycles: usize) {
@@ -147,7 +407,7 @@ impl VideoController {
             self.mode = LCDMode::C2;
             self.lcd_y_coordinate = 0;
 
-            println!("LCD is off");
+            // println!("LCD is off");
             return;
         }
 
@@ -155,28 +415,31 @@ impl VideoController {
         self.total_cycles += cycles;
     }
 
-    pub fn check_interrupts(&mut self) -> Option<Interrupt> {
-        let mut interrupt = None;
+    pub fn check_interrupts(&mut self) -> Vec<Interrupt> {
+        let mut interrupts = vec![];
 
         if self.cycles > self.mode.duration() {
             self.cycles -= self.mode.duration();
 
             match self.mode {
-                LCDMode::C2 => { self.mode = LCDMode::C3; },
-                LCDMode::C3 => { self.mode = LCDMode::C0; },
+                LCDMode::C2 => {
+                    self.mode = LCDMode::LCDTransfer;
+                },
+                LCDMode::LCDTransfer => { self.mode = LCDMode::C0; },
                 LCDMode::C0 => {
                     if self.lcd_y_coordinate < 143 {
                         self.mode = LCDMode::C2;
                     } else {
-                        self.mode = LCDMode::C1;
-                        interrupt = Some(Interrupt::VBlank);
+                        self.mode = LCDMode::VBlank;
+                        interrupts.push(Interrupt::VBlank);
                     }
 
                     self.lcd_y_coordinate += 1;
                 },
-                LCDMode::C1 => {
+                LCDMode::VBlank => {
                     if self.lcd_y_coordinate == 153 {
                         self.mode = LCDMode::C2;
+                        self.refresh();
                     }
 
                     self.lcd_y_coordinate += 1;
@@ -186,11 +449,11 @@ impl VideoController {
             self.lcd_y_coordinate %= 154;
         }
 
-        println!("lcy_y_coordinate = {}", self.lcd_y_coordinate);
-        println!("cycles = {}", self.cycles);
-        println!("mode = {:?}", self.mode);
+        // println!("lyc_y_coordinate = {}", self.lcd_y_coordinate);
+        // println!("cycles = {}", self.cycles);
+        // println!("mode = {:?}", self.mode);
 
-        interrupt
+        interrupts
     }
 
     fn read_obp1(&self) -> u8 { unimplemented!(); }
@@ -198,10 +461,10 @@ impl VideoController {
     fn read_bgp(&self) -> u8 { unimplemented!(); }
 
     fn write_bgp(&mut self, v: u8) {
-        self.dot_data_00 = GrayShade::from_u8(0b00000011 & v);
-        self.dot_data_01 = GrayShade::from_u8((0b00001100 & v) >> 2);
-        self.dot_data_10 = GrayShade::from_u8((0b00110000 & v) >> 4);
-        self.dot_data_11 = GrayShade::from_u8((0b11000000 & v) >> 6);
+        self.bg_color_00 = GrayShade::from_u8(0b00000011 & v);
+        self.bg_color_01 = GrayShade::from_u8((0b00001100 & v) >> 2);
+        self.bg_color_10 = GrayShade::from_u8((0b00110000 & v) >> 4);
+        self.bg_color_11 = GrayShade::from_u8((0b11000000 & v) >> 6);
     }
 
     fn write_obp1(&mut self, v: u8) {
@@ -223,12 +486,28 @@ impl VideoController {
     }
 
     fn stat_write(&mut self, v: u8) {
-        println!("stat_write v={}", v);
+        self.h_blank_interrupt            = (v & 0b00001000) > 0;
+        self.v_blank_interrupt            = (v & 0b00010000) > 0;
+        self.oam_interrupt                = (v & 0b00100000) > 0;
+        self.lyc_ly_coincidence_interrupt = (v & 0b01000000) > 0;
+
+        if self.h_blank_interrupt ||
+            self.v_blank_interrupt ||
+            self.oam_interrupt ||
+            self.lyc_ly_coincidence_interrupt {
+                unimplemented!();
+        }
     }
 
     fn copy_memory_to_vram(&mut self, v: u8) {
-
+        panic!();
     }
+}
+
+#[derive(Clone, Copy)]
+enum SpritePalette {
+    C0,
+    C1,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -236,7 +515,7 @@ enum TileMap {
     // Area $9800 - $9BFF
     C9800,
     // Area $9C00 - $9FFF
-    C9C00,
+    C9C00
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -257,11 +536,11 @@ enum SpriteSize {
 
 struct LCDController {
     lcd_on: bool,
-    tile_map_selected: TileMap,
-    window_display_on: bool,
+    window_tile_map: TileMap,
+    window_on: bool,
     bg_tile_data: BgTileData,
     bg_tile_map: TileMap,
-    obj_sprite_size: SpriteSize,
+    sprite_size: SpriteSize,
     obj_sprite_display: bool,
     bg_window_on: bool,
 }
@@ -270,35 +549,35 @@ impl LCDController {
     pub fn new() -> LCDController {
         LCDController {
             lcd_on: true,
-            tile_map_selected: TileMap::C9800,
-            window_display_on: false,
+            window_tile_map: TileMap::C9800,
+            window_on: false,
             bg_tile_data: BgTileData::C8000,
             bg_tile_map: TileMap::C9800,
-            obj_sprite_size: SpriteSize::C8by8,
+            sprite_size: SpriteSize::C8by8,
             obj_sprite_display: false,
             bg_window_on: true,
         }
     }
 
     pub fn read(&self) -> u8 {
-        (if self.bg_window_on                           { 0b00000001 } else { 0 }) +
-        (if self.obj_sprite_display                     { 0b00000010 } else { 0 }) +
-        (if self.obj_sprite_size == SpriteSize::C8by16  { 0b00000100 } else { 0 }) +
-        (if self.bg_tile_map == TileMap::C9C00          { 0b00001000 } else { 0 }) +
-        (if self.bg_tile_data == BgTileData::C8000      { 0b00010000 } else { 0 }) +
-        (if self.window_display_on                      { 0b00100000 } else { 0 }) +
-        (if self.tile_map_selected == TileMap::C9C00    { 0b01000000 } else { 0 }) +
-        (if self.lcd_on                                 { 0b10000000 } else { 0 })
+        (if self.bg_window_on                          { 0b00000001 } else { 0 }) +
+        (if self.obj_sprite_display                    { 0b00000010 } else { 0 }) +
+        (if self.sprite_size     == SpriteSize::C8by16 { 0b00000100 } else { 0 }) +
+        (if self.bg_tile_map     == TileMap::C9C00     { 0b00001000 } else { 0 }) +
+        (if self.bg_tile_data    == BgTileData::C8000  { 0b00010000 } else { 0 }) +
+        (if self.window_on                             { 0b00100000 } else { 0 }) +
+        (if self.window_tile_map == TileMap::C9C00     { 0b01000000 } else { 0 }) +
+        (if self.lcd_on                                { 0b10000000 } else { 0 })
     }
 
     pub fn write(&mut self, v: u8) {
         self.bg_window_on      =    (v & 0b00000001) > 0;
         self.obj_sprite_display=    (v & 0b00000010) > 0;
-        self.obj_sprite_size   = if (v & 0b00000100) > 0 { SpriteSize::C8by16 } else { SpriteSize::C8by8 };
+        self.sprite_size       = if (v & 0b00000100) > 0 { SpriteSize::C8by16 } else { SpriteSize::C8by8 };
         self.bg_tile_map       = if (v & 0b00001000) > 0 { TileMap::C9C00 } else { TileMap::C9800 };
         self.bg_tile_data      = if (v & 0b00010000) > 0 { BgTileData::C8000 } else { BgTileData::C8800 };
-        self.window_display_on =    (v & 0b00100000) > 0;
-        self.tile_map_selected = if (v & 0b01000000) > 0 { TileMap::C9C00 } else { TileMap::C9800 };
+        self.window_on         =    (v & 0b00100000) > 0;
+        self.window_tile_map   = if (v & 0b01000000) > 0 { TileMap::C9C00 } else { TileMap::C9800 };
         self.lcd_on            =    (v & 0b10000000) > 0;
     }
 }

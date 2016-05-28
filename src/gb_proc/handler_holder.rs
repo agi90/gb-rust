@@ -1,4 +1,3 @@
-use gb_proc::cartridge::Cartridge;
 use gb_proc::video_controller::VideoController;
 use gb_proc::sound_controller::SoundController;
 use gb_proc::cpu::{Handler, HandlerHolder, Interrupt};
@@ -7,13 +6,13 @@ use std::num::Wrapping;
 
 pub struct GBHandlerHolder {
     memory_holder: MemoryHolder,
-    cartridge: Cartridge,
+    cartridge: Box<Handler + 'static>,
     io_registers: IORegisters,
     video_controller: VideoController,
 }
 
 impl GBHandlerHolder {
-    pub fn new(cartridge: Cartridge) -> GBHandlerHolder {
+    pub fn new(cartridge: Box<Handler>) -> GBHandlerHolder {
         GBHandlerHolder {
             memory_holder: MemoryHolder::new(),
             cartridge: cartridge,
@@ -26,7 +25,6 @@ impl GBHandlerHolder {
 // TODO: move this where the memory is actually used
 // e.g. video_ram should be in the VideoController
 struct MemoryHolder {
-    video_ram: [u8; 8196],
     stack: [u8; 256],
     internal_ram: [u8; 8196],
 }
@@ -34,7 +32,6 @@ struct MemoryHolder {
 impl MemoryHolder {
     pub fn new() -> MemoryHolder {
         MemoryHolder {
-            video_ram: [0; 8196],
             stack: [0; 256],
             internal_ram: [0; 8196],
         }
@@ -44,7 +41,6 @@ impl MemoryHolder {
 impl Handler for MemoryHolder {
     fn read(&self, address: u16) -> u8 {
         match address {
-            0x8000 ... 0x9FFF => self.video_ram[(address - 0x8000) as usize],
             0xC000 ... 0xDFFF => self.internal_ram[(address - 0xC000) as usize],
             0xFF80 ... 0xFFFE => self.stack[(address - 0xFF80) as usize],
             _ => unreachable!(),
@@ -53,7 +49,6 @@ impl Handler for MemoryHolder {
 
     fn write(&mut self, address: u16, v: u8) {
         match address {
-            0x8000 ... 0x9FFF => self.video_ram[(address - 0x8000) as usize] = v,
             0xC000 ... 0xDFFF => self.internal_ram[(address - 0xC000) as usize] = v,
             0xFF80 ... 0xFFFE => self.stack[(address - 0xFF80) as usize] = v,
             _ => unreachable!(),
@@ -64,14 +59,14 @@ impl Handler for MemoryHolder {
 impl HandlerHolder for GBHandlerHolder {
     fn get_handler_read(&self, address: u16) -> &Handler {
         match address {
-            0x0000 ... 0x7FFF => &self.cartridge,
-            0x8000 ... 0x9FFF => &self.memory_holder,
-            0xA000 ... 0xBFFF => &self.cartridge,
+            0x0000 ... 0x7FFF => self.cartridge.as_ref(),
+            0x8000 ... 0x9FFF => &self.video_controller,
+            0xA000 ... 0xBFFF => self.cartridge.as_ref(),
             0xC000 ... 0xDFFF => &self.memory_holder,
             // Accessing this in the real GB will return the internal_ram echoed
             // but it's probably a bug in the emulator, so let's panic
             0xE000 ... 0xFDFF => panic!("Tried to access echo of internal ram"),
-            0xFE00 ... 0xFE9F => &self.io_registers,
+            0xFE00 ... 0xFE9F => &self.video_controller,
             0xFEA0 ... 0xFEFF => panic!("Unusable IO ports."),
             0xFF00 ... 0xFF39 => &self.io_registers,
             0xFF40 ... 0xFF4B => &self.video_controller,
@@ -84,12 +79,12 @@ impl HandlerHolder for GBHandlerHolder {
 
     fn get_handler_write(&mut self, address: u16) -> &mut Handler {
         match address {
-            0x0000 ... 0x7FFF => &mut self.cartridge,
-            0x8000 ... 0x9FFF => &mut self.memory_holder,
-            0xA000 ... 0xBFFF => &mut self.cartridge,
+            0x0000 ... 0x7FFF => &mut *self.cartridge,
+            0x8000 ... 0x9FFF => &mut self.video_controller,
+            0xA000 ... 0xBFFF => &mut *self.cartridge,
             0xC000 ... 0xDFFF => &mut self.memory_holder,
             0xE000 ... 0xFDFF => &mut self.memory_holder,
-            0xFE00 ... 0xFE9F => &mut self.io_registers,
+            0xFE00 ... 0xFE9F => &mut self.video_controller,
             0xFEA0 ... 0xFEFF => panic!("Unusable IO ports."),
             0xFF00 ... 0xFF39 => &mut self.io_registers,
             0xFF40 ... 0xFF4B => &mut self.video_controller,
@@ -104,7 +99,7 @@ impl HandlerHolder for GBHandlerHolder {
         self.video_controller.add_cycles(cycles);
     }
 
-    fn check_interrupts(&mut self) -> Option<Interrupt> {
+    fn check_interrupts(&mut self) -> Vec<Interrupt> {
         self.video_controller.check_interrupts()
     }
 }

@@ -4,7 +4,7 @@ use std::io::Read;
 pub mod gb_proc;
 
 use self::gb_proc::handler_holder::GBHandlerHolder;
-use self::gb_proc::cartridge::Cartridge;
+use self::gb_proc::cartridge::{BootRom, Cartridge};
 use self::gb_proc::cpu::{Cpu, CpuState, print_cpu_status};
 use self::gb_proc::opcodes::OpCode;
 
@@ -17,22 +17,22 @@ pub fn main() {
     let mut f = File::open("rom.gb").unwrap();
     let cartridge = Cartridge::from_file(&mut f);
 
-    let handler = GBHandlerHolder::new(cartridge);
+    let handler = GBHandlerHolder::new(Box::new(cartridge));
     let mut cpu = Cpu::new(Box::new(handler));
-    cpu.set_debug(true);
+    cpu.set_debug(false);
 
     let mut stepping = false;
     loop {
         cpu.next_instruction();
 
-        if cpu.get_cycles() > 10000000 {
+        if cpu.get_PC() == 0x0 {
             cpu.set_debug(true);
             stepping = true;
             println!("Brakepoint hit! at {:04X}", cpu.get_PC());
         }
 
         if cpu.get_debug() {
-            //print_cpu_status(&cpu);
+            // print_cpu_status(&cpu);
         }
 
         if stepping {
