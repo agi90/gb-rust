@@ -683,16 +683,11 @@ fn pop_HL(cpu: &mut Cpu) {
 
 /* Add two values and set relevant flags */
 fn add(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
-    // TODO: revisit if this is too slow
-    let x_u16 = x as u16;
-    let y_u16 = y as u16;
-
-    let result = x_u16 + y_u16;
-    let result_u8 = result as u8;
+    let result = x as u16 + y as u16;
 
     cpu.reset_N();
 
-    if result_u8 == 0 {
+    if result == 0x100 || result == 0x00 {
         cpu.set_Z_flag();
     } else {
         cpu.reset_Z();
@@ -704,13 +699,13 @@ fn add(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
         cpu.reset_C();
     }
 
-    if ((x & 0x0F) + (y & 0x0F)) & 0x10 > 0x0 {
+    if (x & 0x0F) + (y & 0x0F) > 0xF {
         cpu.set_H_flag();
     } else {
         cpu.reset_H();
     }
 
-    result_u8
+    result as u8
 }
 
 fn add_A_A(cpu: &mut Cpu)  {  op_A_A(add, cpu); }
@@ -725,11 +720,29 @@ fn add_A_x(cpu: &mut Cpu)  {  op_A_x(add, cpu); }
 
 fn adc(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     if cpu.get_C_flag() {
-        if y == 0xFF {
-            add(x, 0, cpu)
+        let result = x as u16 + y as u16 + 1;
+
+        cpu.reset_N();
+
+        if result == 0x100 {
+            cpu.set_Z_flag();
         } else {
-            add(x, y + 1, cpu)
+            cpu.reset_Z();
         }
+
+        if result > 0xFF {
+            cpu.set_C_flag();
+        } else {
+            cpu.reset_C();
+        }
+
+        if (x & 0x0F) + (y & 0x0F) + 1 > 0xF {
+            cpu.set_H_flag();
+        } else {
+            cpu.reset_H();
+        }
+
+        result as u8
     } else {
         add(x, y, cpu)
     }
@@ -747,37 +760,27 @@ fn adc_A_x(cpu: &mut Cpu)  {  op_A_x(adc, cpu); }
 
 /* Subract two values and set relevant flags */
 fn sub(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
-    // TODO: revisit if this is too slow
-    let x_i16 = x as i16;
-    let y_i16 = y as i16;
-
-    let x_half = (x >> 4) as i8;
-    let y_half = (y >> 4) as i8;
-
-    let result = x_i16 - y_i16;
-    let result_u8 = result as u8;
-
     cpu.set_N_flag();
 
-    if result_u8 == 0 {
+    if x == y {
         cpu.set_Z_flag();
     } else {
         cpu.reset_Z();
     }
 
-    if result < 0x00 {
+    if x < y {
         cpu.set_C_flag();
     } else {
         cpu.reset_C();
     }
 
-    if x_half - y_half < 0x00 {
+    if (x & 0xF) < (y & 0xF) {
         cpu.set_H_flag();
     } else {
         cpu.reset_H();
     }
 
-    result_u8
+    (x as i16 - y as i16) as u8
 }
 
 fn sub_A_A(cpu: &mut Cpu)  {  op_A_A(sub, cpu); }
@@ -792,11 +795,29 @@ fn sub_A_x(cpu: &mut Cpu)  {  op_A_x(sub, cpu); }
 
 fn sbc(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     if cpu.get_C_flag() {
-        if x == 0xFF {
-            sub(0, y, cpu)
+        let result = x as i16 - y as i16 - 1;
+
+        cpu.set_N_flag();
+
+        if (result as u8) == 0 {
+            cpu.set_Z_flag();
         } else {
-            sub(x + 1, y, cpu)
+            cpu.reset_Z();
         }
+
+        if result < 0 {
+            cpu.set_C_flag();
+        } else {
+            cpu.reset_C();
+        }
+
+        if (x & 0xF) as i8 - (y & 0xF) as i8 - 1 < 0 {
+            cpu.set_H_flag();
+        } else {
+            cpu.reset_H();
+        }
+
+        (x as i16 - y as i16 - 1) as u8
     } else {
         sub(x, y, cpu)
     }
@@ -913,13 +934,13 @@ fn inc(v: u8, cpu: &mut Cpu) -> u8 {
 
     if v == 0xFF {
         cpu.set_Z_flag();
-        result = 0;
+        result = 0x00;
     } else {
         cpu.reset_Z();
         result = v + 1;
     }
 
-    if (v >> 4) == 0xF {
+    if (v & 0x0F) == 0x0F {
         cpu.set_H_flag();
     } else {
         cpu.reset_H();
@@ -1002,7 +1023,7 @@ fn dec(v: u8, cpu: &mut Cpu) -> u8 {
         cpu.reset_Z();
     }
 
-    if (v >> 4) == 0x0 {
+    if (v & 0x0F) == 0x00 {
         cpu.set_H_flag();
     } else {
         cpu.reset_H();
@@ -1219,21 +1240,16 @@ fn ei(cpu: &mut Cpu) {
     cpu.enable_interrupts();
 }
 
-fn rlc(x: u8, cpu: &mut Cpu) -> u8 {
+// We need this because RLCA does not set the Z flag while other RLC operations do
+fn rlc_base(x: u8, cpu: &mut Cpu) -> u8 {
     let bit_7 = x >> 7;
+
+    let result = (x << 1) + bit_7;
 
     if bit_7 == 1 {
         cpu.set_C_flag();
     } else {
         cpu.reset_C();
-    }
-
-    let result = x << 1 + bit_7;
-
-    if result == 0 {
-        cpu.set_Z_flag();
-    } else {
-        cpu.reset_Z();
     }
 
     cpu.reset_N();
@@ -1242,9 +1258,17 @@ fn rlc(x: u8, cpu: &mut Cpu) -> u8 {
     result
 }
 
-fn rlc_A(cpu: &mut Cpu) { op_A(rlc, cpu); }
+fn rlc(x: u8, cpu: &mut Cpu) -> u8 {
+    z_if_result_is_zero(x, rlc_base, cpu)
+}
 
-fn rl(x: u8, cpu: &mut Cpu) -> u8 {
+fn rlca(cpu: &mut Cpu) {
+    op_A(rlc_base, cpu);
+    cpu.reset_Z();
+}
+
+// We need this because RLA does not set the Z flag while other RL operations do
+fn rl_base(x: u8, cpu: &mut Cpu) -> u8 {
     let c_flag = if cpu.get_C_flag() { 1 } else { 0 };
 
     if (x >> 7) == 1 {
@@ -1253,13 +1277,7 @@ fn rl(x: u8, cpu: &mut Cpu) -> u8 {
         cpu.reset_C();
     }
 
-    let result = x << 1 + c_flag;
-
-    if result == 0 {
-        cpu.set_Z_flag();
-    } else {
-        cpu.reset_Z();
-    }
+    let result = (x << 1) + c_flag;
 
     cpu.reset_N();
     cpu.reset_H();
@@ -1267,9 +1285,28 @@ fn rl(x: u8, cpu: &mut Cpu) -> u8 {
     result
 }
 
-fn rl_A(cpu: &mut Cpu) { op_A(rl, cpu); }
+fn z_if_result_is_zero(x: u8, func: fn(x: u8, cpu: &mut Cpu) -> u8, cpu: &mut Cpu) -> u8 {
+    let result = func(x, cpu);
 
-fn rrc(x: u8, cpu: &mut Cpu) -> u8 {
+    if result == 0 {
+        cpu.set_Z_flag();
+    } else {
+        cpu.reset_Z();
+    }
+
+    result
+}
+
+fn rl(x: u8, cpu: &mut Cpu) -> u8 {
+    z_if_result_is_zero(x, rl_base, cpu)
+}
+
+fn rla(cpu: &mut Cpu) {
+    op_A(rl_base, cpu);
+    cpu.reset_Z();
+}
+
+fn rrc_base(x: u8, cpu: &mut Cpu) -> u8 {
     let bit_7 = x << 7;
 
     if bit_7 == 0x80 {
@@ -1292,9 +1329,16 @@ fn rrc(x: u8, cpu: &mut Cpu) -> u8 {
     result
 }
 
-fn rrc_A(cpu: &mut Cpu) { op_A(rrc, cpu); }
+fn rrc(x: u8, cpu: &mut Cpu) -> u8 {
+    z_if_result_is_zero(x, rrc_base, cpu)
+}
 
-fn rr(x: u8, cpu: &mut Cpu) -> u8 {
+fn rrca(cpu: &mut Cpu) {
+    op_A(rrc_base, cpu);
+    cpu.reset_Z();
+}
+
+fn rr_base(x: u8, cpu: &mut Cpu) -> u8 {
     let c_flag = if cpu.get_C_flag() { 0x80 } else { 0 };
 
     if (x << 7) == 0x80 {
@@ -1317,7 +1361,14 @@ fn rr(x: u8, cpu: &mut Cpu) -> u8 {
     result
 }
 
-fn rr_A(cpu: &mut Cpu) { op_A(rr, cpu); }
+fn rr(x: u8, cpu: &mut Cpu) -> u8 {
+    z_if_result_is_zero(x, rr_base, cpu)
+}
+
+fn rra(cpu: &mut Cpu) {
+    op_A(rr, cpu);
+    cpu.reset_Z();
+}
 
 fn jp_nn(cpu: &mut Cpu) {
     let nn = next_pointer(cpu);
@@ -1514,6 +1565,7 @@ fn swap_H(cpu: &mut Cpu)  {   op_H(swap, cpu); }
 fn swap_L(cpu: &mut Cpu)  {   op_L(swap, cpu); }
 fn swap_HL(cpu: &mut Cpu) { op_HLp(swap, cpu); }
 
+fn rlc_A(cpu: &mut Cpu)  {   op_A(rlc, cpu); }
 fn rlc_B(cpu: &mut Cpu)  {   op_B(rlc, cpu); }
 fn rlc_C(cpu: &mut Cpu)  {   op_C(rlc, cpu); }
 fn rlc_D(cpu: &mut Cpu)  {   op_D(rlc, cpu); }
@@ -1522,6 +1574,7 @@ fn rlc_H(cpu: &mut Cpu)  {   op_H(rlc, cpu); }
 fn rlc_L(cpu: &mut Cpu)  {   op_L(rlc, cpu); }
 fn rlc_HL(cpu: &mut Cpu) { op_HLp(rlc, cpu); }
 
+fn rl_A(cpu: &mut Cpu)  {   op_A(rl, cpu); }
 fn rl_B(cpu: &mut Cpu)  {   op_B(rl, cpu); }
 fn rl_C(cpu: &mut Cpu)  {   op_C(rl, cpu); }
 fn rl_D(cpu: &mut Cpu)  {   op_D(rl, cpu); }
@@ -1530,6 +1583,7 @@ fn rl_H(cpu: &mut Cpu)  {   op_H(rl, cpu); }
 fn rl_L(cpu: &mut Cpu)  {   op_L(rl, cpu); }
 fn rl_HL(cpu: &mut Cpu) { op_HLp(rl, cpu); }
 
+fn rrc_A(cpu: &mut Cpu)  {   op_A(rrc, cpu); }
 fn rrc_B(cpu: &mut Cpu)  {   op_B(rrc, cpu); }
 fn rrc_C(cpu: &mut Cpu)  {   op_C(rrc, cpu); }
 fn rrc_D(cpu: &mut Cpu)  {   op_D(rrc, cpu); }
@@ -1538,6 +1592,7 @@ fn rrc_H(cpu: &mut Cpu)  {   op_H(rrc, cpu); }
 fn rrc_L(cpu: &mut Cpu)  {   op_L(rrc, cpu); }
 fn rrc_HL(cpu: &mut Cpu) { op_HLp(rrc, cpu); }
 
+fn rr_A(cpu: &mut Cpu)  {   op_A(rr, cpu); }
 fn rr_B(cpu: &mut Cpu)  {   op_B(rr, cpu); }
 fn rr_C(cpu: &mut Cpu)  {   op_C(rr, cpu); }
 fn rr_D(cpu: &mut Cpu)  {   op_D(rr, cpu); }
@@ -2529,7 +2584,7 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Contains old bit 7 data.
-    Rlca: ("RLCA", 0x07, 4, rlc_A),
+    Rlca: ("RLCA", 0x07, 4, rlca),
 
     // RLA
     //
@@ -2540,7 +2595,7 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Contains old bit 7 data
-    Rla: ("RLA", 0x17, 4, rl_A),
+    Rla: ("RLA", 0x17, 4, rla),
 
     // RRCA
     //
@@ -2551,7 +2606,7 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Contains old bit 0 data
-    Rrca: ("RRCA", 0x0F, 4, rrc_A),
+    Rrca: ("RRCA", 0x0F, 4, rrca),
 
     // RRA
     //
@@ -2562,7 +2617,7 @@ op_codes!(
     // N - Reset
     // H - Reset
     // C - Contains old bit 0 data
-    Rra: ("RRA", 0x1F, 4, rr_A),
+    Rra: ("RRA", 0x1F, 4, rra),
 
     // JP nn
     //

@@ -132,6 +132,7 @@ fn test_half_carry(opcode: u8, a: u8, b: u8, expected: bool) {
 }
 
 fn add_n(a: u8, n: u8, H: bool, C: bool, Z: bool) {
+    println!("Testing Add n A={:02X} n={:02X}", a, n);
     let mut handler = MockHandlerHolder::new();
 
     handler.memory[0x0000] = 0xC6;
@@ -602,9 +603,7 @@ fn and(a: u8, x: u8, expected: u8) {
             0xA4 => { cpu.set_H_reg(x); },
             0xA5 => { cpu.set_L_reg(x); },
             // AND (HL)
-            0xA6 => {
-                cpu.set_H_reg(0x00);
-                cpu.set_L_reg(0x10);
+            0xA6 => { cpu.set_H_reg(0x00); cpu.set_L_reg(0x10);
             },
             _ => panic!(),
         }
@@ -684,8 +683,7 @@ fn test_add_SP_n() {
     add_SP_n(0x000F, 0x01, 0x0010, true, false);
     add_SP_n(0x0008, 0x08, 0x0010, true, false);
     add_SP_n(0x000F, 0x01, 0x0010, true, false);
-
-    add_SP_n(0x0001, 0xFF, 0x0000, true, true);
+add_SP_n(0x0001, 0xFF, 0x0000, true, true);
     add_SP_n(0x00FF, 0x01, 0x0100, true, true);
     add_SP_n(0x0080, 0x80, 0x0000, false, true);
 
@@ -728,4 +726,84 @@ fn test_add_HL_SP_n() {
     add_HL_SP_n(0x0000, 0xFF, 0xFFFF, false, false);
     add_HL_SP_n(0x0000, 0x7F, 0x007F, false, false);
     add_HL_SP_n(0x0001, 0x7F, 0x0080, true, false);
+}
+
+fn sbc_A(a: u8, b: u8, expected: u8, init_C: bool, Z: bool, H: bool, C: bool) {
+    println!("Testing SBC A={:02X}, B={:02X}", a, b);
+    let mut handler = MockHandlerHolder::new();
+    handler.memory[0x0000] = 0x98;
+
+    let mut cpu = Cpu::new(Box::new(handler));
+    reset_all_registers(&mut cpu);
+
+    cpu.set_A_reg(a);
+    cpu.set_B_reg(b);
+    if init_C {
+        cpu.set_C_flag();
+    }
+
+    cpu.next_instruction();
+
+    assert_eq!(cpu.get_A_reg(), expected);
+    assert_eq!(cpu.get_N_flag(), true);
+    assert_eq!(cpu.get_Z_flag(), Z);
+    assert_eq!(cpu.get_C_flag(), C);
+    assert_eq!(cpu.get_H_flag(), H);
+}
+
+#[test]
+fn test_sbc_A_B() {
+    //    A     B     exp   init_C Z      H      C
+    sbc_A(0x00, 0x00, 0x00, false, true,  false, false);
+    sbc_A(0x01, 0x00, 0x00, true,  true,  false, false);
+    sbc_A(0x00, 0x00, 0xFF, true,  false, true,  true);
+    sbc_A(0x10, 0x00, 0x0F, true,  false, true,  false);
+    sbc_A(0x10, 0x1F, 0xF0, true,  false, true,  true);
+    sbc_A(0x11, 0x1F, 0xF2, false, false, true,  true);
+    sbc_A(0xFF, 0x00, 0xFE, true,  false, false, false);
+    sbc_A(0x80, 0x7F, 0x00, true,  true,  true,  false);
+    sbc_A(0x81, 0x7F, 0x01, true,  false, true,  false);
+    sbc_A(0x81, 0x70, 0x10, true,  false, false, false);
+}
+
+fn rlc_A(a: u8, expected: u8, C: bool) {
+    println!("Testing RLC A={:02X}", a);
+    let mut handler = MockHandlerHolder::new();
+    handler.memory[0x0000] = 0x07;
+
+    let mut cpu = Cpu::new(Box::new(handler));
+    reset_all_registers(&mut cpu);
+
+    cpu.set_A_reg(a);
+
+    cpu.next_instruction();
+
+    assert_eq!(cpu.get_A_reg(), expected);
+    assert_eq!(cpu.get_N_flag(), false);
+    assert_eq!(cpu.get_H_flag(), false);
+    assert_eq!(cpu.get_Z_flag(), false);
+    assert_eq!(cpu.get_C_flag(), C);
+}
+
+#[test]
+fn test_rlc_A() {
+    rlc_A(0b11111111, 0b11111111, true);
+    rlc_A(0b00000001, 0b00000010, false);
+    rlc_A(0b00000010, 0b00000100, false);
+    rlc_A(0b00000100, 0b00001000, false);
+    rlc_A(0b00001000, 0b00010000, false);
+    rlc_A(0b00010000, 0b00100000, false);
+    rlc_A(0b00100000, 0b01000000, false);
+    rlc_A(0b01000000, 0b10000000, false);
+    rlc_A(0b10000000, 0b00000001, true);
+
+    rlc_A(0b10000001, 0b00000011, true);
+    rlc_A(0b10000010, 0b00000101, true);
+    rlc_A(0b10000100, 0b00001001, true);
+    rlc_A(0b10001000, 0b00010001, true);
+    rlc_A(0b10010000, 0b00100001, true);
+    rlc_A(0b10100000, 0b01000001, true);
+    rlc_A(0b11000000, 0b10000001, true);
+
+    rlc_A(0b00000000, 0b00000000, false);
 }
