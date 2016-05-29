@@ -1176,8 +1176,75 @@ fn dec_DE(cpu: &mut Cpu) { op_DE(dec_16, cpu); }
 fn dec_BC(cpu: &mut Cpu) { op_BC(dec_16, cpu); }
 fn dec_SP(cpu: &mut Cpu) { op_SP(dec_16, cpu); }
 
-fn daa(x: u8, cpu: &mut Cpu) -> u8 {
-    if x == 0 {
+// This instruction conditionally adjusts the accumulator for BCD addition
+// and subtraction operations. For addition (ADD, ADC, INC) or subtraction
+// (SUB, SBC, DEC, NEC), the following table indicates the operation performed:
+//
+// --------------------------------------------------------------------------------
+// |           | C Flag  | HEX value in | H Flag | HEX value in | Number  | C flag|
+// | Operation | Before  | upper digit  | Before | lower digit  | added   | After |
+// |           | DAA     | (bit 7-4)    | DAA    | (bit 3-0)    | to byte | DAA   |
+// |------------------------------------------------------------------------------|
+// |           |    0    |     0-9      |   0    |     0-9      |   00    |   0   |
+// |   ADD     |    0    |     0-8      |   0    |     A-F      |   06    |   0   |
+// |           |    0    |     0-9      |   1    |     0-3      |   06    |   0   |
+// |   ADC     |    0    |     A-F      |   0    |     0-9      |   60    |   1   |
+// |           |    0    |     9-F      |   0    |     A-F      |   66    |   1   |
+// |   INC     |    0    |     A-F      |   1    |     0-3      |   66    |   1   |
+// |           |    1    |     0-2      |   0    |     0-9      |   60    |   1   |
+// |           |    1    |     0-2      |   0    |     A-F      |   66    |   1   |
+// |           |    1    |     0-3      |   1    |     0-3      |   66    |   1   |
+// |------------------------------------------------------------------------------|
+// |   SUB     |    0    |     0-9      |   0    |     0-9      |   00    |   0   |
+// |   SBC     |    0    |     0-8      |   1    |     6-F      |   FA    |   0   |
+// |   DEC     |    1    |     7-F      |   0    |     0-9      |   A0    |   1   |
+// |   NEG     |    1    |     6-F      |   1    |     6-F      |   9A    |   1   |
+// --------------------------------------------------------------------------------
+fn daa(v: u8, cpu: &mut Cpu) -> u8 {
+    let x = v as u16;
+    let l = x & 0x0F;
+    let h = (x & 0xF0) >> 4;
+
+    let result = if cpu.get_N_flag() {
+        let mut result = x;
+
+        if cpu.get_H_flag() {
+            result += 0xA;
+        }
+
+        if cpu.get_C_flag() {
+            if cpu.get_H_flag() {
+                result += 0x90;
+            } else {
+                result += 0xA0;
+            }
+        } else if cpu.get_H_flag() {
+            result += 0xF0;
+        }
+
+        result
+    } else {
+        let mut result = x;
+
+        if cpu.get_H_flag() {
+            result += 0x6;
+        }
+
+        if l > 0x9 {
+            result += 0x6;
+        }
+
+        if result & 0xFF0 > 0x90 || cpu.get_C_flag() {
+            result += 0x60;
+            cpu.set_C_flag();
+        } else {
+            cpu.reset_C();
+        }
+
+        result
+    };
+
+    if result == 0 {
         cpu.set_Z_flag();
     } else {
         cpu.reset_Z();
@@ -1185,16 +1252,7 @@ fn daa(x: u8, cpu: &mut Cpu) -> u8 {
 
     cpu.reset_H();
 
-    if x > 99 {
-        cpu.set_C_flag();
-    } else {
-        cpu.reset_C();
-    }
-
-    let first = x % 10;
-    let second = (x % 100) / 10;
-
-    first + (second << 4)
+    result as u8
 }
 
 fn daa_A(cpu: &mut Cpu) { op_A(daa, cpu); }

@@ -807,3 +807,93 @@ fn test_rlc_A() {
 
     rlc_A(0b00000000, 0b00000000, false);
 }
+
+fn daa(a: u8, expected: u8, C: bool, H: bool, N: bool, exp_C: bool, exp_Z: bool) {
+    println!("Testing DAA A={:02X}", a);
+    let mut handler = MockHandlerHolder::new();
+    handler.memory[0x0000] = 0x27;
+
+    let mut cpu = Cpu::new(Box::new(handler));
+    reset_all_registers(&mut cpu);
+
+    cpu.set_A_reg(a);
+    if C { cpu.set_C_flag(); }
+    if H { cpu.set_H_flag(); }
+    if N { cpu.set_N_flag(); }
+
+    cpu.next_instruction();
+
+    assert_eq!(cpu.get_A_reg(), expected);
+    assert_eq!(cpu.get_N_flag(), N);
+    assert_eq!(cpu.get_H_flag(), false);
+    assert_eq!(cpu.get_Z_flag(), exp_Z);
+    assert_eq!(cpu.get_C_flag(), exp_C);
+}
+
+#[test]
+fn test_daa() {
+    //              C      H      N      exp_C  exp_Z
+    daa(0x00, 0x00, false, false, false, false, true);
+    daa(0x09, 0x09, false, false, false, false, false);
+    daa(0x90, 0x90, false, false, false, false, false);
+    daa(0x99, 0x99, false, false, false, false, false);
+
+    daa(0x0F, 0x15, false, false, false, false, false);
+    daa(0x8F, 0x95, false, false, false, false, false);
+    daa(0x8A, 0x90, false, false, false, false, false);
+    daa(0x0A, 0x10, false, false, false, false, false);
+
+    daa(0x00, 0x06, false, true,  false, false, true);
+    daa(0x03, 0x09, false, true,  false, false, false);
+    daa(0x90, 0x96, false, true,  false, false, false);
+    daa(0x93, 0x99, false, true,  false, false, false);
+
+    daa(0xA0, 0x00, false, false, false, true, false);
+    daa(0xF0, 0x50, false, false, false, true, false);
+    daa(0xA9, 0x09, false, false, false, true, false);
+    daa(0xF9, 0x59, false, false, false, true, false);
+
+    daa(0x9A, 0x00, false, false, false, true, false);
+    daa(0x9F, 0x05, false, false, false, true, false);
+    daa(0xFA, 0x60, false, false, false, true, false);
+    daa(0xFF, 0x65, false, false, false, true, false);
+
+    daa(0xA0, 0x06, false, true,  false, true, false);
+    daa(0xA3, 0x09, false, true,  false, true, false);
+    daa(0xF0, 0x56, false, true,  false, true, false);
+    daa(0xF3, 0x59, false, true,  false, true, false);
+
+    daa(0x00, 0x60, true,  false, false, true, true);
+    daa(0x09, 0x69, true,  false, false, true, false);
+    daa(0x29, 0x89, true,  false, false, true, false);
+    daa(0x20, 0x80, true,  false, false, true, false);
+
+    daa(0x0A, 0x70, true,  false, false, true, false);
+    daa(0x0F, 0x75, true,  false, false, true, false);
+    daa(0x2A, 0x90, true,  false, false, true, false);
+    daa(0x2F, 0x95, true,  false, false, true, false);
+
+    daa(0x03, 0x69, true,  true,  false, true, false);
+    daa(0x30, 0x96, true,  true,  false, true, false);
+    daa(0x33, 0x99, true,  true,  false, true, false);
+
+    daa(0x00, 0x00, false, false, true,  false, true);
+    daa(0x09, 0x09, false, false, true,  false, false);
+    daa(0x90, 0x90, false, false, true,  false, false);
+    daa(0x99, 0x99, false, false, true,  false, false);
+
+    daa(0x06, 0x00, false, true,  true,  false, false);
+    daa(0x0F, 0x09, false, true,  true,  false, false);
+    daa(0x86, 0x80, false, true,  true,  false, false);
+    daa(0x8F, 0x89, false, true,  true,  false, false);
+
+    daa(0x70, 0x10, true,  false, true,  true, false);
+    daa(0x79, 0x19, true,  false, true,  true, false);
+    daa(0xF0, 0x90, true,  false, true,  true, false);
+    daa(0xF9, 0x99, true,  false, true,  true, false);
+
+    daa(0x66, 0x00, true,  true,  true,  true, false);
+    daa(0x7F, 0x19, true,  true,  true,  true, false);
+    daa(0x6F, 0x09, true,  true,  true,  true, false);
+    daa(0x76, 0x10, true,  true,  true,  true, false);
+}
