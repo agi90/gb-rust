@@ -3,6 +3,38 @@ trait Mbc {
     fn write(&mut self, address: u16, v: u8);
 }
 
+struct Mbc0 {
+    data: Vec<u8>,
+    ram: [u8; 8192],
+}
+
+impl Mbc0 {
+    pub fn new(data: Vec<u8>) -> Mbc0 {
+        Mbc0 {
+            data: data,
+            ram: [0; 8192],
+        }
+    }
+}
+
+impl Mbc for Mbc0 {
+    fn read(&self, address: u16) -> u8 {
+        match address {
+            0x0000 ... 0x7FFF => self.data[address as usize],
+            0xA000 ... 0xBFFF => self.ram[(address as usize) - 0xA000],
+            _ => unimplemented!(),
+        }
+    }
+
+    fn write(&mut self, address: u16, v: u8) {
+        println!("Writing to {:04X}", address);
+        match address {
+            0xA000 ... 0xBFFF => self.ram[(address as usize) - 0xA000] = v,
+            _ => unimplemented!(),
+        }
+    }
+}
+
 struct Mbc3 {
     selected_bank: usize,
     data: Vec<u8>,
@@ -95,7 +127,8 @@ pub struct MemoryController {
 impl MemoryController {
     pub fn from_bytes(bytes: Vec<u8>) -> MemoryController {
         let controller = match bytes[0x147] {
-            0x0F | 0x10 | 0x11 | 0x12 | 0x13 | 0x01 => Box::new(Mbc3::new(bytes)),
+            0x00 => Box::new(Mbc0::new(bytes)) as Box<Mbc>,
+            0x0F | 0x10 | 0x11 | 0x12 | 0x13 | 0x01 => Box::new(Mbc3::new(bytes)) as Box<Mbc>,
             _ => {
                 println!("Unrecognized type {:02X}", bytes[0x147]);
                 panic!();
