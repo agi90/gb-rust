@@ -833,67 +833,104 @@ fn daa(a: u8, expected: u8, C: bool, H: bool, N: bool, exp_C: bool, exp_Z: bool)
 #[test]
 fn test_daa() {
     //              C      H      N      exp_C  exp_Z
-    daa(0x00, 0x00, false, false, false, false, true);
-    daa(0x09, 0x09, false, false, false, false, false);
-    daa(0x90, 0x90, false, false, false, false, false);
-    daa(0x99, 0x99, false, false, false, false, false);
+    for j in 0x0..0xA {
+        for i in 0x0..0xA {
+            let x = i + (j << 4);
+            daa(x, x, false, false, false, false, x == 0);
+        }
+    }
 
-    daa(0x0F, 0x15, false, false, false, false, false);
-    daa(0x8F, 0x95, false, false, false, false, false);
-    daa(0x8A, 0x90, false, false, false, false, false);
-    daa(0x0A, 0x10, false, false, false, false, false);
+    for j in 0x0..0x9 {
+        for i in 0xA..0x10 {
+            let x = i + (j << 4);
+            daa(x, (x as u16 + 0x06) as u8, false, false, false, false, false);
+        }
+    }
 
-    daa(0x00, 0x06, false, true,  false, false, true);
-    daa(0x03, 0x09, false, true,  false, false, false);
-    daa(0x90, 0x96, false, true,  false, false, false);
-    daa(0x93, 0x99, false, true,  false, false, false);
+    for j in 0x0..0xA {
+        for i in 0x0..0x4 {
+            let x = i + (j << 4);
+            daa(x, (x as u16 + 0x06) as u8, false, true,  false, false, false);
+        }
+    }
 
-    daa(0xA0, 0x00, false, false, false, true, false);
-    daa(0xF0, 0x50, false, false, false, true, false);
-    daa(0xA9, 0x09, false, false, false, true, false);
-    daa(0xF9, 0x59, false, false, false, true, false);
+    for j in 0xA..0x10 {
+        for i in 0x0..0xA {
+            let x = i + (j << 4);
+            let result = (x as u16 + 0x60) as u8;
+            daa(x, result, false, false,  false, true, result == 0);
+        }
+    }
 
-    daa(0x9A, 0x00, false, false, false, true, false);
-    daa(0x9F, 0x05, false, false, false, true, false);
-    daa(0xFA, 0x60, false, false, false, true, false);
-    daa(0xFF, 0x65, false, false, false, true, false);
+    for j in 0x9..0x10 {
+        for i in 0xA..0x10 {
+            let x = i + (j << 4);
+            let result = (x as u16 + 0x66) as u8;
+            daa(x, result, false, false, false, true, result == 0);
+        }
+    }
 
-    daa(0xA0, 0x06, false, true,  false, true, false);
-    daa(0xA3, 0x09, false, true,  false, true, false);
-    daa(0xF0, 0x56, false, true,  false, true, false);
-    daa(0xF3, 0x59, false, true,  false, true, false);
+    for j in 0xA..0x10 {
+        for i in 0x0..0x4 {
+            let x = i + (j << 4);
+            let result = (x as u16 + 0x66) as u8;
+            daa(x, result, false, true, false, true, result == 0);
+        }
+    }
 
-    daa(0x00, 0x60, true,  false, false, true, true);
-    daa(0x09, 0x69, true,  false, false, true, false);
-    daa(0x29, 0x89, true,  false, false, true, false);
-    daa(0x20, 0x80, true,  false, false, true, false);
+    for j in 0x0..0x03 {
+        for i in 0x0..0xA {
+            let x = i + (j << 4);
+            let result = (x as u16 + 0x60) as u8;
+            daa(x, result, true, false, false, true, result == 0);
+        }
+    }
 
-    daa(0x0A, 0x70, true,  false, false, true, false);
-    daa(0x0F, 0x75, true,  false, false, true, false);
-    daa(0x2A, 0x90, true,  false, false, true, false);
-    daa(0x2F, 0x95, true,  false, false, true, false);
+    for j in 0x0..0x03 {
+        for i in 0xA..0x10 {
+            let x = i + (j << 4);
+            let result = (x as u16 + 0x66) as u8;
+            daa(x, result, true, false, false, true, result == 0);
+        }
+    }
 
-    daa(0x03, 0x69, true,  true,  false, true, false);
-    daa(0x30, 0x96, true,  true,  false, true, false);
-    daa(0x33, 0x99, true,  true,  false, true, false);
+    for j in 0x0..0x04 {
+        for i in 0xA..0x04 {
+            let x = i + (j << 4);
+            let result = (x as u16 + 0x66) as u8;
+            daa(x, result, true, true, false, true, result == 0);
+        }
+    }
 
-    daa(0x00, 0x00, false, false, true,  false, true);
-    daa(0x09, 0x09, false, false, true,  false, false);
-    daa(0x90, 0x90, false, false, true,  false, false);
-    daa(0x99, 0x99, false, false, true,  false, false);
+    for j in 0x0..0x0A {
+        for i in 0x0..0x0A {
+            let x = i + (j << 4);
+            let result = (x as u16 + 0x00) as u8;
+            daa(x, result, false, false, true, false, result == 0);
+        }
+    }
 
-    daa(0x06, 0x00, false, true,  true,  false, false);
-    daa(0x0F, 0x09, false, true,  true,  false, false);
-    daa(0x86, 0x80, false, true,  true,  false, false);
-    daa(0x8F, 0x89, false, true,  true,  false, false);
+    for j in 0x0..0x09 {
+        for i in 0x6..0x10 {
+            let x = i + (j << 4);
+            let result = (x as u16 + 0xFA) as u8;
+            daa(x, result, false, true, true, false, result == 0);
+        }
+    }
 
-    daa(0x70, 0x10, true,  false, true,  true, false);
-    daa(0x79, 0x19, true,  false, true,  true, false);
-    daa(0xF0, 0x90, true,  false, true,  true, false);
-    daa(0xF9, 0x99, true,  false, true,  true, false);
+    for j in 0x7..0x10 {
+        for i in 0x0..0x0A {
+            let x = i + (j << 4);
+            let result = (x as u16 + 0xA0) as u8;
+            daa(x, result, true, false, true, true, result == 0);
+        }
+    }
 
-    daa(0x66, 0x00, true,  true,  true,  true, false);
-    daa(0x7F, 0x19, true,  true,  true,  true, false);
-    daa(0x6F, 0x09, true,  true,  true,  true, false);
-    daa(0x76, 0x10, true,  true,  true,  true, false);
+    for j in 0x6..0x08 {
+        for i in 0x6..0x10 {
+            let x = i + (j << 4);
+            let result = (x as u16 + 0x9A) as u8;
+            daa(x, result, true, true, true, true, result == 0);
+        }
+    }
 }

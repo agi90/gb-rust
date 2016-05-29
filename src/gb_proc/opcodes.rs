@@ -1201,56 +1201,38 @@ fn dec_SP(cpu: &mut Cpu) { op_SP(dec_16, cpu); }
 // |   NEG     |    1    |     6-F      |   1    |     6-F      |   9A    |   1   |
 // --------------------------------------------------------------------------------
 fn daa(v: u8, cpu: &mut Cpu) -> u8 {
-    let x = v as u16;
-    let l = x & 0x0F;
-    let h = (x & 0xF0) >> 4;
+    let mut result = v as i32;
 
-    let result = if cpu.get_N_flag() {
-        let mut result = x;
+    if !cpu.get_N_flag() {
+        if cpu.get_H_flag() || v & 0xF > 0x9 {
+            result += 0x06;
+        }
 
+        if cpu.get_C_flag() || result > 0x9F {
+            result += 0x60;
+        }
+    } else {
         if cpu.get_H_flag() {
-            result += 0xA;
+            result = (result - 6) & 0xFF;
         }
 
         if cpu.get_C_flag() {
-            if cpu.get_H_flag() {
-                result += 0x90;
-            } else {
-                result += 0xA0;
-            }
-        } else if cpu.get_H_flag() {
-            result += 0xF0;
+            result -= 0x60;
         }
-
-        result
-    } else {
-        let mut result = x;
-
-        if cpu.get_H_flag() {
-            result += 0x6;
-        }
-
-        if l > 0x9 {
-            result += 0x6;
-        }
-
-        if result & 0xFF0 > 0x90 || cpu.get_C_flag() {
-            result += 0x60;
-            cpu.set_C_flag();
-        } else {
-            cpu.reset_C();
-        }
-
-        result
-    };
-
-    if result == 0 {
-        cpu.set_Z_flag();
-    } else {
-        cpu.reset_Z();
     }
 
     cpu.reset_H();
+    cpu.reset_Z();
+
+    if (result & 0x100) == 0x100 {
+        cpu.set_C_flag();
+    }
+
+    result &= 0xFF;
+
+    if result == 0 {
+        cpu.set_Z_flag();
+    }
 
     result as u8
 }
