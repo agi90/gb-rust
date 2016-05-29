@@ -214,6 +214,8 @@ impl Cpu {
             // println!("=================================");
         }
 
+        self.state = CpuState::Running;
+
         self.interrupt_handler.disable();
         let next = self.get_PC();
 
@@ -313,34 +315,40 @@ impl Cpu {
 
         let interrupt = self.interrupt_handler.get_interrupt();
 
-        let op = self.next_opcode();
+        let cycles = if self.state == CpuState::Running {
+            let op = self.next_opcode();
 
-        if self.debug {
-            if op.is_prefixed() {
-                println!("[{:04X}] {}", self.get_PC() - 1, op.to_string());
-                // println!("{:04X}", self.get_PC() - 1);
-            } else {
-                println!("[{:04X}] {}", self.get_PC(), op.to_string());
-                // println!("{:04X}", self.get_PC());
+            if self.debug {
+                if op.is_prefixed() {
+                    println!("[{:04X}] {}", self.get_PC() - 1, op.to_string());
+                    // println!("{:04X}", self.get_PC() - 1);
+                } else {
+                    println!("[{:04X}] {}", self.get_PC(), op.to_string());
+                    // println!("{:04X}", self.get_PC());
+                }
             }
-        }
 
-        op.execute(self);
+            op.execute(self);
 
-        if !self.did_call_set_PC() {
-            // No jump happened so we need to increase PC
-            self.inc_PC();
+            if !self.did_call_set_PC() {
+                // No jump happened so we need to increase PC
+                self.inc_PC();
+            } else {
+                self.reset_call_set_PC();
+            }
+
+            op.get_cycles()
         } else {
-            self.reset_call_set_PC();
-        }
+            1
+        };
+
+        self.add_cycles(cycles);
+        self.interrupt_handler.add_cycles(cycles);
+        self.handler_holder.add_cycles(cycles);
 
         if let Some(int) = interrupt {
             self.interrupt(int);
         }
-
-        self.add_cycles(op.get_cycles());
-        self.interrupt_handler.add_cycles(op.get_cycles());
-        self.handler_holder.add_cycles(op.get_cycles());
     }
 }
 
