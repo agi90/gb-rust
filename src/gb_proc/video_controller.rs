@@ -23,6 +23,16 @@ impl GrayShade {
     }
 }
 
+const COLOR_BLACK: i16 = 232;
+const COLOR_DARK_GRAY: i16 = 239;
+const COLOR_LIGHT_GRAY: i16 = 250;
+const COLOR_WHITE: i16 = 255;
+
+const COLOR_PAIR_BLACK: i16 = 4;
+const COLOR_PAIR_DARK_GRAY: i16 = 5;
+const COLOR_PAIR_LIGHT_GRAY: i16 = 6;
+const COLOR_PAIR_WHITE: i16 = 7;
+
 pub struct VideoController {
     scroll_bg_x: u8,
     scroll_bg_y: u8,
@@ -123,8 +133,18 @@ impl Handler for VideoController {
 }
 
 impl VideoController {
-    pub fn new() -> VideoController {
+    fn init_curses() {
         ncurses::initscr();
+        ncurses::start_color();
+        assert!(ncurses::can_change_color());
+        ncurses::init_pair(COLOR_PAIR_BLACK, COLOR_BLACK, COLOR_BLACK);
+        ncurses::init_pair(COLOR_PAIR_DARK_GRAY, COLOR_DARK_GRAY, COLOR_DARK_GRAY);
+        ncurses::init_pair(COLOR_PAIR_LIGHT_GRAY, COLOR_LIGHT_GRAY, COLOR_LIGHT_GRAY);
+        ncurses::init_pair(COLOR_PAIR_WHITE, COLOR_WHITE, COLOR_WHITE);
+    }
+
+    pub fn new() -> VideoController {
+        Self::init_curses();
 
         VideoController {
             scroll_bg_x: 0,
@@ -167,13 +187,15 @@ impl VideoController {
 
     fn print_pixel(&self, pixel: GrayShade, x: usize, y: usize) {
         let color = match pixel {
-            GrayShade::C00 => " ",
-            GrayShade::C01 => ".",
-            GrayShade::C10 => "*",
-            GrayShade::C11 => "#",
+            GrayShade::C11 => ncurses::COLOR_PAIR(COLOR_PAIR_BLACK),
+            GrayShade::C10 => ncurses::COLOR_PAIR(COLOR_PAIR_DARK_GRAY),
+            GrayShade::C01 => ncurses::COLOR_PAIR(COLOR_PAIR_LIGHT_GRAY),
+            GrayShade::C00 => ncurses::COLOR_PAIR(COLOR_PAIR_WHITE),
         };
 
-        ncurses::mvprintw(y as i32, x as i32, color);
+        ncurses::attron(color);
+        ncurses::mvprintw(y as i32, x as i32, " ");
+        ncurses::attroff(color);
     }
 
     fn get_color(&self, data: u8) -> GrayShade {
@@ -242,20 +264,22 @@ impl VideoController {
         background
     }
 
-    fn print_sprite_pixel(&self, color: GrayShade, x: i32, y: i32) {
-        if color == GrayShade::C00 || y > 160 || x >= 144 {
+    fn print_sprite_pixel(&self, color_: GrayShade, x: i32, y: i32) {
+        if color_ == GrayShade::C00 || y > 160 || x >= 144 {
             // C00 is transparent for sprites
             return;
         }
 
-        let string = match color {
-            GrayShade::C01 => ".",
-            GrayShade::C10 => "*",
-            GrayShade::C11 => "#",
+        let color = match color_ {
+            GrayShade::C11 => ncurses::COLOR_PAIR(COLOR_PAIR_BLACK),
+            GrayShade::C10 => ncurses::COLOR_PAIR(COLOR_PAIR_DARK_GRAY),
+            GrayShade::C01 => ncurses::COLOR_PAIR(COLOR_PAIR_LIGHT_GRAY),
             GrayShade::C00 => unreachable!(),
         };
 
-        ncurses::mvprintw(x, y, string);
+        ncurses::attron(color);
+        ncurses::mvprintw(x as i32, y as i32, " ");
+        ncurses::attroff(color);
     }
 
     fn get_sprite_color(&self, palette: SpritePalette, color: GrayShade) -> GrayShade {
