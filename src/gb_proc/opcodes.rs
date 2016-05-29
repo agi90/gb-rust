@@ -1524,6 +1524,7 @@ fn call_C_nn(cpu: &mut Cpu) {
 }
 
 fn rst_n(n: u8, cpu: &mut Cpu) {
+    cpu.inc_PC();
     let next = cpu.get_PC();
 
     let h = (next >> 8) as u8;
