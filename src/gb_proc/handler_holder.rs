@@ -12,12 +12,12 @@ pub struct GBHandlerHolder {
 }
 
 impl GBHandlerHolder {
-    pub fn new(cartridge: Box<Handler>) -> GBHandlerHolder {
+    pub fn new(cartridge: Box<Handler>, video_enabled: bool) -> GBHandlerHolder {
         GBHandlerHolder {
             memory_holder: MemoryHolder::new(),
             cartridge: cartridge,
             io_registers: IORegisters::new(),
-            video_controller: VideoController::new(),
+            video_controller: VideoController::new(video_enabled),
         }
     }
 }
@@ -42,6 +42,8 @@ impl Handler for MemoryHolder {
     fn read(&self, address: u16) -> u8 {
         match address {
             0xC000 ... 0xDFFF => self.internal_ram[(address - 0xC000) as usize],
+            0xFEA0 ... 0xFEFF => panic!("Unusable IO ports."),
+            0xFF4C ... 0xFF7F => panic!("Unusable IO ports."),
             0xFF80 ... 0xFFFE => self.stack[(address - 0xFF80) as usize],
             _ => unreachable!(),
         }
@@ -50,7 +52,9 @@ impl Handler for MemoryHolder {
     fn write(&mut self, address: u16, v: u8) {
         match address {
             0xC000 ... 0xDFFF => self.internal_ram[(address - 0xC000) as usize] = v,
+            0xFEA0 ... 0xFEFF => { /* println!("Writing to unusable IO port {:04X}", address) */ },
             0xFF80 ... 0xFFFE => self.stack[(address - 0xFF80) as usize] = v,
+            0xFF4C ... 0xFF7F => { /* println!("Writing to unusable IO port {:04X}", address) */ },
             _ => unreachable!(),
         }
     }
@@ -67,11 +71,10 @@ impl HandlerHolder for GBHandlerHolder {
             // but it's probably a bug in the emulator, so let's panic
             0xE000 ... 0xFDFF => panic!("Tried to access echo of internal ram"),
             0xFE00 ... 0xFE9F => &self.video_controller,
-            0xFEA0 ... 0xFEFF => panic!("Unusable IO ports."),
+            0xFEA0 ... 0xFEFF => &self.memory_holder,
             0xFF00 ... 0xFF39 => &self.io_registers,
             0xFF40 ... 0xFF4B => &self.video_controller,
-            0xFF4C ... 0xFF7F => panic!("Unusable IO ports."),
-            0xFF80 ... 0xFFFE => &self.memory_holder,
+            0xFF4C ... 0xFFFE => &self.memory_holder,
             0xFFFF            => &self.io_registers,
             _ => unreachable!(),
         }
@@ -85,11 +88,10 @@ impl HandlerHolder for GBHandlerHolder {
             0xC000 ... 0xDFFF => &mut self.memory_holder,
             0xE000 ... 0xFDFF => &mut self.memory_holder,
             0xFE00 ... 0xFE9F => &mut self.video_controller,
-            0xFEA0 ... 0xFEFF => panic!("Unusable IO ports."),
+            0xFEA0 ... 0xFEFF => &mut self.memory_holder,
             0xFF00 ... 0xFF3F => &mut self.io_registers,
             0xFF40 ... 0xFF4B => &mut self.video_controller,
-            0xFF4C ... 0xFF7F => panic!("Unusable IO ports."),
-            0xFF80 ... 0xFFFE => &mut self.memory_holder,
+            0xFF4C ... 0xFFFE => &mut self.memory_holder,
             0xFFFF            => &mut self.io_registers,
             _ => unimplemented!(),
         }
@@ -197,7 +199,7 @@ impl JoypadRegister {
 
     pub fn read(&self) -> u8 {
         // Not really implemented for now
-        0
+        0b00001111
     }
 
     pub fn write(&mut self, v: u8) {

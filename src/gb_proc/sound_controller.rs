@@ -15,6 +15,7 @@ impl SoundController {
 
     pub fn read(&self, address: u16) -> u8 {
         match address {
+            0xFF11 => 0b10000000,
             0xFF14 => 0b00000000,
             0xFF19 => 0b01000000,
             0xFF26 => self.sound_status_read(),

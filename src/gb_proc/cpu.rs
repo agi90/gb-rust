@@ -208,12 +208,6 @@ impl Cpu {
     pub fn get_cycles(&self) -> usize { self.cycles.clone() }
 
     fn interrupt(&mut self, interrupt: Interrupt) {
-        if self.debug {
-            // println!("=================================");
-            // println!("Interrupt {:?}", interrupt);
-            // println!("=================================");
-        }
-
         self.state = CpuState::Running;
 
         self.interrupt_handler.disable();
@@ -226,11 +220,12 @@ impl Cpu {
         self.push_SP(l);
 
         let address = match interrupt {
-            Interrupt::VBlank => 0x40,
-            Interrupt::Timer => 0x50,
+            Interrupt::VBlank => 0x0040,
+            Interrupt::Timer =>  0x0050,
         };
 
         self.set_PC(address);
+        self.reset_call_set_PC();
     }
 
     pub fn get_debug(&self) -> bool { self.debug }
@@ -315,16 +310,19 @@ impl Cpu {
 
         let interrupt = self.interrupt_handler.get_interrupt();
 
+        if let Some(int) = interrupt {
+            self.interrupt(int);
+            return;
+        }
+
         let cycles = if self.state == CpuState::Running {
             let op = self.next_opcode();
 
             if self.debug {
                 if op.is_prefixed() {
                     println!("[{:04X}] {}", self.get_PC() - 1, op.to_string());
-                    // println!("{:04X}", self.get_PC() - 1);
                 } else {
                     println!("[{:04X}] {}", self.get_PC(), op.to_string());
-                    // println!("{:04X}", self.get_PC());
                 }
             }
 
@@ -345,10 +343,6 @@ impl Cpu {
         self.add_cycles(cycles);
         self.interrupt_handler.add_cycles(cycles);
         self.handler_holder.add_cycles(cycles);
-
-        if let Some(int) = interrupt {
-            self.interrupt(int);
-        }
     }
 }
 
@@ -374,15 +368,22 @@ pub fn print_cpu_status(cpu: &Cpu) {
 
     println!("=== STACK ===");
     println!("${:04X} = {:02X}", cpu.get_SP(),     cpu.deref(cpu.get_SP()));
-    println!("${:04X} = {:02X}", cpu.get_SP() + 1, cpu.deref(cpu.get_SP() + 1));
-    println!("${:04X} = {:02X}", cpu.get_SP() + 2, cpu.deref(cpu.get_SP() + 2));
+
+    if cpu.get_SP() != 0xFFFF && cpu.get_SP() != 0xDFFF {
+        println!("${:04X} = {:02X}", cpu.get_SP() + 1, cpu.deref(cpu.get_SP() + 1));
+    }
     println!("");
 }
 
+#[derive(PartialEq, Eq)]
+enum InterruptStatus {
+    Disabled,
+    Enabling,
+    Enabled
+}
+
 struct InterruptHandler {
-    last_divider: usize,
-    last_clock: usize,
-    enabled: bool,
+    enabled: InterruptStatus,
     register: InterruptRegister,
     timer_controller: TimerController,
 }
@@ -396,9 +397,7 @@ pub enum Interrupt {
 impl InterruptHandler {
     pub fn new() -> InterruptHandler {
         InterruptHandler {
-            last_divider: 0,
-            last_clock: 0,
-            enabled: true,
+            enabled: InterruptStatus::Enabled,
             register: InterruptRegister::new(),
             timer_controller: TimerController::new(),
         }
@@ -413,8 +412,13 @@ impl InterruptHandler {
         }
     }
 
-    pub fn enable(&mut self) { self.enabled = true; }
-    pub fn disable(&mut self) { self.enabled = false; }
+    pub fn enable(&mut self) {
+        self.enabled = InterruptStatus::Enabling;
+    }
+
+    pub fn disable(&mut self) {
+        self.enabled = InterruptStatus::Disabled;
+    }
 
     pub fn read(&self, address: u16) -> u8 {
         match address {
@@ -433,18 +437,31 @@ impl InterruptHandler {
     }
 
     pub fn add_cycles(&mut self, cycles: usize) {
-        self.last_divider += cycles;
-        self.last_clock += cycles;
+        let interrupts = self.timer_controller.add_cycles(cycles);
+        self.add_interrupts(interrupts);
     }
 
     pub fn get_interrupt(&mut self) -> Option<Interrupt> {
-        if !self.enabled {
-            return None;
-        }
+        let is_enabled = match self.enabled {
+            InterruptStatus::Disabled => false,
+            InterruptStatus::Enabling => {
+                // Interrupts take 1 instruction to be enabled
+                self.enabled = InterruptStatus::Enabled;
+                false
+            },
+            InterruptStatus::Enabled => true,
+        };
+
+        if !is_enabled { return None; }
 
         if self.register.v_blank_enabled && self.register.v_blank {
             self.register.v_blank = false;
             return Some(Interrupt::VBlank);
+        }
+
+        if self.register.timer_enabled && self.register.timer {
+            self.register.timer = false;
+            return Some(Interrupt::Timer);
         }
 
         None

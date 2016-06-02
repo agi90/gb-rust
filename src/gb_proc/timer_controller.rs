@@ -1,4 +1,5 @@
 use std::num::Wrapping;
+use gb_proc::cpu::Interrupt;
 
 // Every X clocks
 enum ClockSelect {
@@ -12,8 +13,13 @@ pub struct TimerController {
     clock: usize,
     modulo: u8,
     divider: u8,
+    timer: u8,
+
     timer_enabled: bool,
     clock_select: ClockSelect,
+
+    last_clock: usize,
+    last_divider: usize,
 }
 
 impl TimerController {
@@ -22,33 +28,63 @@ impl TimerController {
             clock: 0,
             modulo: 0,
             divider: 0,
+            timer: 0,
+
             timer_enabled: false,
             clock_select: ClockSelect::C1024,
+
+            last_clock: 0,
+            last_divider: 0,
         }
     }
 
-    pub fn inc_clock(&mut self) -> bool {
-        self.clock = (Wrapping(self.clock) + Wrapping(1)).0;
-
+    pub fn add_cycles(&mut self, cycles: usize) -> Vec<Interrupt> {
         if !self.timer_enabled {
-            false
-        } else {
-            match self.clock_select {
-                ClockSelect::C16   => true,
-                ClockSelect::C64   => (self.clock %  4) == 0,
-                ClockSelect::C256  => (self.clock % 16) == 0,
-                ClockSelect::C1024 => (self.clock % 64) == 0,
+            return vec![];
+        }
+
+        self.last_clock += cycles;
+        self.last_divider += cycles;
+
+        let mut interrupts = vec![];
+        if self.last_clock > 16 {
+            self.last_clock -= 16;
+            let clock = self.inc_clock();
+            let divider = self.inc_divider();
+
+            if clock || divider {
+                interrupts.push(Interrupt::Timer);
             }
         }
+
+        interrupts
     }
 
-    pub fn inc_divider(&mut self) -> bool {
+    fn inc_clock(&mut self) -> bool {
+        self.clock = (Wrapping(self.clock) + Wrapping(1)).0;
+
+        let should_increment = match self.clock_select {
+            ClockSelect::C16   => true,
+            ClockSelect::C64   => (self.clock %  4) == 0,
+            ClockSelect::C256  => (self.clock % 16) == 0,
+            ClockSelect::C1024 => (self.clock % 64) == 0,
+        };
+
+        if should_increment {
+            self.timer += (Wrapping(self.timer) + Wrapping(1)).0;
+            self.timer == 0
+        } else {
+            false
+        }
+    }
+
+    fn inc_divider(&mut self) -> bool {
         self.divider = (Wrapping(self.divider) + Wrapping(1)).0;
         self.divider == 0x00
     }
 
     fn write_counter(&mut self, v: u8) {
-        unimplemented!();
+        self.timer = v;
     }
 
     fn write_modulo(&mut self, v: u8) {
@@ -74,7 +110,7 @@ impl TimerController {
     }
 
     fn read_counter(&self) -> u8 {
-        unimplemented!();
+        self.timer
     }
 
     fn read_modulo(&self) -> u8 {

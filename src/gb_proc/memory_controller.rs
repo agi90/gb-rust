@@ -27,11 +27,11 @@ impl Mbc for Mbc0 {
     }
 
     fn write(&mut self, address: u16, v: u8) {
-        println!("Writing to {:04X}", address);
-        match address {
-            0xA000 ... 0xBFFF => self.ram[(address as usize) - 0xA000] = v,
-            _ => unimplemented!(),
-        }
+        // println!("Writing {:02X} to {:04X}", v, address);
+        // match address {
+        //    0xA000 ... 0xBFFF => self.ram[(address as usize) - 0xA000] = v,
+        //    _ => unimplemented!(),
+        //}
     }
 }
 

@@ -1,10 +1,9 @@
 use gb_proc::cpu::{Handler, Interrupt};
-
-extern crate ncurses;
+use gpu::renderer::{Renderer, GLRenderer};
 
 /* Represents a shade of gray */
 #[derive(Clone, Copy, Eq, PartialEq)]
-enum GrayShade {
+pub enum GrayShade {
     C00,
     C01,
     C10,
@@ -21,17 +20,16 @@ impl GrayShade {
             _    => panic!(),
         }
     }
+
+    pub fn to_u8(&self) -> u8 {
+        match self {
+            &GrayShade::C00 => 0b00,
+            &GrayShade::C01 => 0b01,
+            &GrayShade::C10 => 0b10,
+            &GrayShade::C11 => 0b11,
+        }
+    }
 }
-
-const COLOR_BLACK: i16 = 232;
-const COLOR_DARK_GRAY: i16 = 239;
-const COLOR_LIGHT_GRAY: i16 = 250;
-const COLOR_WHITE: i16 = 255;
-
-const COLOR_PAIR_BLACK: i16 = 4;
-const COLOR_PAIR_DARK_GRAY: i16 = 5;
-const COLOR_PAIR_LIGHT_GRAY: i16 = 6;
-const COLOR_PAIR_WHITE: i16 = 7;
 
 pub struct VideoController {
     scroll_bg_x: u8,
@@ -72,6 +70,9 @@ pub struct VideoController {
     oam_interrupt: bool,
     v_blank_interrupt: bool,
     h_blank_interrupt: bool,
+
+    video_enabled: bool,
+    renderer: Box<Renderer + 'static>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -91,6 +92,14 @@ impl LCDMode {
             &LCDMode::LCDTransfer=> 172,
         }
     }
+}
+
+// Used for debugging
+struct NullRenderer;
+
+impl Renderer for NullRenderer {
+    fn print_pixel(&mut self, pixel: GrayShade, x: i32, y: i32) {}
+    fn refresh(&mut self) {}
 }
 
 impl Handler for VideoController {
@@ -133,18 +142,12 @@ impl Handler for VideoController {
 }
 
 impl VideoController {
-    fn init_curses() {
-        ncurses::initscr();
-        ncurses::start_color();
-        assert!(ncurses::can_change_color());
-        ncurses::init_pair(COLOR_PAIR_BLACK, COLOR_BLACK, COLOR_BLACK);
-        ncurses::init_pair(COLOR_PAIR_DARK_GRAY, COLOR_DARK_GRAY, COLOR_DARK_GRAY);
-        ncurses::init_pair(COLOR_PAIR_LIGHT_GRAY, COLOR_LIGHT_GRAY, COLOR_LIGHT_GRAY);
-        ncurses::init_pair(COLOR_PAIR_WHITE, COLOR_WHITE, COLOR_WHITE);
-    }
-
-    pub fn new() -> VideoController {
-        Self::init_curses();
+    pub fn new(video_enabled: bool) -> VideoController {
+        let renderer = if video_enabled {
+            Box::new(GLRenderer::new()) as Box<Renderer>
+        } else {
+            Box::new(NullRenderer) as Box<Renderer>
+        };
 
         VideoController {
             scroll_bg_x: 0,
@@ -182,20 +185,19 @@ impl VideoController {
             oam_interrupt: false,
             v_blank_interrupt: false,
             h_blank_interrupt: false,
+
+            video_enabled: video_enabled,
+            renderer: renderer,
         }
     }
 
-    fn print_pixel(&self, pixel: GrayShade, x: usize, y: usize) {
-        let color = match pixel {
-            GrayShade::C11 => ncurses::COLOR_PAIR(COLOR_PAIR_BLACK),
-            GrayShade::C10 => ncurses::COLOR_PAIR(COLOR_PAIR_DARK_GRAY),
-            GrayShade::C01 => ncurses::COLOR_PAIR(COLOR_PAIR_LIGHT_GRAY),
-            GrayShade::C00 => ncurses::COLOR_PAIR(COLOR_PAIR_WHITE),
-        };
+    fn print_sprite_pixel(&mut self, color: GrayShade, x: i32, y: i32) {
+        if color == GrayShade::C00 || y > 160 || x >= 144 {
+            // C00 is transparent for sprites
+            return;
+        }
 
-        ncurses::attron(color);
-        ncurses::mvprintw(y as i32, x as i32, " ");
-        ncurses::attroff(color);
+        self.renderer.print_pixel(color, x, y);
     }
 
     fn get_color(&self, data: u8) -> GrayShade {
@@ -264,24 +266,6 @@ impl VideoController {
         background
     }
 
-    fn print_sprite_pixel(&self, color_: GrayShade, x: i32, y: i32) {
-        if color_ == GrayShade::C00 || y > 160 || x >= 144 {
-            // C00 is transparent for sprites
-            return;
-        }
-
-        let color = match color_ {
-            GrayShade::C11 => ncurses::COLOR_PAIR(COLOR_PAIR_BLACK),
-            GrayShade::C10 => ncurses::COLOR_PAIR(COLOR_PAIR_DARK_GRAY),
-            GrayShade::C01 => ncurses::COLOR_PAIR(COLOR_PAIR_LIGHT_GRAY),
-            GrayShade::C00 => unreachable!(),
-        };
-
-        ncurses::attron(color);
-        ncurses::mvprintw(x as i32, y as i32, " ");
-        ncurses::attroff(color);
-    }
-
     fn get_sprite_color(&self, palette: SpritePalette, color: GrayShade) -> GrayShade {
         match palette {
             SpritePalette::C0 => {
@@ -303,14 +287,14 @@ impl VideoController {
         }
     }
 
-    fn print_sprite(&self, tile: [[GrayShade; 8]; 8],
+    fn print_sprite(&mut self, tile: [[GrayShade; 8]; 8],
                     behind_bg: bool,
                     palette: SpritePalette,
                     x: u8, y: u8) {
         for i in 0..8 {
             for j in 0..8 {
                 let color = self.get_sprite_color(palette, tile[i as usize][j as usize]);
-                self.print_sprite_pixel(color, i + y as i32 - 15, j + x as i32);
+                self.print_sprite_pixel(color, j + x as i32 - 8, i + y as i32 - 16);
             }
         }
     }
@@ -335,7 +319,7 @@ impl VideoController {
         new_tile
     }
 
-    fn print_sprites(&self, patterns: [[[GrayShade; 8]; 8]; 256]) {
+    fn print_sprites(&mut self, patterns: [[[GrayShade; 8]; 8]; 256]) {
         for i in 0..40 {
             let y = self.oam_ram[i * 4];
             let x = self.oam_ram[i * 4 + 1];
@@ -360,7 +344,7 @@ impl VideoController {
         }
     }
 
-    fn refresh(&self) {
+    fn refresh(&mut self) {
         let sprite_patterns = self.read_patterns(0x0000, false);
         let patterns = if self.lcd_controller.bg_tile_data == BgTileData::C8000 {
             sprite_patterns
@@ -380,10 +364,6 @@ impl VideoController {
             self.read_background(0x1C00, patterns)
         };
 
-        for i in 0..160 {
-            ncurses::mvprintw(0, i, "=");
-        }
-
         for i in 0..144 {
             for j in 0..160 {
                 if self.lcd_controller.window_on &&
@@ -392,21 +372,17 @@ impl VideoController {
                 {
                     let x = (j - ((self.window_x as usize) - 7)) % 256;
                     let y = (i - (self.window_y as usize)) % 256;
-                    self.print_pixel(window[y][x], j, i + 1);
+                    self.renderer.print_pixel(window[y][x], j as i32, i as i32 + 1);
                 } else {
                     let x = (j + (self.scroll_bg_x as usize)) % 256;
                     let y = (i + (self.scroll_bg_y as usize)) % 256;
-                    self.print_pixel(background[y][x], j, i + 1);
+                    self.renderer.print_pixel(background[y][x], j as i32, i as i32 + 1);
                 }
             }
         }
 
         self.print_sprites(sprite_patterns);
-        for i in 0..160 {
-            ncurses::mvprintw(145, i, "=");
-        }
-
-        ncurses::refresh();
+        self.renderer.refresh();
     }
 
     pub fn read_ram(&self, address: u16) -> u8 {
@@ -463,7 +439,9 @@ impl VideoController {
                 LCDMode::VBlank => {
                     if self.lcd_y_coordinate == 153 {
                         self.mode = LCDMode::C2;
-                        self.refresh();
+                        if self.video_enabled {
+                            self.refresh();
+                        }
                     }
 
                     self.lcd_y_coordinate += 1;
@@ -480,8 +458,20 @@ impl VideoController {
         interrupts
     }
 
-    fn read_obp1(&self) -> u8 { unimplemented!(); }
-    fn read_obp0(&self) -> u8 { unimplemented!(); }
+    fn read_obp1(&self) -> u8 {
+        self.obp1_palette_00.to_u8() +
+            (self.obp1_palette_01.to_u8() << 2) +
+            (self.obp1_palette_10.to_u8() << 4) +
+            (self.obp1_palette_11.to_u8() << 6)
+    }
+
+    fn read_obp0(&self) -> u8 {
+        self.bg_color_00.to_u8() +
+            (self.bg_color_01.to_u8() << 2) +
+            (self.bg_color_10.to_u8() << 4) +
+            (self.bg_color_11.to_u8() << 6)
+    }
+
     fn read_bgp(&self) -> u8 { unimplemented!(); }
 
     fn write_bgp(&mut self, v: u8) {
@@ -506,7 +496,8 @@ impl VideoController {
     }
 
     fn stat_read(&self) -> u8 {
-        unimplemented!();
+        // unimplemented!();
+        0b00000000
     }
 
     fn stat_write(&mut self, v: u8) {
