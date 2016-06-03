@@ -8,8 +8,10 @@ use std::num::Wrapping;
 pub struct GBHandlerHolder {
     memory_holder: MemoryHolder,
     cartridge: Box<Handler + 'static>,
-    io_registers: IORegisters,
     video_controller: VideoController,
+    joypad_register: JoypadRegister,
+    serial_transfer_controller: SerialTransferController,
+    sound_controller: SoundController,
 }
 
 impl GBHandlerHolder {
@@ -17,8 +19,10 @@ impl GBHandlerHolder {
         GBHandlerHolder {
             memory_holder: MemoryHolder::new(),
             cartridge: cartridge,
-            io_registers: IORegisters::new(),
             video_controller: VideoController::new(renderer),
+            joypad_register: JoypadRegister::new(),
+            serial_transfer_controller: SerialTransferController::new(),
+            sound_controller: SoundController::new(),
         }
     }
 }
@@ -73,11 +77,11 @@ impl HandlerHolder for GBHandlerHolder {
             0xE000 ... 0xFDFF => panic!("Tried to access echo of internal ram"),
             0xFE00 ... 0xFE9F => &self.video_controller,
             0xFEA0 ... 0xFEFF => &self.memory_holder,
-            0xFF00 ... 0xFF03 => &self.io_registers,
-            0xFF08 ... 0xFF3F => &self.io_registers,
+            0xFF00            => &self.joypad_register,
+            0xFF01 ... 0xFF02 => &self.serial_transfer_controller,
+            0xFF09 ... 0xFF3F => &self.sound_controller,
             0xFF40 ... 0xFF4B => &self.video_controller,
             0xFF4C ... 0xFFFE => &self.memory_holder,
-            0xFFFF            => &self.io_registers,
             _ => unreachable!(),
         }
     }
@@ -91,11 +95,11 @@ impl HandlerHolder for GBHandlerHolder {
             0xE000 ... 0xFDFF => &mut self.memory_holder,
             0xFE00 ... 0xFE9F => &mut self.video_controller,
             0xFEA0 ... 0xFEFF => &mut self.memory_holder,
-            0xFF00 ... 0xFF03 => &mut self.io_registers,
-            0xFF08 ... 0xFF3F => &mut self.io_registers,
+            0xFF00            => &mut self.joypad_register,
+            0xFF01 ... 0xFF02 => &mut self.serial_transfer_controller,
+            0xFF09 ... 0xFF3F => &mut self.sound_controller,
             0xFF40 ... 0xFF4B => &mut self.video_controller,
             0xFF4C ... 0xFFFE => &mut self.memory_holder,
-            0xFFFF            => &mut self.io_registers,
             _ => unimplemented!(),
         }
     }
@@ -106,42 +110,6 @@ impl HandlerHolder for GBHandlerHolder {
 
     fn check_interrupts(&mut self) -> Vec<Interrupt> {
         self.video_controller.check_interrupts()
-    }
-}
-
-struct IORegisters {
-    joypad_register: JoypadRegister,
-    serial_transfer_controller: SerialTransferController,
-    sound_controller: SoundController,
-}
-
-impl Handler for IORegisters {
-    fn read(&self, address: u16) -> u8 {
-        match address {
-            0xFF00            => self.joypad_register.read(),
-            0xFF01 ... 0xFF02 => self.serial_transfer_controller.read(address),
-            0xFF09 ... 0xFF3F => self.sound_controller.read(address),
-            _ => panic!(),
-        }
-    }
-
-    fn write(&mut self, address: u16, v: u8) {
-        match address {
-            0xFF00            => self.joypad_register.write(v),
-            0xFF01 ... 0xFF02 => self.serial_transfer_controller.write(address, v),
-            0xFF09 ... 0xFF3F => self.sound_controller.write(address, v),
-            _ => panic!(),
-        }
-    }
-}
-
-impl IORegisters {
-    pub fn new() -> IORegisters {
-        IORegisters {
-            joypad_register: JoypadRegister::new(),
-            serial_transfer_controller: SerialTransferController::new(),
-            sound_controller: SoundController::new(),
-        }
     }
 }
 
@@ -195,13 +163,23 @@ impl JoypadRegister {
     pub fn new() -> JoypadRegister {
         JoypadRegister { P14: false, P15: false }
     }
+}
 
-    pub fn read(&self) -> u8 {
+impl Handler for JoypadRegister {
+    fn read(&self, address: u16) -> u8 {
+        if address != 0xFF00 {
+            unimplemented!();
+        }
+
         // Not really implemented for now
         0b00001111
     }
 
-    pub fn write(&mut self, v: u8) {
+    fn write(&mut self, address: u16, v: u8) {
+        if address != 0xFF00 {
+            unimplemented!();
+        }
+
         self.P14 = (0b00001000 & v) == 0;
         self.P15 = (0b00010000 & v) == 0;
     }

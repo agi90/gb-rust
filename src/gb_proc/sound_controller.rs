@@ -1,3 +1,5 @@
+use gb_proc::cpu::Handler;
+
 pub struct SoundController {
     sound_enabled: bool,
 }
@@ -12,8 +14,10 @@ impl SoundController {
         (if self.sound_enabled { 0b10000000 } else { 0 }) +
                                  0b00000001
     }
+}
 
-    pub fn read(&self, address: u16) -> u8 {
+impl Handler for SoundController {
+    fn read(&self, address: u16) -> u8 {
         match address {
             0xFF11 => 0b10000000,
             0xFF14 => 0b00000000,
@@ -25,7 +29,7 @@ impl SoundController {
         }
     }
 
-    pub fn write(&mut self, address: u16, v: u8) {
+    fn write(&mut self, address: u16, v: u8) {
         // TODO:
     }
 }
