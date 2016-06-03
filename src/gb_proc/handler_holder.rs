@@ -1,6 +1,7 @@
 use gb_proc::video_controller::VideoController;
 use gb_proc::sound_controller::SoundController;
 use gb_proc::cpu::{Handler, HandlerHolder, Interrupt};
+use gpu::renderer::Renderer;
 
 use std::num::Wrapping;
 
@@ -12,12 +13,12 @@ pub struct GBHandlerHolder {
 }
 
 impl GBHandlerHolder {
-    pub fn new(cartridge: Box<Handler>, video_enabled: bool) -> GBHandlerHolder {
+    pub fn new(cartridge: Box<Handler>, renderer: Box<Renderer>) -> GBHandlerHolder {
         GBHandlerHolder {
             memory_holder: MemoryHolder::new(),
             cartridge: cartridge,
             io_registers: IORegisters::new(),
-            video_controller: VideoController::new(video_enabled),
+            video_controller: VideoController::new(renderer),
         }
     }
 }

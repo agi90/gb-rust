@@ -104,7 +104,6 @@ impl GLRenderer {
         let index_buffer = (IndexBuffer::immutable(
                 &display, PrimitiveType::TriangleStrip, &[1u16, 2, 0, 3])).unwrap();
 
-
         let vertex_shader_src = r#"
             #version 110
 

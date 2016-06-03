@@ -11,7 +11,9 @@ pub mod gpu;
 
 use self::gb_proc::handler_holder::GBHandlerHolder;
 use self::gb_proc::cartridge::{BootRom, Cartridge};
+use self::gb_proc::video_controller::GrayShade;
 use self::gb_proc::cpu::{Cpu, CpuState, print_cpu_status};
+use self::gpu::renderer::{Renderer, GLRenderer};
 use self::gb_proc::opcodes::OpCode;
 
 use std::io;
@@ -19,11 +21,19 @@ use std::io;
 #[cfg(test)]
 mod tests;
 
+// Used for debugging
+struct NullRenderer;
+
+impl Renderer for NullRenderer {
+    fn print_pixel(&mut self, pixel: GrayShade, x: i32, y: i32) {}
+    fn refresh(&mut self) {}
+}
+
 pub fn main() {
     let mut f = File::open("rom.gb").unwrap();
     let cartridge = Cartridge::from_file(&mut f);
 
-    let handler = GBHandlerHolder::new(Box::new(cartridge), true);
+    let handler = GBHandlerHolder::new(Box::new(cartridge), Box::new(GLRenderer::new()));
     let mut cpu = Cpu::new(Box::new(handler));
     cpu.set_debug(false);
 

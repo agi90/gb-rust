@@ -71,7 +71,6 @@ pub struct VideoController {
     v_blank_interrupt: bool,
     h_blank_interrupt: bool,
 
-    video_enabled: bool,
     renderer: Box<Renderer + 'static>,
 }
 
@@ -92,14 +91,6 @@ impl LCDMode {
             &LCDMode::LCDTransfer=> 172,
         }
     }
-}
-
-// Used for debugging
-struct NullRenderer;
-
-impl Renderer for NullRenderer {
-    fn print_pixel(&mut self, pixel: GrayShade, x: i32, y: i32) {}
-    fn refresh(&mut self) {}
 }
 
 impl Handler for VideoController {
@@ -142,13 +133,7 @@ impl Handler for VideoController {
 }
 
 impl VideoController {
-    pub fn new(video_enabled: bool) -> VideoController {
-        let renderer = if video_enabled {
-            Box::new(GLRenderer::new()) as Box<Renderer>
-        } else {
-            Box::new(NullRenderer) as Box<Renderer>
-        };
-
+    pub fn new(renderer: Box<Renderer>) -> VideoController {
         VideoController {
             scroll_bg_x: 0,
             scroll_bg_y: 0,
@@ -186,7 +171,6 @@ impl VideoController {
             v_blank_interrupt: false,
             h_blank_interrupt: false,
 
-            video_enabled: video_enabled,
             renderer: renderer,
         }
     }
@@ -439,9 +423,7 @@ impl VideoController {
                 LCDMode::VBlank => {
                     if self.lcd_y_coordinate == 153 {
                         self.mode = LCDMode::C2;
-                        if self.video_enabled {
-                            self.refresh();
-                        }
+                        self.refresh();
                     }
 
                     self.lcd_y_coordinate += 1;
