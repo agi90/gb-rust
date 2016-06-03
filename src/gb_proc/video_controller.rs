@@ -1,13 +1,12 @@
 use gb_proc::cpu::{Handler, Interrupt};
-use gpu::renderer::{Renderer, GLRenderer};
 
 /* Represents a shade of gray */
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GrayShade {
-    C00,
-    C01,
-    C10,
-    C11,
+    C00 = 1,
+    C01 = 2,
+    C10 = 3,
+    C11 = 4,
 }
 
 impl GrayShade {
@@ -71,7 +70,7 @@ pub struct VideoController {
     v_blank_interrupt: bool,
     h_blank_interrupt: bool,
 
-    renderer: Box<Renderer + 'static>,
+    screen_buffer: [[GrayShade; 160]; 144],
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -133,7 +132,7 @@ impl Handler for VideoController {
 }
 
 impl VideoController {
-    pub fn new(renderer: Box<Renderer>) -> VideoController {
+    pub fn new() -> VideoController {
         VideoController {
             scroll_bg_x: 0,
             scroll_bg_y: 0,
@@ -171,17 +170,8 @@ impl VideoController {
             v_blank_interrupt: false,
             h_blank_interrupt: false,
 
-            renderer: renderer,
+            screen_buffer: [[GrayShade::C00; 160]; 144],
         }
-    }
-
-    fn print_sprite_pixel(&mut self, color: GrayShade, x: i32, y: i32) {
-        if color == GrayShade::C00 || y > 160 || x >= 144 {
-            // C00 is transparent for sprites
-            return;
-        }
-
-        self.renderer.print_pixel(color, x, y);
     }
 
     fn get_color(&self, data: u8) -> GrayShade {
@@ -278,7 +268,11 @@ impl VideoController {
         for i in 0..8 {
             for j in 0..8 {
                 let color = self.get_sprite_color(palette, tile[i as usize][j as usize]);
-                self.print_sprite_pixel(color, j + x as i32 - 8, i + y as i32 - 16);
+                if color != GrayShade::C00 {
+                    if j + x > 7 && i + y > 15 {
+                        self.write_pixel(j as usize + x as usize - 8, i as usize + y as usize - 16, color);
+                    }
+                }
             }
         }
     }
@@ -328,6 +322,10 @@ impl VideoController {
         }
     }
 
+    pub fn get_screen(&self) -> &[[GrayShade; 160]; 144] {
+        &self.screen_buffer
+    }
+
     fn refresh(&mut self) {
         let sprite_patterns = self.read_patterns(0x0000, false);
         let patterns = if self.lcd_controller.bg_tile_data == BgTileData::C8000 {
@@ -356,17 +354,24 @@ impl VideoController {
                 {
                     let x = (j - ((self.window_x as usize) - 7)) % 256;
                     let y = (i - (self.window_y as usize)) % 256;
-                    self.renderer.print_pixel(window[y][x], j as i32, i as i32 + 1);
+                    self.write_pixel(j as usize, i as usize, window[y][x]);
                 } else {
                     let x = (j + (self.scroll_bg_x as usize)) % 256;
                     let y = (i + (self.scroll_bg_y as usize)) % 256;
-                    self.renderer.print_pixel(background[y][x], j as i32, i as i32 + 1);
+                    self.write_pixel(j as usize, i as usize, background[y][x]);
                 }
             }
         }
 
         self.print_sprites(sprite_patterns);
-        self.renderer.refresh();
+    }
+
+    fn write_pixel(&mut self, x: usize, y: usize, color: GrayShade) {
+        if x > 159 || y > 143 {
+            return;
+        }
+
+        self.screen_buffer[y][x] = color;
     }
 
     pub fn read_ram(&self, address: u16) -> u8 {

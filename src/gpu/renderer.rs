@@ -28,10 +28,10 @@ const TEX_OFFSET_X: f32 = 160 as f32 / TEXTURE_WIDTH as f32;
 const TEX_OFFSET_Y: f32 = 144 as f32 / TEXTURE_HEIGHT as f32;
 
 pub trait Renderer {
-    fn print_pixel(&mut self, pixel: GrayShade, x: i32, y: i32);
-    fn refresh(&mut self);
+    fn refresh(&mut self, pixels: &[[GrayShade; 160]; 144]);
 }
 
+/*
 pub struct NCursesRenderer; impl NCursesRenderer {
     pub fn new() -> NCursesRenderer {
         ncurses::initscr();
@@ -63,7 +63,7 @@ impl Renderer for NCursesRenderer {
     fn refresh(&mut self) {
         ncurses::refresh();
     }
-}
+} */
 
 pub struct GLRenderer {
     buffer: PixelBuffer<u8>,
@@ -74,7 +74,6 @@ pub struct GLRenderer {
     matrix: Mat4<f32>,
     palette: Mat4<f32>,
     display: GlutinFacade,
-    screen_buffer: [u8; 160 * 144],
 }
 
 #[derive(Copy, Clone)]
@@ -162,7 +161,6 @@ impl GLRenderer {
             program: program,
             matrix: matrix,
             palette: palette,
-            screen_buffer: [4; 160 * 144],
             display: display,
         }
     }
@@ -174,23 +172,19 @@ impl GLRenderer {
 }
 
 impl Renderer for GLRenderer {
-    fn print_pixel(&mut self, pixel: GrayShade, x: i32, y: i32) {
-        if x < 0 || y < 1 || x > 159 || y > 144 {
-            return;
+    fn refresh(&mut self, pixels: &[[GrayShade; 160]; 144]) {
+        let mut pixel_buffer = [0u8; 160 * 144];
+
+        let mut index = 0;
+        for y in 0..144 {
+            for x in 0..160 {
+                pixel_buffer[index] = pixels[y][x] as u8;
+                index += 1;
+            }
         }
 
-        let color = match pixel {
-            GrayShade::C11 => 0x04,
-            GrayShade::C10 => 0x03,
-            GrayShade::C01 => 0x02,
-            GrayShade::C00 => 0x01,
-        };
+        self.buffer.write(&pixel_buffer);
 
-        self.screen_buffer[(y as usize - 1) * 160 + x as usize] = color;
-    }
-
-    fn refresh(&mut self) {
-        self.buffer.write(&self.screen_buffer);
         self.update_pixels();
 
         let uniforms = uniform! {

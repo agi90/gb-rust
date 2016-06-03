@@ -2,6 +2,8 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::process;
 use std::collections::HashSet;
+use std::time::{Duration, Instant};
+use std::thread;
 
 #[macro_use]
 extern crate glium;
@@ -25,21 +27,26 @@ mod tests;
 struct NullRenderer;
 
 impl Renderer for NullRenderer {
-    fn print_pixel(&mut self, pixel: GrayShade, x: i32, y: i32) {}
-    fn refresh(&mut self) {}
+    // fn build_buffer(&mut self, ) {}
+    fn refresh(&mut self, pixels: &[[GrayShade; 160]; 144]) {}
 }
 
 pub fn main() {
     let mut f = File::open("rom.gb").unwrap();
     let cartridge = Cartridge::from_file(&mut f);
 
-    let handler = GBHandlerHolder::new(Box::new(cartridge), Box::new(GLRenderer::new()));
+    let mut renderer = GLRenderer::new();
+
+    let handler = GBHandlerHolder::new(Box::new(cartridge));
     let mut cpu = Cpu::new(Box::new(handler));
     cpu.set_debug(false);
 
     let mut stepping = false;
     let mut address_breakpoints = HashSet::new();
     let mut op_breakpoints: HashSet<u8> = HashSet::new();
+
+    let mut last_tick = 0;
+
     loop {
         if (cpu.get_PC() == 0x100 && cpu.get_debug()) ||
             address_breakpoints.contains(&cpu.get_PC()) ||
@@ -53,6 +60,14 @@ pub fn main() {
 
         if cpu.get_debug() {
             // print_cpu_status(&cpu);
+        }
+
+        let cycles = cpu.get_cycles();
+        if cycles - last_tick > 71590 {
+            let screen = cpu.handler_holder.video_controller().get_screen();
+            renderer.refresh(screen);
+
+            last_tick = cycles;
         }
 
         if stepping {

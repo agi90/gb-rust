@@ -1,25 +1,24 @@
 use gb_proc::video_controller::VideoController;
 use gb_proc::sound_controller::SoundController;
 use gb_proc::cpu::{Handler, HandlerHolder, Interrupt};
-use gpu::renderer::Renderer;
 
 use std::num::Wrapping;
 
 pub struct GBHandlerHolder {
     memory_holder: MemoryHolder,
     cartridge: Box<Handler + 'static>,
-    video_controller: VideoController,
+    pub video_controller: VideoController,
     joypad_register: JoypadRegister,
     serial_transfer_controller: SerialTransferController,
     sound_controller: SoundController,
 }
 
 impl GBHandlerHolder {
-    pub fn new(cartridge: Box<Handler>, renderer: Box<Renderer>) -> GBHandlerHolder {
+    pub fn new(cartridge: Box<Handler>) -> GBHandlerHolder {
         GBHandlerHolder {
             memory_holder: MemoryHolder::new(),
             cartridge: cartridge,
-            video_controller: VideoController::new(renderer),
+            video_controller: VideoController::new(),
             joypad_register: JoypadRegister::new(),
             serial_transfer_controller: SerialTransferController::new(),
             sound_controller: SoundController::new(),
@@ -66,6 +65,10 @@ impl Handler for MemoryHolder {
 }
 
 impl HandlerHolder for GBHandlerHolder {
+    fn video_controller(&mut self) -> &mut VideoController {
+        &mut self.video_controller
+    }
+
     fn get_handler_read(&self, address: u16) -> &Handler {
         match address {
             0x0000 ... 0x7FFF => self.cartridge.as_ref(),

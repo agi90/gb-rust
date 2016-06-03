@@ -1,6 +1,7 @@
 use std::num::Wrapping;
 use gb_proc::opcodes::OpCode;
 use gb_proc::timer_controller::TimerController;
+use gb_proc::video_controller::VideoController;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CpuState {
@@ -35,7 +36,7 @@ pub struct Cpu {
 
     debug: bool,
 
-    handler_holder: Box<HandlerHolder>,
+    pub handler_holder: Box<HandlerHolder>,
 }
 
 
@@ -49,6 +50,7 @@ pub trait Handler {
 /** This interface is used to decouple memory access
   and the CPU */
 pub trait HandlerHolder {
+    fn video_controller(&mut self) -> &mut VideoController;
     fn get_handler_read(&self, address: u16) -> &Handler;
     fn get_handler_write(&mut self, address: u16) -> &mut Handler;
     fn add_cycles(&mut self, cycles: usize);
