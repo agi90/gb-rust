@@ -10,13 +10,15 @@ extern crate glium;
 
 pub mod gb_proc;
 pub mod gpu;
+pub mod controller;
 
 use self::gb_proc::handler_holder::GBHandlerHolder;
 use self::gb_proc::cartridge::{BootRom, Cartridge};
 use self::gb_proc::video_controller::GrayShade;
-use self::gb_proc::cpu::{Cpu, CpuState, print_cpu_status};
+use self::gb_proc::cpu::{Cpu, CpuState, Interrupt, print_cpu_status};
 use self::gpu::renderer::{Renderer, GLRenderer};
 use self::gb_proc::opcodes::OpCode;
+use self::controller::{Controller, Hardware, Key};
 
 use std::io;
 
@@ -31,14 +33,45 @@ impl Renderer for NullRenderer {
     fn refresh(&mut self, pixels: &[[GrayShade; 160]; 144]) {}
 }
 
+struct HardwareGlue {
+    cpu: Cpu,
+    handler_holder: GBHandlerHolder,
+}
+
+impl HardwareGlue {
+    pub fn new(cpu: Cpu, handler_holder: GBHandlerHolder) -> HardwareGlue {
+        HardwareGlue {
+            cpu: cpu,
+            handler_holder: handler_holder,
+        }
+    }
+}
+
+impl Hardware for HardwareGlue {
+    fn interrupt(&mut self, interrupt: Interrupt) {
+        self.cpu.request_interrupt(interrupt);
+    }
+
+    fn key_up(&mut self, key: Key) {
+    }
+
+    fn key_down(&mut self, key: Key) {
+    }
+
+    fn next(&mut self) {
+        self.cpu.next_instruction();
+    }
+}
+
 pub fn main() {
     let mut f = File::open("rom.gb").unwrap();
     let cartridge = Cartridge::from_file(&mut f);
 
-    let mut renderer = GLRenderer::new();
+    let mut controller = Controller::new();;
 
     let handler = GBHandlerHolder::new(Box::new(cartridge));
     let mut cpu = Cpu::new(Box::new(handler));
+
     cpu.set_debug(false);
 
     let mut stepping = false;
@@ -65,7 +98,7 @@ pub fn main() {
         let cycles = cpu.get_cycles();
         if cycles - last_tick > 71590 {
             let screen = cpu.handler_holder.video_controller().get_screen();
-            renderer.refresh(screen);
+            controller.refresh(screen);
 
             last_tick = cycles;
         }

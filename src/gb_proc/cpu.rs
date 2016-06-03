@@ -306,6 +306,10 @@ impl Cpu {
         }
     }
 
+    pub fn request_interrupt(&mut self, interrupt: Interrupt) {
+        self.interrupt_handler.add_interrupts(vec![interrupt]);
+    }
+
     pub fn next_instruction(&mut self) {
         self.interrupt_handler.add_interrupts(
             self.handler_holder.check_interrupts());

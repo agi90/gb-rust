@@ -73,7 +73,6 @@ pub struct GLRenderer {
     program: glium::Program,
     matrix: Mat4<f32>,
     palette: Mat4<f32>,
-    display: GlutinFacade,
 }
 
 #[derive(Copy, Clone)]
@@ -85,12 +84,7 @@ pub struct Vertex {
 implement_vertex!(Vertex, position, tex_coords);
 
 impl GLRenderer {
-    pub fn new() -> GLRenderer {
-        let display = glium::glutin::WindowBuilder::new()
-            .with_dimensions(640, 576)
-            .build_glium()
-            .unwrap();
-
+    pub fn new(display: &mut GlutinFacade) -> GLRenderer {
         let vertexes = [
             Vertex { position: [-1.0, -1.0], tex_coords: [0.0,          TEX_OFFSET_Y] },
             Vertex { position: [-1.0,  1.0], tex_coords: [0.0,          0.0] },
@@ -98,10 +92,10 @@ impl GLRenderer {
             Vertex { position: [ 1.0, -1.0], tex_coords: [TEX_OFFSET_X, TEX_OFFSET_Y] }
         ];
 
-        let vertex_buffer = VertexBuffer::immutable(&display, &vertexes).unwrap();
+        let vertex_buffer = VertexBuffer::immutable(display, &vertexes).unwrap();
 
         let index_buffer = (IndexBuffer::immutable(
-                &display, PrimitiveType::TriangleStrip, &[1u16, 2, 0, 3])).unwrap();
+                display, PrimitiveType::TriangleStrip, &[1u16, 2, 0, 3])).unwrap();
 
         let vertex_shader_src = r#"
             #version 110
@@ -134,14 +128,14 @@ impl GLRenderer {
         "#;
 
         let program = glium::Program::from_source(
-            &display,
+            display,
             vertex_shader_src,
             fragment_shader_src,
             None).unwrap();
 
-        let pixel_buffer = PixelBuffer::new_empty(&display, 160 * 144);
+        let pixel_buffer = PixelBuffer::new_empty(display, 160 * 144);
 
-        let mut texture = Texture2d::empty_with_format(&display,
+        let mut texture = Texture2d::empty_with_format(display,
                                                        UncompressedFloatFormat::U8,
                                                        MipmapsOption::NoMipmap,
                                                        TEXTURE_WIDTH, TEXTURE_HEIGHT).unwrap();
@@ -161,7 +155,6 @@ impl GLRenderer {
             program: program,
             matrix: matrix,
             palette: palette,
-            display: display,
         }
     }
 
@@ -169,10 +162,8 @@ impl GLRenderer {
       self.texture.main_level().raw_upload_from_pixel_buffer(
         self.buffer.as_slice(), 0..160, 0..144, 0 .. 1);
     }
-}
 
-impl Renderer for GLRenderer {
-    fn refresh(&mut self, pixels: &[[GrayShade; 160]; 144]) {
+    pub fn refresh(&mut self, frame: &mut glium::Frame, pixels: &[[GrayShade; 160]; 144]) {
         let mut pixel_buffer = [0u8; 160 * 144];
 
         let mut index = 0;
@@ -199,9 +190,7 @@ impl Renderer for GLRenderer {
             .. Default::default()
         };
 
-        let mut frame = self.display.draw();
         frame.clear_color(0.0, 0.0, 0.0, 1.0);
         frame.draw(&self.vertex_buffer, &self.index_buffer, &self.program, &uniforms, &params).unwrap();
-        frame.finish().unwrap();
     }
 }
