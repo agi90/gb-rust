@@ -272,7 +272,14 @@ impl VideoController {
                 let color = self.get_sprite_color(palette, tile[i as usize][j as usize]);
                 if color != GrayShade::C00 {
                     if j + x > 7 && i + y > 15 {
-                        self.write_pixel(j as usize + x as usize - 8, i as usize + y as usize - 16, color);
+                        let x = j as usize + x as usize - 8;
+                        let y = i as usize + y as usize - 16;
+
+                        // If behind_gb is true the sprite should be painted behind the background
+                        // i.e. it will only appear if the color of the background is white (C00)
+                        if !behind_bg || (x < 160 && y < 144 && self.screen_buffer[y][x] == GrayShade::C00) {
+                            self.write_pixel(x, y, color);
+                        }
                     }
                 }
             }
@@ -312,7 +319,6 @@ impl VideoController {
             let palette   =  if flags & (0b00010000) > 0 { SpritePalette::C1 } else { SpritePalette::C0 };
 
             if self.lcd_controller.sprite_size == SpriteSize::C8by8 {
-                // TODO handle 8x16
                 let tile = patterns[tile_index as usize];
 
                 let flipped_tile = self.flip_tile(tile, y_flip, x_flip);
@@ -398,7 +404,6 @@ impl VideoController {
             self.mode = LCDMode::C2;
             self.lcd_y_coordinate = 0;
 
-            // println!("LCD is off");
             return;
         }
 
@@ -439,10 +444,6 @@ impl VideoController {
 
             self.lcd_y_coordinate %= 154;
         }
-
-        // println!("lyc_y_coordinate = {}", self.lcd_y_coordinate);
-        // println!("cycles = {}", self.cycles);
-        // println!("mode = {:?}", self.mode);
 
         interrupts
     }
