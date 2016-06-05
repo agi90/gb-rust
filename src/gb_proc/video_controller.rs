@@ -30,6 +30,8 @@ impl GrayShade {
     }
 }
 
+pub type ScreenBuffer = [[GrayShade; 160]; 144];
+
 pub struct VideoController {
     scroll_bg_x: u8,
     scroll_bg_y: u8,
@@ -70,7 +72,7 @@ pub struct VideoController {
     v_blank_interrupt: bool,
     h_blank_interrupt: bool,
 
-    screen_buffer: [[GrayShade; 160]; 144],
+    screen_buffer: ScreenBuffer,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -322,7 +324,7 @@ impl VideoController {
         }
     }
 
-    pub fn get_screen(&self) -> &[[GrayShade; 160]; 144] {
+    pub fn get_screen(&self) -> &ScreenBuffer {
         &self.screen_buffer
     }
 

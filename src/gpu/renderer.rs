@@ -1,7 +1,7 @@
 extern crate ncurses;
 extern crate nalgebra;
 
-use gb_proc::video_controller::GrayShade;
+use gb_proc::video_controller::ScreenBuffer;
 use glium::{DrawParameters, DisplayBuild, Surface, VertexBuffer, IndexBuffer};
 use glium::index::PrimitiveType;
 use glium::texture::pixel_buffer::PixelBuffer;
@@ -28,7 +28,7 @@ const TEX_OFFSET_X: f32 = 160 as f32 / TEXTURE_WIDTH as f32;
 const TEX_OFFSET_Y: f32 = 144 as f32 / TEXTURE_HEIGHT as f32;
 
 pub trait Renderer {
-    fn refresh(&mut self, pixels: &[[GrayShade; 160]; 144]);
+    fn refresh(&mut self, pixels: &ScreenBuffer);
 }
 
 /*
@@ -163,7 +163,7 @@ impl GLRenderer {
         self.buffer.as_slice(), 0..160, 0..144, 0 .. 1);
     }
 
-    pub fn refresh(&mut self, frame: &mut glium::Frame, pixels: &[[GrayShade; 160]; 144]) {
+    pub fn refresh(&mut self, frame: &mut glium::Frame, pixels: &ScreenBuffer) {
         let mut pixel_buffer = [0u8; 160 * 144];
 
         let mut index = 0;

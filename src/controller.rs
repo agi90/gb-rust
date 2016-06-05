@@ -1,7 +1,7 @@
 use glium::backend::glutin_backend::GlutinFacade;
 use glium::DisplayBuild;
 use gpu::renderer::{GLRenderer, Renderer};
-use gb_proc::video_controller::GrayShade;
+use gb_proc::video_controller::ScreenBuffer;
 use gb_proc::cpu::Interrupt;
 
 use glium;
@@ -28,7 +28,7 @@ impl Controller {
 }
 
 impl Renderer for Controller {
-    fn refresh(&mut self, pixels: &[[GrayShade; 160]; 144]) {
+    fn refresh(&mut self, pixels: &ScreenBuffer) {
         let mut frame = self.display.draw();
         self.renderer.refresh(&mut frame, pixels);
         frame.finish().unwrap();
