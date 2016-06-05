@@ -18,7 +18,7 @@ use self::gb_proc::video_controller::GrayShade;
 use self::gb_proc::cpu::{Cpu, CpuState, Interrupt, print_cpu_status};
 use self::gpu::renderer::{Renderer, GLRenderer};
 use self::gb_proc::opcodes::OpCode;
-use self::controller::{Controller, Hardware, Key};
+use self::controller::{Controller, Hardware};
 
 use std::io;
 
@@ -36,31 +36,6 @@ impl Renderer for NullRenderer {
 struct HardwareGlue {
     cpu: Cpu,
     handler_holder: GBHandlerHolder,
-}
-
-impl HardwareGlue {
-    pub fn new(cpu: Cpu, handler_holder: GBHandlerHolder) -> HardwareGlue {
-        HardwareGlue {
-            cpu: cpu,
-            handler_holder: handler_holder,
-        }
-    }
-}
-
-impl Hardware for HardwareGlue {
-    fn interrupt(&mut self, interrupt: Interrupt) {
-        self.cpu.request_interrupt(interrupt);
-    }
-
-    fn key_up(&mut self, key: Key) {
-    }
-
-    fn key_down(&mut self, key: Key) {
-    }
-
-    fn next(&mut self) {
-        self.cpu.next_instruction();
-    }
 }
 
 pub fn main() {
@@ -90,14 +65,17 @@ pub fn main() {
         }
 
         cpu.next_instruction();
-
         if cpu.get_debug() {
             // print_cpu_status(&cpu);
         }
 
         let cycles = cpu.get_cycles();
         if cycles - last_tick > 71590 {
-            let screen = cpu.handler_holder.video_controller().get_screen();
+            if controller.check_events(&mut cpu) {
+                break;
+            }
+
+            let screen = cpu.handler_holder.get_screen_buffer();
             controller.refresh(screen);
 
             last_tick = cycles;

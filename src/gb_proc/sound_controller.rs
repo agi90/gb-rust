@@ -21,6 +21,7 @@ impl Handler for SoundController {
         match address {
             0xFF11 => 0b10000000,
             0xFF14 => 0b00000000,
+            0xFF16 => 0b10000000,
             0xFF19 => 0b01000000,
             0xFF26 => self.sound_status_read(),
             0xFF25 => 0b00000000,

@@ -1,7 +1,9 @@
 use std::num::Wrapping;
+use controller::Hardware;
 use gb_proc::opcodes::OpCode;
+use gb_proc::handler_holder::Key;
 use gb_proc::timer_controller::TimerController;
-use gb_proc::video_controller::VideoController;
+use gb_proc::video_controller::ScreenBuffer;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CpuState {
@@ -50,11 +52,35 @@ pub trait Handler {
 /** This interface is used to decouple memory access
   and the CPU */
 pub trait HandlerHolder {
-    fn video_controller(&mut self) -> &mut VideoController;
+    fn key_down(&mut self, key: Key);
+    fn key_up(&mut self, key: Key);
+    fn get_screen_buffer(&self) -> &ScreenBuffer;
     fn get_handler_read(&self, address: u16) -> &Handler;
     fn get_handler_write(&mut self, address: u16) -> &mut Handler;
     fn add_cycles(&mut self, cycles: usize);
     fn check_interrupts(&mut self) -> Vec<Interrupt>;
+}
+
+impl Hardware for Cpu {
+    fn interrupt(&mut self, interrupt: Interrupt) {
+        self.request_interrupt(interrupt);
+    }
+
+    fn key_up(&mut self, key: Key) {
+        self.handler_holder.key_up(key);
+    }
+
+    fn key_down(&mut self, key: Key) {
+        self.handler_holder.key_down(key);
+    }
+
+    fn next(&mut self) {
+        self.next_instruction();
+    }
+
+    fn get_screen_buffer(&self) -> &ScreenBuffer {
+        self.handler_holder.get_screen_buffer()
+    }
 }
 
 impl Cpu {
@@ -223,7 +249,8 @@ impl Cpu {
 
         let address = match interrupt {
             Interrupt::VBlank => 0x0040,
-            Interrupt::Timer =>  0x0050,
+            Interrupt::Timer  => 0x0050,
+            Interrupt::Joypad => 0x0060,
         };
 
         self.set_PC(address);
@@ -398,6 +425,7 @@ struct InterruptHandler {
 pub enum Interrupt {
     VBlank,
     Timer,
+    Joypad,
 }
 
 impl InterruptHandler {
@@ -414,6 +442,7 @@ impl InterruptHandler {
             match int {
                 Interrupt::VBlank => self.register.v_blank = true,
                 Interrupt::Timer => self.register.timer = true,
+                Interrupt::Joypad => self.register.joypad = true,
             }
         }
     }
@@ -468,6 +497,11 @@ impl InterruptHandler {
         if self.register.timer_enabled && self.register.timer {
             self.register.timer = false;
             return Some(Interrupt::Timer);
+        }
+
+        if self.register.joypad_enabled && self.register.joypad {
+            self.register.joypad = false;
+            return Some(Interrupt::Joypad);
         }
 
         None

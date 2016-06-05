@@ -1,4 +1,4 @@
-use gb_proc::video_controller::VideoController;
+use gb_proc::video_controller::{VideoController, ScreenBuffer};
 use gb_proc::sound_controller::SoundController;
 use gb_proc::cpu::{Handler, HandlerHolder, Interrupt};
 
@@ -65,8 +65,16 @@ impl Handler for MemoryHolder {
 }
 
 impl HandlerHolder for GBHandlerHolder {
-    fn video_controller(&mut self) -> &mut VideoController {
-        &mut self.video_controller
+    fn get_screen_buffer(&self) -> &ScreenBuffer {
+        self.video_controller.get_screen()
+    }
+
+    fn key_up(&mut self, key: Key) {
+        self.joypad_register.key_up(key);
+    }
+
+    fn key_down(&mut self, key: Key) {
+        self.joypad_register.key_down(key);
     }
 
     fn get_handler_read(&self, address: u16) -> &Handler {
@@ -157,14 +165,73 @@ impl SerialTransferController {
     }
 }
 
+#[derive(Debug)]
+pub enum Key {
+    Up,
+    Down,
+    Left,
+    Right,
+    A,
+    B,
+    Select,
+    Start,
+}
+
 struct JoypadRegister {
     P14: bool,
     P15: bool,
+
+    // Button status
+    up: bool,
+    down: bool,
+    left: bool,
+    right: bool,
+    a: bool,
+    b: bool,
+    select: bool,
+    start: bool,
 }
 
 impl JoypadRegister {
     pub fn new() -> JoypadRegister {
-        JoypadRegister { P14: false, P15: false }
+        JoypadRegister {
+            P14: false,
+            P15: false,
+            up: false,
+            down: false,
+            left: false,
+            right: false,
+            a: false,
+            b: false,
+            select: false,
+            start: false,
+        }
+    }
+
+    pub fn key_up(&mut self, key: Key) {
+        match key {
+            Key::Up => { self.up = false },
+            Key::Down => { self.down = false },
+            Key::Left => { self.left = false },
+            Key::Right => { self.right = false },
+            Key::A => { self.a = false },
+            Key::B => { self.b = false },
+            Key::Select => { self.select = false },
+            Key::Start => { self.start = false },
+        }
+    }
+
+    pub fn key_down(&mut self, key: Key) {
+        match key {
+            Key::Up => { self.up = true },
+            Key::Down => { self.down = true },
+            Key::Left => { self.left = true },
+            Key::Right => { self.right = true },
+            Key::A => { self.a = true },
+            Key::B => { self.b = true },
+            Key::Select => { self.select = true },
+            Key::Start => { self.start = true },
+        }
     }
 }
 
@@ -174,8 +241,24 @@ impl Handler for JoypadRegister {
             unimplemented!();
         }
 
-        // Not really implemented for now
-        0b00001111
+        // 0 means that the button is pressed
+        let mut r = 0b00001111;
+        if self.P14 {
+            if self.right { r &= 0b00001110 };
+            if self.left  { r &= 0b00001101 };
+            if self.up    { r &= 0b00001011 };
+            if self.down  { r &= 0b00000111 };
+        } else if self.P15 {
+            if self.a      { r &= 0b00001110 };
+            if self.b      { r &= 0b00001101 };
+            if self.select { r &= 0b00001011 };
+            if self.start  { r &= 0b00000111 };
+        } else {
+            // Can this ever happen?
+            unimplemented!();
+        }
+
+        r
     }
 
     fn write(&mut self, address: u16, v: u8) {
@@ -183,7 +266,8 @@ impl Handler for JoypadRegister {
             unimplemented!();
         }
 
-        self.P14 = (0b00001000 & v) == 0;
-        self.P15 = (0b00010000 & v) == 0;
+        // I'm not totally sure about this, but it seems to work
+        self.P15 = (0b00010000 & v) > 0;
+        self.P14 = (0b00100000 & v) > 0;
     }
 }

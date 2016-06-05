@@ -1,8 +1,11 @@
 use glium::backend::glutin_backend::GlutinFacade;
 use glium::DisplayBuild;
+use glium::glutin::{Event, VirtualKeyCode, ElementState};
 use gpu::renderer::{GLRenderer, Renderer};
+use gb_proc::handler_holder::Key;
 use gb_proc::video_controller::ScreenBuffer;
 use gb_proc::cpu::Interrupt;
+
 
 use glium;
 
@@ -25,6 +28,40 @@ impl Controller {
             renderer: renderer,
         }
     }
+
+    pub fn check_events(&mut self, hardware: &mut Hardware) -> bool {
+        for event in self.display.poll_events() {
+            match event {
+                Event::Closed => {
+                    return true;
+                },
+                Event::KeyboardInput(state, _, virtual_key) => {
+                    let key = virtual_key.and_then(|k| match k {
+                        VirtualKeyCode::Left  => Some(Key::Left),
+                        VirtualKeyCode::Right => Some(Key::Right),
+                        VirtualKeyCode::Up    => Some(Key::Up),
+                        VirtualKeyCode::Down  => Some(Key::Down),
+                        VirtualKeyCode::A     => Some(Key::A),
+                        VirtualKeyCode::S     => Some(Key::B),
+                        VirtualKeyCode::D     => Some(Key::Start),
+                        VirtualKeyCode::F     => Some(Key::Select),
+                        _ => None,
+                    });
+
+                    if let Some(k) = key {
+                        match state {
+                            ElementState::Pressed => { hardware.key_down(k) },
+                            ElementState::Released => { hardware.key_up(k) },
+                        }
+                        hardware.interrupt(Interrupt::Joypad);
+                    };
+                },
+                _ => {}
+            }
+        };
+
+        false
+    }
 }
 
 impl Renderer for Controller {
@@ -35,16 +72,8 @@ impl Renderer for Controller {
     }
 }
 
-pub enum Key {
-    Up,
-    Down,
-    Left,
-    Right,
-    A,
-    B,
-}
-
 pub trait Hardware {
+    fn get_screen_buffer(&self) -> &ScreenBuffer;
     fn interrupt(&mut self, interrupt: Interrupt);
     fn key_up(&mut self, key: Key);
     fn key_down(&mut self, key: Key);

@@ -35,11 +35,18 @@ impl Mbc for Mbc0 {
     }
 }
 
+#[derive(PartialEq, Eq)]
+enum MemoryMode {
+    C4_32,
+    C16_8,
+}
+
 struct Mbc3 {
     selected_bank: usize,
     data: Vec<u8>,
     offset: usize,
-    ram: [u8; 24576], // Up to 3 x 8KB banks
+    ram: [u8; 32768], // Up to 4 x 8KB banks
+    memory_mode: MemoryMode,
 
     ram_offset: usize,
     ram_enabled: bool,
@@ -51,7 +58,8 @@ impl Mbc3 {
             selected_bank: 1,
             data: data,
             offset: 0,
-            ram: [0; 24576],
+            ram: [0; 32768],
+            memory_mode: MemoryMode::C4_32,
 
             ram_offset: 0,
             ram_enabled: false,
@@ -86,7 +94,6 @@ impl Mbc for Mbc3 {
     }
 
     fn write(&mut self, address: u16, v: u8) {
-        // println!("Attempt to write {:02X} to {:04X}", v, address);
         match address {
             0x0000 ... 0x1FFF => {
                 match v {
@@ -111,8 +118,17 @@ impl Mbc for Mbc3 {
                     0x00 => self.ram_offset = 0,
                     0x01 => self.ram_offset = 8192,
                     0x02 => self.ram_offset = 16384,
+                    0x03 => self.ram_offset = 24576,
                     _ => unimplemented!(),
                 }
+            },
+            0x6000 ... 0x7FFF => {
+                println!("Attempt to write {:02X} to {:04X}", v, address);
+                /* match v & 0x1 {
+                    0x0 => self.memory_mode = MemoryMode::C16_8, // Memory mode 16_8,
+                    0x1 => self.memory_mode = MemoryMode::C4_32,
+                    _   => panic!(),
+                }*/
             },
             0xA000 ... 0xBFFF => { self.write_ram(address, v); },
             _ => unimplemented!(),
