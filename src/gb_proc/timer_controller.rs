@@ -39,10 +39,6 @@ impl TimerController {
     }
 
     pub fn add_cycles(&mut self, cycles: usize) -> Vec<Interrupt> {
-        if !self.timer_enabled {
-            return vec![];
-        }
-
         self.last_clock += cycles;
         self.last_divider += cycles;
 
@@ -55,6 +51,10 @@ impl TimerController {
             if clock || divider {
                 interrupts.push(Interrupt::Timer);
             }
+        }
+
+        if !self.timer_enabled {
+            return vec![];
         }
 
         interrupts
