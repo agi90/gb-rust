@@ -7,6 +7,7 @@ pub enum GrayShade {
     C01 = 2,
     C10 = 3,
     C11 = 4,
+    Transparent = 5,
 }
 
 impl GrayShade {
@@ -26,6 +27,7 @@ impl GrayShade {
             &GrayShade::C01 => 0b01,
             &GrayShade::C10 => 0b10,
             &GrayShade::C11 => 0b11,
+            _               => panic!(),
         }
     }
 }
@@ -47,12 +49,10 @@ pub struct VideoController {
     bg_color_10: GrayShade,
     bg_color_11: GrayShade,
 
-    obp0_palette_00: GrayShade,
     obp0_palette_01: GrayShade,
     obp0_palette_10: GrayShade,
     obp0_palette_11: GrayShade,
 
-    obp1_palette_00: GrayShade,
     obp1_palette_01: GrayShade,
     obp1_palette_10: GrayShade,
     obp1_palette_11: GrayShade,
@@ -76,20 +76,20 @@ pub struct VideoController {
     screen_buffer: ScreenBuffer,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum LCDMode {
-    C0,
-    VBlank,
-    C2,
-    LCDTransfer,
+    HBlank = 0,
+    VBlank = 1,
+    SearchingOAM = 2,
+    LCDTransfer = 3,
 }
 
 impl LCDMode {
     pub fn duration(&self) -> usize {
         match self {
-            &LCDMode::C0 => 200,
+            &LCDMode::HBlank => 200,
             &LCDMode::VBlank => 456,
-            &LCDMode::C2 => 84,
+            &LCDMode::SearchingOAM => 84,
             &LCDMode::LCDTransfer=> 172,
         }
     }
@@ -188,19 +188,17 @@ impl VideoController {
             bg_color_10: GrayShade::C11,
             bg_color_11: GrayShade::C11,
 
-            obp0_palette_00: GrayShade::C11,
             obp0_palette_01: GrayShade::C11,
             obp0_palette_10: GrayShade::C11,
             obp0_palette_11: GrayShade::C11,
 
-            obp1_palette_00: GrayShade::C11,
             obp1_palette_01: GrayShade::C11,
             obp1_palette_10: GrayShade::C11,
             obp1_palette_11: GrayShade::C11,
 
             lcd_controller: LCDController::new(),
 
-            mode: LCDMode::C2,
+            mode: LCDMode::SearchingOAM,
 
             cycles: 0,
             total_cycles: 0,
@@ -307,7 +305,7 @@ impl VideoController {
 
                 let color = sprite.tile[scanline + 16 - sprite.y][ x + 8 - sprite.x];
 
-                if color != GrayShade::C00 {
+                if color != GrayShade::Transparent {
                     if !sprite.below_bg
                         || (self.screen_buffer[scanline][x] == GrayShade::C00) {
                             self.write_pixel(x, scanline, color);
@@ -327,18 +325,20 @@ impl VideoController {
                 translated[i][j] = match &palette {
                     &SpritePalette::C0 => {
                         match color {
-                            GrayShade::C00 => self.obp0_palette_00,
+                            GrayShade::C00 => GrayShade::Transparent,
                             GrayShade::C01 => self.obp0_palette_01,
                             GrayShade::C10 => self.obp0_palette_10,
                             GrayShade::C11 => self.obp0_palette_11,
+                            GrayShade::Transparent => panic!(),
                         }
                     },
                     &SpritePalette::C1 => {
                         match color {
-                            GrayShade::C00 => self.obp1_palette_00,
+                            GrayShade::C00 => GrayShade::Transparent,
                             GrayShade::C01 => self.obp1_palette_01,
                             GrayShade::C10 => self.obp1_palette_10,
                             GrayShade::C11 => self.obp1_palette_11,
+                            GrayShade::Transparent => panic!(),
                         }
                     },
                 };
@@ -463,7 +463,7 @@ impl VideoController {
     pub fn add_cycles(&mut self, cycles: usize) {
         if !self.lcd_controller.lcd_on {
             self.cycles = 0;
-            self.mode = LCDMode::C2;
+            self.mode = LCDMode::SearchingOAM;
             self.lcd_y_coordinate = 0;
 
             return;
@@ -480,13 +480,13 @@ impl VideoController {
             self.cycles -= self.mode.duration();
 
             match self.mode {
-                LCDMode::C2 => {
+                LCDMode::SearchingOAM => {
                     self.mode = LCDMode::LCDTransfer;
                 },
-                LCDMode::LCDTransfer => { self.mode = LCDMode::C0; },
-                LCDMode::C0 => {
+                LCDMode::LCDTransfer => { self.mode = LCDMode::HBlank; },
+                LCDMode::HBlank => {
                     if self.lcd_y_coordinate < 143 {
-                        self.mode = LCDMode::C2;
+                        self.mode = LCDMode::SearchingOAM;
                     } else {
                         self.mode = LCDMode::VBlank;
                         interrupts.push(Interrupt::VBlank);
@@ -496,7 +496,7 @@ impl VideoController {
                 },
                 LCDMode::VBlank => {
                     if self.lcd_y_coordinate == 153 {
-                        self.mode = LCDMode::C2;
+                        self.mode = LCDMode::SearchingOAM;
                         self.refresh();
                     }
 
@@ -516,7 +516,6 @@ impl VideoController {
     }
 
     fn read_obp1(&self) -> u8 {
-        self.obp1_palette_00.to_u8() +
             (self.obp1_palette_01.to_u8() << 2) +
             (self.obp1_palette_10.to_u8() << 4) +
             (self.obp1_palette_11.to_u8() << 6)
@@ -539,21 +538,27 @@ impl VideoController {
     }
 
     fn write_obp1(&mut self, v: u8) {
-        self.obp1_palette_00 = GrayShade::from_u8(0b00000011 & v);
+        // The 00 always means transparent for sprites
         self.obp1_palette_01 = GrayShade::from_u8((0b00001100 & v) >> 2);
         self.obp1_palette_10 = GrayShade::from_u8((0b00110000 & v) >> 4);
         self.obp1_palette_11 = GrayShade::from_u8((0b11000000 & v) >> 6);
     }
 
     fn write_obp0(&mut self, v: u8) {
-        self.obp0_palette_00 = GrayShade::from_u8(0b00000011 & v);
+        // The 00 always means transparent for sprites
         self.obp0_palette_01 = GrayShade::from_u8((0b00001100 & v) >> 2);
         self.obp0_palette_10 = GrayShade::from_u8((0b00110000 & v) >> 4);
         self.obp0_palette_11 = GrayShade::from_u8((0b11000000 & v) >> 6);
     }
 
     fn stat_read(&self) -> u8 {
-        unimplemented!();
+        let ly_coincidence = self.lcd_y_coordinate == self.lyc_coincidence;
+        self.mode as u8 +
+            (if ly_coincidence                    { 0b00000100 } else { 0 }) +
+            (if self.h_blank_interrupt            { 0b00001000 } else { 0 }) +
+            (if self.v_blank_interrupt            { 0b00010000 } else { 0 }) +
+            (if self.oam_interrupt                { 0b00100000 } else { 0 }) +
+            (if self.lyc_ly_coincidence_interrupt { 0b01000000 } else { 0 })
     }
 
     fn stat_write(&mut self, v: u8) {
