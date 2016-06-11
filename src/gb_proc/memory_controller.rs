@@ -1,3 +1,7 @@
+use std::fs::{File, OpenOptions};
+use std::io::{Read, Write, Seek, SeekFrom};
+use std::cell::RefCell;
+
 trait Mbc {
     fn read(&self, address: u16) -> u8;
     fn write(&mut self, address: u16, v: u8);
@@ -45,7 +49,7 @@ struct Mbc3 {
     selected_bank: usize,
     data: Vec<u8>,
     offset: usize,
-    ram: [u8; 32768], // Up to 4 x 8KB banks
+    ram: RefCell<File>,
     memory_mode: MemoryMode,
 
     ram_offset: usize,
@@ -54,11 +58,27 @@ struct Mbc3 {
 
 impl Mbc3 {
     pub fn new(data: Vec<u8>) -> Mbc3 {
+        let mut disk = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open("save.dat")
+            .unwrap();
+
+        let mut ram = vec![];
+        disk.read_to_end(&mut ram);
+
+        if ram.len() < 32768 {
+            println!("Warning: invalid file size, blanking ram.");
+            disk.seek(SeekFrom::Start(0));
+            disk.write_all(&[0; 32768]);
+        }
+
         Mbc3 {
             selected_bank: 1,
             data: data,
             offset: 0,
-            ram: [0; 32768],
+            ram: RefCell::new(disk),
             memory_mode: MemoryMode::C4_32,
 
             ram_offset: 0,
@@ -71,7 +91,9 @@ impl Mbc3 {
             panic!("MBC3 RAM has not been enabled.");
         }
 
-        self.ram[(address - 0xA000) as usize + self.ram_offset] = v;
+        let address = (address - 0xA000) as usize + self.ram_offset;
+        self.ram.borrow_mut().seek(SeekFrom::Start(address as u64));
+        self.ram.borrow_mut().write_all(&[v]);
     }
 
     fn read_ram(&self, address: u16) -> u8 {
@@ -79,7 +101,12 @@ impl Mbc3 {
             panic!("MBC3 RAM has not been enabled.");
         }
 
-        self.ram[(address - 0xA000) as usize + self.ram_offset]
+        let address = (address - 0xA000) as usize + self.ram_offset;
+        self.ram.borrow_mut().seek(SeekFrom::Start(address as u64));
+        let mut buffer = [0; 1];
+        self.ram.borrow_mut().read_exact(&mut buffer).unwrap();
+
+        buffer[0]
     }
 }
 
