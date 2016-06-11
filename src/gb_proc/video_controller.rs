@@ -67,6 +67,7 @@ pub struct VideoController {
     video_ram: [u8; 8196],
     oam_ram: [u8; 160],
 
+    lyc_coincidence: u8,
     lyc_ly_coincidence_interrupt: bool,
     oam_interrupt: bool,
     v_blank_interrupt: bool,
@@ -104,6 +105,7 @@ impl Handler for VideoController {
             0xFF42 => self.scroll_bg_y,
             0xFF43 => self.scroll_bg_x,
             0xFF44 => self.lcd_y_coordinate,
+            0xFF45 => self.lyc_coincidence,
             0xFF46 => panic!("Cannot read from $FF46"),
             0xFF47 => self.read_bgp(),
             0xFF48 => self.read_obp0(),
@@ -122,6 +124,7 @@ impl Handler for VideoController {
             0xFF41 => { self.stat_write(v) },
             0xFF42 => { self.scroll_bg_y = v },
             0xFF43 => { self.scroll_bg_x = v },
+            0xFF45 => { self.lyc_coincidence = v },
             0xFF44 => { self.lcd_y_coordinate = 0 },
             0xFF47 => { self.write_bgp(v) },
             0xFF48 => { self.write_obp0(v) },
@@ -129,6 +132,44 @@ impl Handler for VideoController {
             0xFF4A => { self.window_y = v },
             0xFF4B => { self.window_x = v },
             _       => unimplemented!(),
+        }
+    }
+}
+
+fn flip_tile(tile: [[GrayShade; 8]; 8], y_flip: bool, x_flip: bool) -> [[GrayShade; 8]; 8] {
+    let mut new_tile = tile;
+
+    if y_flip {
+        for i in 0..8 {
+            new_tile[i] = tile[7 - i];
+        }
+    }
+
+    if x_flip {
+        for i in 0..8 {
+            for j in 0..8 {
+                new_tile[i][j] = tile[i][7 - j];
+            }
+        }
+    }
+
+    new_tile
+}
+
+struct Sprite {
+    below_bg: bool,
+    tile: [[GrayShade; 8]; 8],
+    x: usize,
+    y: usize,
+}
+
+impl Sprite {
+    pub fn new(x: u8, y: u8, tile: [[GrayShade; 8]; 8], below_bg: bool) -> Sprite {
+        Sprite {
+            below_bg: below_bg,
+            tile: tile,
+            x: x as usize,
+            y: y as usize,
         }
     }
 }
@@ -167,6 +208,7 @@ impl VideoController {
             video_ram: [0; 8196],
             oam_ram: [0; 160],
 
+            lyc_coincidence: 0,
             lyc_ly_coincidence_interrupt: false,
             oam_interrupt: false,
             v_blank_interrupt: false,
@@ -242,92 +284,96 @@ impl VideoController {
         background
     }
 
-    fn get_sprite_color(&self, palette: SpritePalette, color: GrayShade) -> GrayShade {
-        match palette {
-            SpritePalette::C0 => {
-                match color {
-                    GrayShade::C00 => self.obp0_palette_00,
-                    GrayShade::C01 => self.obp0_palette_01,
-                    GrayShade::C10 => self.obp0_palette_10,
-                    GrayShade::C11 => self.obp0_palette_11,
+    fn print_sprites(&mut self, sprites: &[Sprite], scanline: usize) {
+        let mut i = 0;
+
+        let mut visible_sprites = vec![];
+        while i < 40 && visible_sprites.len() < 10 {
+            let ref sprite = sprites[i];
+            i += 1;
+
+            if scanline + 16 < sprite.y || scanline + 8 >= sprite.y {
+                continue;
+            }
+
+            visible_sprites.push(sprite);
+        }
+
+        for x in 0..160 {
+            for sprite in &visible_sprites {
+                if x + 8 < sprite.x || x >= sprite.x {
+                    continue;
                 }
-            },
-            SpritePalette::C1 => {
-                match color {
-                    GrayShade::C00 => self.obp1_palette_00,
-                    GrayShade::C01 => self.obp1_palette_01,
-                    GrayShade::C10 => self.obp1_palette_10,
-                    GrayShade::C11 => self.obp1_palette_11,
+
+                let color = sprite.tile[scanline + 16 - sprite.y][ x + 8 - sprite.x];
+
+                if color != GrayShade::C00 {
+                    if !sprite.below_bg
+                        || (self.screen_buffer[scanline][x] == GrayShade::C00) {
+                            self.write_pixel(x, scanline, color);
+                        }
+                    break;
                 }
-            },
+            }
         }
     }
 
-    fn print_sprite(&mut self, tile: [[GrayShade; 8]; 8],
-                    behind_bg: bool,
-                    palette: SpritePalette,
-                    x: u8, y: u8) {
+    fn translate_tile(&self, tile: [[GrayShade; 8]; 8], palette: SpritePalette) -> [[GrayShade; 8]; 8] {
+        let mut translated = [[GrayShade::C00; 8]; 8];
+
         for i in 0..8 {
             for j in 0..8 {
-                let color = self.get_sprite_color(palette, tile[i as usize][j as usize]);
-                if color != GrayShade::C00 {
-                    if j + x > 7 && i + y > 15 {
-                        let x = j as usize + x as usize - 8;
-                        let y = i as usize + y as usize - 16;
-
-                        // If behind_gb is true the sprite should be painted behind the background
-                        // i.e. it will only appear if the color of the background is white (C00)
-                        if !behind_bg || (x < 160 && y < 144 && self.screen_buffer[y][x] == GrayShade::C00) {
-                            self.write_pixel(x, y, color);
+                let color = tile[i][j];
+                translated[i][j] = match &palette {
+                    &SpritePalette::C0 => {
+                        match color {
+                            GrayShade::C00 => self.obp0_palette_00,
+                            GrayShade::C01 => self.obp0_palette_01,
+                            GrayShade::C10 => self.obp0_palette_10,
+                            GrayShade::C11 => self.obp0_palette_11,
                         }
-                    }
-                }
+                    },
+                    &SpritePalette::C1 => {
+                        match color {
+                            GrayShade::C00 => self.obp1_palette_00,
+                            GrayShade::C01 => self.obp1_palette_01,
+                            GrayShade::C10 => self.obp1_palette_10,
+                            GrayShade::C11 => self.obp1_palette_11,
+                        }
+                    },
+                };
             }
         }
+
+        translated
     }
 
-    fn flip_tile(&self, tile: [[GrayShade; 8]; 8], y_flip: bool, x_flip: bool) -> [[GrayShade; 8]; 8] {
-        let mut new_tile = tile;
+    fn read_sprites(&mut self, patterns: [[[GrayShade; 8]; 8]; 256]) -> Vec<Sprite> {
+        let mut sprites = vec![];
 
-        if y_flip {
-            for i in 0..8 {
-                new_tile[i] = tile[7 - i];
-            }
-        }
-
-        if x_flip {
-            for i in 0..8 {
-                for j in 0..8 {
-                    new_tile[i][j] = tile[i][7 - j];
-                }
-            }
-        }
-
-        new_tile
-    }
-
-    fn print_sprites(&mut self, patterns: [[[GrayShade; 8]; 8]; 256]) {
         for i in 0..40 {
             let y = self.oam_ram[i * 4];
             let x = self.oam_ram[i * 4 + 1];
             let tile_index = self.oam_ram[i * 4 + 2];
             let flags = self.oam_ram[i * 4 + 3];
 
-            let behind_bg =     flags & (0b10000000) > 0;
-            let y_flip    =     flags & (0b01000000) > 0;
-            let x_flip    =     flags & (0b00100000) > 0;
-            let palette   =  if flags & (0b00010000) > 0 { SpritePalette::C1 } else { SpritePalette::C0 };
-
             if self.lcd_controller.sprite_size == SpriteSize::C8by8 {
                 let tile = patterns[tile_index as usize];
+                let below_bg =     flags & (0b10000000) > 0;
+                let y_flip   =     flags & (0b01000000) > 0;
+                let x_flip   =     flags & (0b00100000) > 0;
+                let palette  =  if flags & (0b00010000) > 0 { SpritePalette::C1 } else { SpritePalette::C0 };
 
-                let flipped_tile = self.flip_tile(tile, y_flip, x_flip);
-
-                self.print_sprite(flipped_tile, behind_bg, palette, x, y);
+                let translated_tile = flip_tile(self.translate_tile(tile, palette), y_flip, x_flip);
+                sprites.push(Sprite::new(x, y, translated_tile, below_bg));
             } else {
                 unimplemented!();
             }
         }
+
+        // Sprites are ordered by display priority
+        sprites.sort_by_key(|s| s.x);
+        sprites
     }
 
     pub fn get_screen(&self) -> &ScreenBuffer {
@@ -354,24 +400,40 @@ impl VideoController {
             self.read_background(0x1C00, patterns)
         };
 
+        let sprites = self.read_sprites(sprite_patterns);
+
         for i in 0..144 {
+            // Step 0: Blank screen
             for j in 0..160 {
-                if self.lcd_controller.window_on &&
-                     i >= self.window_y as usize &&
-                     j >= self.window_x as usize - 7
-                {
-                    let x = (j - ((self.window_x as usize) - 7)) % 256;
-                    let y = (i - (self.window_y as usize)) % 256;
-                    self.write_pixel(j as usize, i as usize, window[y][x]);
-                } else {
-                    let x = (j + (self.scroll_bg_x as usize)) % 256;
-                    let y = (i + (self.scroll_bg_y as usize)) % 256;
+                self.write_pixel(j as usize, i as usize, GrayShade::C00);
+            }
+
+            // Step 2: paint background
+            for j in 0..160 {
+                let x = (j + (self.scroll_bg_x as usize)) % 256;
+                let y = (i + (self.scroll_bg_y as usize)) % 256;
+                if background[y][x] != GrayShade::C00 {
                     self.write_pixel(j as usize, i as usize, background[y][x]);
                 }
             }
-        }
 
-        self.print_sprites(sprite_patterns);
+            // Step 3: paint the window
+            for j in 0..160 {
+                if self.lcd_controller.window_on &&
+                     i >= self.window_y as usize &&
+                     j + 7 >= self.window_x as usize &&
+                     j < 249 + self.window_x as usize &&
+                     i < 256 + self.window_y as usize
+                {
+                    let x = j - ((self.window_x as usize) - 7);
+                    let y = i - (self.window_y as usize);
+                    self.write_pixel(j as usize, i as usize, window[y][x]);
+                }
+            }
+
+            // Step 4: paint sprites
+            self.print_sprites(&sprites, i);
+        }
     }
 
     fn write_pixel(&mut self, x: usize, y: usize, color: GrayShade) {
@@ -443,6 +505,11 @@ impl VideoController {
             }
 
             self.lcd_y_coordinate %= 154;
+
+            if self.lcd_y_coordinate == self.lyc_coincidence &&
+                self.lyc_ly_coincidence_interrupt {
+                interrupts.push(Interrupt::Stat);
+            }
         }
 
         interrupts
@@ -486,8 +553,7 @@ impl VideoController {
     }
 
     fn stat_read(&self) -> u8 {
-        // unimplemented!();
-        0b00000000
+        unimplemented!();
     }
 
     fn stat_write(&mut self, v: u8) {

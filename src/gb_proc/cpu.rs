@@ -249,6 +249,7 @@ impl Cpu {
 
         let address = match interrupt {
             Interrupt::VBlank => 0x0040,
+            Interrupt::Stat   => 0x0048,
             Interrupt::Timer  => 0x0050,
             Interrupt::Joypad => 0x0060,
         };
@@ -426,6 +427,7 @@ pub enum Interrupt {
     VBlank,
     Timer,
     Joypad,
+    Stat,
 }
 
 impl InterruptHandler {
@@ -443,6 +445,7 @@ impl InterruptHandler {
                 Interrupt::VBlank => self.register.v_blank = true,
                 Interrupt::Timer => self.register.timer = true,
                 Interrupt::Joypad => self.register.joypad = true,
+                Interrupt::Stat => self.register.stat = true,
             }
         }
     }
@@ -494,6 +497,11 @@ impl InterruptHandler {
             return Some(Interrupt::VBlank);
         }
 
+        if self.register.stat_enabled && self.register.stat {
+            self.register.stat = false;
+            return Some(Interrupt::Stat);
+        }
+
         if self.register.timer_enabled && self.register.timer {
             self.register.timer = false;
             return Some(Interrupt::Timer);
@@ -511,13 +519,13 @@ impl InterruptHandler {
 #[derive(Debug)]
 struct InterruptRegister {
     v_blank: bool,
-    lcd_stat: bool,
+    stat: bool,
     timer: bool,
     serial: bool,
     joypad: bool,
 
     v_blank_enabled: bool,
-    lcd_stat_enabled: bool,
+    stat_enabled: bool,
     timer_enabled: bool,
     serial_enabled: bool,
     joypad_enabled: bool,
@@ -527,13 +535,13 @@ impl InterruptRegister {
     pub fn new() -> InterruptRegister {
         InterruptRegister {
             v_blank: false,
-            lcd_stat: false,
+            stat: false,
             timer: false,
             serial: false,
             joypad: false,
 
             v_blank_enabled: false,
-            lcd_stat_enabled: false,
+            stat_enabled: false,
             timer_enabled: false,
             serial_enabled: false,
             joypad_enabled: false,
@@ -557,34 +565,34 @@ impl InterruptRegister {
     }
 
     fn read_enabled(&self) -> u8 {
-        (if self.v_blank_enabled  { 0b00000001 } else { 0 }) +
-        (if self.lcd_stat_enabled { 0b00000010 } else { 0 }) +
-        (if self.timer_enabled    { 0b00000100 } else { 0 }) +
-        (if self.serial_enabled   { 0b00001000 } else { 0 }) +
-        (if self.joypad_enabled   { 0b00010000 } else { 0 })
+        (if self.v_blank_enabled { 0b00000001 } else { 0 }) +
+        (if self.stat_enabled    { 0b00000010 } else { 0 }) +
+        (if self.timer_enabled   { 0b00000100 } else { 0 }) +
+        (if self.serial_enabled  { 0b00001000 } else { 0 }) +
+        (if self.joypad_enabled  { 0b00010000 } else { 0 })
     }
 
     fn write_enabled(&mut self, v: u8) {
-        self.v_blank_enabled  = (v & 0b00000001) > 0;
-        self.lcd_stat_enabled = (v & 0b00000010) > 0;
-        self.timer_enabled    = (v & 0b00000100) > 0;
-        self.serial_enabled   = (v & 0b00001000) > 0;
-        self.joypad_enabled   = (v & 0b00010000) > 0;
+        self.v_blank_enabled = (v & 0b00000001) > 0;
+        self.stat_enabled    = (v & 0b00000010) > 0;
+        self.timer_enabled   = (v & 0b00000100) > 0;
+        self.serial_enabled  = (v & 0b00001000) > 0;
+        self.joypad_enabled  = (v & 0b00010000) > 0;
     }
 
     fn read_interrupt(&self) -> u8 {
-        (if self.v_blank && self.v_blank_enabled   { 0b00000001 } else { 0 }) +
-        (if self.lcd_stat && self.lcd_stat_enabled { 0b00000010 } else { 0 }) +
-        (if self.timer && self.timer_enabled       { 0b00000100 } else { 0 }) +
-        (if self.serial && self.serial_enabled     { 0b00001000 } else { 0 }) +
-        (if self.joypad && self.joypad_enabled     { 0b00010000 } else { 0 })
+        (if self.v_blank && self.v_blank_enabled { 0b00000001 } else { 0 }) +
+        (if self.stat && self.stat_enabled       { 0b00000010 } else { 0 }) +
+        (if self.timer && self.timer_enabled     { 0b00000100 } else { 0 }) +
+        (if self.serial && self.serial_enabled   { 0b00001000 } else { 0 }) +
+        (if self.joypad && self.joypad_enabled   { 0b00010000 } else { 0 })
     }
 
     fn write_interrupt(&mut self, v: u8) {
-       self.v_blank  = (v & 0b00000001) > 0;
-       self.lcd_stat = (v & 0b00000010) > 0;
-       self.timer    = (v & 0b00000100) > 0;
-       self.serial   = (v & 0b00001000) > 0;
-       self.joypad   = (v & 0b00010000) > 0;
+       self.v_blank = (v & 0b00000001) > 0;
+       self.stat    = (v & 0b00000010) > 0;
+       self.timer   = (v & 0b00000100) > 0;
+       self.serial  = (v & 0b00001000) > 0;
+       self.joypad  = (v & 0b00010000) > 0;
     }
 }
