@@ -53,7 +53,6 @@ pub fn main() {
     let mut address_breakpoints = HashSet::new();
     let mut op_breakpoints: HashSet<u8> = HashSet::new();
 
-    let mut last_cycles = 0;
     let mut last_update = Instant::now();
 
     // Refresh 59.7 times a sec
@@ -88,7 +87,6 @@ pub fn main() {
                 thread::sleep(target - diff);
             }
 
-            last_cycles = cpu.get_cycles();
             last_update = Instant::now();
         }
 
