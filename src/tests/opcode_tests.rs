@@ -1,16 +1,20 @@
 use gb_proc::cpu::{Cpu, Handler, HandlerHolder, Interrupt, print_cpu_status};
 use gb_proc::opcodes::OpCode;
+use gb_proc::video_controller::{ScreenBuffer, GrayShade};
+use gb_proc::handler_holder::Key;
 
 use std::num::Wrapping;
 
 struct MockHandlerHolder {
     memory: [u8; 512],
+    screen_buffer: ScreenBuffer,
 }
 
 impl MockHandlerHolder {
     fn new() -> MockHandlerHolder {
         MockHandlerHolder {
             memory: [0; 512],
+            screen_buffer: [[GrayShade::C00; 160]; 144],
         }
     }
 }
@@ -26,15 +30,20 @@ impl Handler for MockHandlerHolder {
 }
 
 impl HandlerHolder for MockHandlerHolder {
-    fn get_handler_read(&self, address: u16) -> &Handler {
+    fn get_handler_read(&self, _: u16) -> &Handler {
         self as &Handler
     }
 
-    fn get_handler_write(&mut self, address: u16) -> &mut Handler {
+    fn get_handler_write(&mut self, _: u16) -> &mut Handler {
         self as &mut Handler
     }
-    fn add_cycles(&mut self, cycles: usize) {}
+    fn add_cycles(&mut self, _: usize) {}
     fn check_interrupts(&mut self) -> Vec<Interrupt> { vec![] }
+    fn key_down(&mut self, _: Key) {}
+    fn key_up(&mut self, _: Key) {}
+    fn get_screen_buffer(&self) -> &ScreenBuffer {
+        &self.screen_buffer
+    }
 }
 
 fn reset_all_registers(cpu: &mut Cpu) {
