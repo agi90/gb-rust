@@ -1,4 +1,3 @@
-use std::num::Wrapping;
 use controller::Hardware;
 use gb_proc::opcodes::OpCode;
 use gb_proc::handler_holder::Key;
@@ -85,7 +84,7 @@ impl Hardware for Cpu {
 
 impl Cpu {
     pub fn new(handler_holder: Box<HandlerHolder>) -> Cpu {
-        let mut cpu = Cpu {
+        let cpu = Cpu {
             // Flags
             Z_flag: false,
             N_flag: false,
@@ -269,7 +268,6 @@ impl Cpu {
     pub fn get_HL(&self) -> u16 { ((self.H_reg as u16) << 8) + (self.L_reg as u16) }
 
     pub fn deref_PC(&self) -> u8 {
-        let pc = self.get_PC();
         self.deref(self.get_PC())
     }
 

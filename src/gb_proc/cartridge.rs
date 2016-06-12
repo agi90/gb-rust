@@ -25,11 +25,12 @@ impl Handler for BootRom {
         self.data[address as usize]
     }
 
-    fn write(&mut self, address: u16, v: u8) {
+    fn write(&mut self, _: u16, _: u8) {
         panic!("Cannot write to boot rom.");
     }
 }
 
+#[allow(dead_code)]
 pub struct Cartridge {
     startup_graphic: Vec<u8>,
     game_title: String,

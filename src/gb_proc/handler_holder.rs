@@ -2,8 +2,6 @@ use gb_proc::video_controller::{VideoController, ScreenBuffer};
 use gb_proc::sound_controller::SoundController;
 use gb_proc::cpu::{Handler, HandlerHolder, Interrupt};
 
-use std::num::Wrapping;
-
 pub struct GBHandlerHolder {
     memory_holder: MemoryHolder,
     cartridge: Box<Handler + 'static>,
@@ -132,7 +130,7 @@ struct SerialTransferController {
 }
 
 impl Handler for SerialTransferController {
-    fn read(&self, address: u16) -> u8 {
+    fn read(&self, _: u16) -> u8 {
         unimplemented!();
     }
 
@@ -154,7 +152,7 @@ impl SerialTransferController {
         }
     }
 
-    fn transfer_data(&mut self, v: u8) {
+    fn transfer_data(&mut self, _: u8) {
         // not implemented yet, but
         // code call this for no reason apparently?
     }

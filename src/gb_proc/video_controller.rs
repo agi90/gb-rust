@@ -574,10 +574,6 @@ impl VideoController {
                 unimplemented!();
         }
     }
-
-    fn copy_memory_to_vram(&mut self, v: u8) {
-        panic!();
-    }
 }
 
 #[derive(Clone, Copy)]

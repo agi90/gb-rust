@@ -1,9 +1,7 @@
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::process;
 use std::collections::HashSet;
-use std::time::{Duration, Instant};
-use std::thread;
 
 #[macro_use]
 extern crate glium;
@@ -13,31 +11,16 @@ pub mod gpu;
 pub mod controller;
 
 use self::gb_proc::handler_holder::GBHandlerHolder;
-use self::gb_proc::cartridge::{BootRom, Cartridge};
-use self::gb_proc::video_controller::GrayShade;
-use self::gb_proc::cpu::{Cpu, CpuState, Interrupt, print_cpu_status};
-use self::gpu::renderer::{Renderer, GLRenderer};
+use self::gb_proc::cartridge::Cartridge;
+use self::gb_proc::cpu::{Cpu, print_cpu_status};
+use self::gpu::renderer::Renderer;
 use self::gb_proc::opcodes::OpCode;
-use self::controller::{Event, Controller, Hardware};
+use self::controller::{Event, Controller};
 
 use std::io;
 
 #[cfg(test)]
 mod tests;
-
-// Used for debugging
-struct NullRenderer;
-
-impl Renderer for NullRenderer {
-    // fn build_buffer(&mut self, ) {}
-    fn refresh(&mut self, pixels: &[[GrayShade; 160]; 144]) {}
-}
-
-struct HardwareGlue {
-    cpu: Cpu,
-    handler_holder: GBHandlerHolder,
-}
-
 
 pub fn print_help() {
     println!("Help: ");
@@ -103,7 +86,7 @@ pub fn main() {
             loop {
                 let mut input = String::new();
                 print!(">");
-                io::stdout().flush();
+                io::stdout().flush().unwrap();
                 io::stdin().read_line(&mut input).unwrap();
                 input = input[..input.len()-1].to_string();
 

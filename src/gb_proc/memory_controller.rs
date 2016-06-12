@@ -30,7 +30,7 @@ impl Mbc for Mbc0 {
         }
     }
 
-    fn write(&mut self, address: u16, v: u8) {
+    fn write(&mut self, _: u16, _: u8) {
         // println!("Writing {:02X} to {:04X}", v, address);
         // match address {
         //    0xA000 ... 0xBFFF => self.ram[(address as usize) - 0xA000] = v,
@@ -39,12 +39,14 @@ impl Mbc for Mbc0 {
     }
 }
 
+#[allow(dead_code)]
 #[derive(PartialEq, Eq)]
 enum MemoryMode {
     C4_32,
     C16_8,
 }
 
+#[allow(dead_code)]
 struct Mbc3 {
     selected_bank: usize,
     data: Vec<u8>,
@@ -66,12 +68,12 @@ impl Mbc3 {
             .unwrap();
 
         let mut ram = vec![];
-        disk.read_to_end(&mut ram);
+        disk.read_to_end(&mut ram).unwrap();
 
         if ram.len() < 32768 {
             println!("Warning: invalid file size, blanking ram.");
-            disk.seek(SeekFrom::Start(0));
-            disk.write_all(&[0; 32768]);
+            disk.seek(SeekFrom::Start(0)).unwrap();
+            disk.write_all(&[0; 32768]).unwrap();
         }
 
         Mbc3 {
@@ -92,8 +94,8 @@ impl Mbc3 {
         }
 
         let address = (address - 0xA000) as usize + self.ram_offset;
-        self.ram.borrow_mut().seek(SeekFrom::Start(address as u64));
-        self.ram.borrow_mut().write_all(&[v]);
+        self.ram.borrow_mut().seek(SeekFrom::Start(address as u64)).unwrap();
+        self.ram.borrow_mut().write_all(&[v]).unwrap();
     }
 
     fn read_ram(&self, address: u16) -> u8 {
@@ -102,7 +104,7 @@ impl Mbc3 {
         }
 
         let address = (address - 0xA000) as usize + self.ram_offset;
-        self.ram.borrow_mut().seek(SeekFrom::Start(address as u64));
+        self.ram.borrow_mut().seek(SeekFrom::Start(address as u64)).unwrap();
         let mut buffer = [0; 1];
         self.ram.borrow_mut().read_exact(&mut buffer).unwrap();
 

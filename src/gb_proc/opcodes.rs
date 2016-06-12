@@ -1,5 +1,4 @@
 use gb_proc::cpu::{Cpu, CpuState};
-use std::num::Wrapping;
 
 macro_rules! op_codes {
     // First the unprefixed op codes

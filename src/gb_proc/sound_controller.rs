@@ -52,14 +52,14 @@ impl SoundController {
             channel_1_counter: 0x00,
             channel_1_consecutive: false,
             channel_1_on: false,
-            channel_1_level: 0x111,
+            channel_1_level: 0b111,
 
             channel_2_duration: 0x01,
             channel_2_pattern: WavePattern::C50,
             channel_2_counter: 0x00,
             channel_2_consecutive: false,
             channel_2_on: false,
-            channel_2_level: 0x111,
+            channel_2_level: 0b111,
 
             last_cycle: 0,
         }
@@ -108,7 +108,7 @@ impl SoundController {
         self.channel_2_on    = (v & 0b10000000) > 0;
         self.channel_2_level = (v & 0b01110000) >> 4;
         self.channel_1_on    = (v & 0b00001000) > 0;
-        self.channel_1_level = (v & 0b00000111);
+        self.channel_1_level = v & 0b00000111;
     }
 
     fn get_channel_control(&self) -> u8 {

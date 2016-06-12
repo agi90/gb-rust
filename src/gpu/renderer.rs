@@ -2,25 +2,15 @@ extern crate ncurses;
 extern crate nalgebra;
 
 use gb_proc::video_controller::ScreenBuffer;
-use glium::{DrawParameters, DisplayBuild, Surface, VertexBuffer, IndexBuffer};
+use glium::{DrawParameters, Surface, VertexBuffer, IndexBuffer};
 use glium::index::PrimitiveType;
 use glium::texture::pixel_buffer::PixelBuffer;
-use glium::texture::{ ClientFormat, MipmapsOption, PixelValue, TextureCreationError, UncompressedFloatFormat };
+use glium::texture::{ MipmapsOption, UncompressedFloatFormat };
 use glium::texture::texture2d::Texture2d;
 use glium::uniforms::{MagnifySamplerFilter, MinifySamplerFilter};
 use glium::backend::glutin_backend::GlutinFacade;
 use self::nalgebra::{Mat4, Vec4, Diag};
 use glium;
-
-const COLOR_BLACK: i16 = 232;
-const COLOR_DARK_GRAY: i16 = 239;
-const COLOR_LIGHT_GRAY: i16 = 250;
-const COLOR_WHITE: i16 = 255;
-
-const COLOR_PAIR_BLACK: i16 = 4;
-const COLOR_PAIR_DARK_GRAY: i16 = 5;
-const COLOR_PAIR_LIGHT_GRAY: i16 = 6;
-const COLOR_PAIR_WHITE: i16 = 7;
 
 const TEXTURE_WIDTH: u32 = 256;
 const TEXTURE_HEIGHT: u32 = 256;
@@ -30,40 +20,6 @@ const TEX_OFFSET_Y: f32 = 144 as f32 / TEXTURE_HEIGHT as f32;
 pub trait Renderer {
     fn refresh(&mut self, pixels: &ScreenBuffer);
 }
-
-/*
-pub struct NCursesRenderer; impl NCursesRenderer {
-    pub fn new() -> NCursesRenderer {
-        ncurses::initscr();
-        ncurses::start_color();
-        ncurses::init_pair(COLOR_PAIR_BLACK, COLOR_BLACK, COLOR_BLACK);
-        ncurses::init_pair(COLOR_PAIR_DARK_GRAY, COLOR_DARK_GRAY, COLOR_DARK_GRAY);
-        ncurses::init_pair(COLOR_PAIR_LIGHT_GRAY, COLOR_LIGHT_GRAY, COLOR_LIGHT_GRAY);
-        ncurses::init_pair(COLOR_PAIR_WHITE, COLOR_WHITE, COLOR_WHITE);
-
-        println!("Inizializing video engine...");
-        NCursesRenderer
-    }
-}
-
-impl Renderer for NCursesRenderer {
-    fn print_pixel(&mut self, pixel: GrayShade, x: i32, y: i32) {
-        let color = match pixel {
-            GrayShade::C11 => ncurses::COLOR_PAIR(COLOR_PAIR_BLACK),
-            GrayShade::C10 => ncurses::COLOR_PAIR(COLOR_PAIR_DARK_GRAY),
-            GrayShade::C01 => ncurses::COLOR_PAIR(COLOR_PAIR_LIGHT_GRAY),
-            GrayShade::C00 => ncurses::COLOR_PAIR(COLOR_PAIR_WHITE),
-        };
-
-        ncurses::attron(color);
-        ncurses::mvprintw(y as i32, x as i32, " ");
-        ncurses::attroff(color);
-    }
-
-    fn refresh(&mut self) {
-        ncurses::refresh();
-    }
-} */
 
 pub struct GLRenderer {
     buffer: PixelBuffer<u8>,
@@ -135,10 +91,10 @@ impl GLRenderer {
 
         let pixel_buffer = PixelBuffer::new_empty(display, 160 * 144);
 
-        let mut texture = Texture2d::empty_with_format(display,
-                                                       UncompressedFloatFormat::U8,
-                                                       MipmapsOption::NoMipmap,
-                                                       TEXTURE_WIDTH, TEXTURE_HEIGHT).unwrap();
+        let texture = Texture2d::empty_with_format(display,
+                                                   UncompressedFloatFormat::U8,
+                                                   MipmapsOption::NoMipmap,
+                                                   TEXTURE_WIDTH, TEXTURE_HEIGHT).unwrap();
 
         let matrix = Mat4::from_diag(&Vec4::new(1.0, 1.0, 1.0, 1.0));
 
