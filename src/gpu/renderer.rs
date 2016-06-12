@@ -1,4 +1,3 @@
-extern crate ncurses;
 extern crate nalgebra;
 
 use gb_proc::video_controller::ScreenBuffer;
