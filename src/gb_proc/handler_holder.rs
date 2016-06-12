@@ -117,6 +117,7 @@ impl HandlerHolder for GBHandlerHolder {
 
     fn add_cycles(&mut self, cycles: usize) {
         self.video_controller.add_cycles(cycles);
+        self.sound_controller.add_cycles(cycles);
     }
 
     fn check_interrupts(&mut self) -> Vec<Interrupt> {
