@@ -150,7 +150,7 @@ impl Mbc for Mbc3 {
                 }
             },
             0x6000 ... 0x7FFF => {
-                println!("Attempt to write {:02X} to {:04X}", v, address);
+                // println!("Attempt to write {:02X} to {:04X}", v, address);
                 /* match v & 0x1 {
                     0x0 => self.memory_mode = MemoryMode::C16_8, // Memory mode 16_8,
                     0x1 => self.memory_mode = MemoryMode::C4_32,
