@@ -1,17 +1,23 @@
 use glium::backend::glutin_backend::GlutinFacade;
 use glium::DisplayBuild;
-use glium::glutin::{Event, VirtualKeyCode, ElementState};
+use glium::glutin::{VirtualKeyCode, ElementState};
 use gpu::renderer::{GLRenderer, Renderer};
 use gb_proc::handler_holder::Key;
 use gb_proc::video_controller::ScreenBuffer;
 use gb_proc::cpu::Interrupt;
 
-
 use glium;
+use glium::glutin;
 
 pub struct Controller {
     display: GlutinFacade,
     renderer: GLRenderer,
+}
+
+pub enum Event {
+    Quit,
+    Break,
+    Continue,
 }
 
 impl Controller {
@@ -29,13 +35,17 @@ impl Controller {
         }
     }
 
-    pub fn check_events(&mut self, hardware: &mut Hardware) -> bool {
+    pub fn check_events(&mut self, hardware: &mut Hardware) -> Event {
         for event in self.display.poll_events() {
             match event {
-                Event::Closed => {
-                    return true;
+                glutin::Event::Closed => {
+                    return Event::Quit;
                 },
-                Event::KeyboardInput(state, _, virtual_key) => {
+                glutin::Event::KeyboardInput(state, _, virtual_key) => {
+                    if virtual_key == Some(VirtualKeyCode::B) {
+                        return Event::Break
+                    }
+
                     let key = virtual_key.and_then(|k| match k {
                         VirtualKeyCode::Left  => Some(Key::Left),
                         VirtualKeyCode::Right => Some(Key::Right),
@@ -60,7 +70,7 @@ impl Controller {
             }
         };
 
-        false
+        Event::Continue
     }
 }
 

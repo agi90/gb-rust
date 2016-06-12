@@ -18,7 +18,7 @@ use self::gb_proc::video_controller::GrayShade;
 use self::gb_proc::cpu::{Cpu, CpuState, Interrupt, print_cpu_status};
 use self::gpu::renderer::{Renderer, GLRenderer};
 use self::gb_proc::opcodes::OpCode;
-use self::controller::{Controller, Hardware};
+use self::controller::{Event, Controller, Hardware};
 
 use std::io;
 
@@ -36,6 +36,21 @@ impl Renderer for NullRenderer {
 struct HardwareGlue {
     cpu: Cpu,
     handler_holder: GBHandlerHolder,
+}
+
+
+pub fn print_help() {
+    println!("Help: ");
+    println!("clear         -- clear breakpoints");
+    println!("list          -- list breakpoints");
+    println!("bo [u8]       -- breakpoint for opcode [u8]");
+    println!("ba [u16]      -- breakpoint for address [u16]");
+    println!("p cpu         -- display cpu information and registers");
+    println!("p [u16]       -- print memory at [u16]");
+    println!("s [u16] [u8]  -- put value [u8] at memory address [u16]");
+    println!("c             -- continue execution");
+    println!("d             -- continue execution but print cpu information");
+    println!("q             -- quit application");
 }
 
 pub fn main() {
@@ -65,14 +80,16 @@ pub fn main() {
         }
 
         cpu.next_instruction();
-        if cpu.get_debug() {
-            // print_cpu_status(&cpu);
-        }
 
         let cycles = cpu.get_cycles();
         if cycles - last_tick > 71590 {
-            if controller.check_events(&mut cpu) {
-                break;
+            match controller.check_events(&mut cpu) {
+                Event::Quit => break,
+                Event::Break => {
+                    stepping = true;
+                    cpu.set_debug(true);
+                },
+                Event::Continue => {},
             }
 
             let screen = cpu.handler_holder.get_screen_buffer();
@@ -82,6 +99,7 @@ pub fn main() {
         }
 
         if stepping {
+            print_cpu_status(&cpu);
             loop {
                 let mut input = String::new();
                 print!(">");
@@ -115,6 +133,28 @@ pub fn main() {
                     } else {
                         println!("Address not understood: {:?}", &input[2..6]);
                     }
+                } else if input.starts_with("s ") {
+                    if let Ok(address) = u16::from_str_radix(&input[2..6], 16) {
+                        if let Ok(v) = u8::from_str_radix(&input[7..9], 16) {
+                            println!("Setting ${:04X}={:02X}h", address, v);
+                            cpu.set_deref(address, v);
+                        } else {
+                            println!("Value not understood: {:?}", &input[3..5]);
+                        }
+                    } else {
+                        println!("Address not understood: {:?}", &input[2..6]);
+                    }
+                } else if input == "list" {
+                    for op in op_breakpoints.clone() {
+                        println!("Breakpoint for opcode {}",
+                                 OpCode::from_byte(op, false).to_string());
+                    }
+                    for address in address_breakpoints.clone() {
+                        println!("Breakpoint for address {:04X}", address);
+                    }
+                } else if input == "clear" {
+                    op_breakpoints.clear();
+                    address_breakpoints.clear();
                 } else if input == "c" {
                     stepping = false;
                     cpu.set_debug(false);
@@ -127,6 +167,7 @@ pub fn main() {
                     process::exit(0);
                 } else {
                     println!("Command not understood: {:?}", input);
+                    print_help();
                 }
 
                 println!("");

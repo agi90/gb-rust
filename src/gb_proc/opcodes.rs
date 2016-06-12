@@ -78,7 +78,7 @@ fn next_value(cpu: &mut Cpu) -> u8 {
     cpu.inc_PC();
     let v = cpu.deref_PC();
     if cpu.get_debug() {
-        // println!("v = ${:02X}", v);
+        println!("v = ${:02X}", v);
     }
     v
 }
@@ -93,7 +93,7 @@ fn next_pointer(cpu: &mut Cpu) -> u16 {
 
     let v = ((h as u16) << 8) + (l as u16);
     if cpu.get_debug() {
-        // println!("nn = ${:04X}", v);
+        println!("nn = ${:04X}", v);
     }
     v
 }
@@ -546,7 +546,7 @@ fn ldi_A_HL(cpu: &mut Cpu) {
     let hl = cpu.get_HL();
     cpu.set_HL(hl + 1);
     if cpu.get_debug() {
-        // println!("v = {:02X}",v);
+        println!("v = {:02X}",v);
     }
     cpu.set_A_reg(v);
 }
