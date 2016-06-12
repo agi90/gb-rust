@@ -74,6 +74,8 @@ pub struct VideoController {
     h_blank_interrupt: bool,
 
     screen_buffer: ScreenBuffer,
+
+    should_refresh: bool,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -213,6 +215,8 @@ impl VideoController {
             h_blank_interrupt: false,
 
             screen_buffer: [[GrayShade::C00; 160]; 144],
+
+            should_refresh: false,
         }
     }
 
@@ -380,6 +384,12 @@ impl VideoController {
         &self.screen_buffer
     }
 
+    pub fn should_refresh(&mut self) -> bool {
+        let result = self.should_refresh;
+        self.should_refresh = false;
+        result
+    }
+
     fn refresh(&mut self) {
         let sprite_patterns = self.read_patterns(0x0000, false);
         let patterns = if self.lcd_controller.bg_tile_data == BgTileData::C8000 {
@@ -498,6 +508,7 @@ impl VideoController {
                     if self.lcd_y_coordinate == 153 {
                         self.mode = LCDMode::SearchingOAM;
                         self.refresh();
+                        self.should_refresh = true;
                     }
 
                     self.lcd_y_coordinate += 1;

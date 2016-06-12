@@ -58,6 +58,7 @@ pub trait HandlerHolder {
     fn get_handler_write(&mut self, address: u16) -> &mut Handler;
     fn add_cycles(&mut self, cycles: usize);
     fn check_interrupts(&mut self) -> Vec<Interrupt>;
+    fn should_refresh(&mut self) -> bool;
 }
 
 impl Hardware for Cpu {

@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::Write;
 use std::process;
 use std::collections::HashSet;
+use std::time::{Duration, Instant};
 
 #[macro_use]
 extern crate glium;
@@ -18,6 +19,7 @@ use self::gb_proc::opcodes::OpCode;
 use self::controller::{Event, Controller};
 
 use std::io;
+use std::thread;
 
 #[cfg(test)]
 mod tests;
@@ -51,8 +53,11 @@ pub fn main() {
     let mut address_breakpoints = HashSet::new();
     let mut op_breakpoints: HashSet<u8> = HashSet::new();
 
-    let mut last_tick = 0;
+    let mut last_cycles = 0;
+    let mut last_update = Instant::now();
 
+    // Refresh 59.7 times a sec
+    let target = Duration::new(0, (1e9/59.7) as u32);
     loop {
         if (cpu.get_PC() == 0x100 && cpu.get_debug()) ||
             address_breakpoints.contains(&cpu.get_PC()) ||
@@ -64,8 +69,7 @@ pub fn main() {
 
         cpu.next_instruction();
 
-        let cycles = cpu.get_cycles();
-        if cycles - last_tick > 71590 {
+        if cpu.handler_holder.should_refresh() {
             match controller.check_events(&mut cpu) {
                 Event::Quit => break,
                 Event::Break => {
@@ -78,7 +82,14 @@ pub fn main() {
             let screen = cpu.handler_holder.get_screen_buffer();
             controller.refresh(screen);
 
-            last_tick = cycles;
+            let diff = Instant::now() - last_update;
+
+            if target > diff {
+                thread::sleep(target - diff);
+            }
+
+            last_cycles = cpu.get_cycles();
+            last_update = Instant::now();
         }
 
         if stepping {

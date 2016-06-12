@@ -67,6 +67,10 @@ impl HandlerHolder for GBHandlerHolder {
         self.video_controller.get_screen()
     }
 
+    fn should_refresh(&mut self) -> bool {
+        self.video_controller.should_refresh()
+    }
+
     fn key_up(&mut self, key: Key) {
         self.joypad_register.key_up(key);
     }
