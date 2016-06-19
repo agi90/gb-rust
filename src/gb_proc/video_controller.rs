@@ -33,6 +33,10 @@ impl GrayShade {
 }
 
 pub type ScreenBuffer = [[GrayShade; 160]; 144];
+pub type BackgroundBuffer = [[GrayShade; 256]; 256];
+
+type Pattern = [[GrayShade; 8]; 8];
+type Patterns = [Pattern; 256];
 
 pub struct VideoController {
     scroll_bg_x: u8,
@@ -74,6 +78,13 @@ pub struct VideoController {
     h_blank_interrupt: bool,
 
     screen_buffer: ScreenBuffer,
+    background_buffer: BackgroundBuffer,
+    window_buffer: BackgroundBuffer,
+
+    bg_patterns: Patterns,
+    sprite_patterns: Patterns,
+
+    sprites: Vec<Sprite>,
 
     should_refresh: bool,
 }
@@ -138,7 +149,7 @@ impl Handler for VideoController {
     }
 }
 
-fn flip_tile(tile: [[GrayShade; 8]; 8], y_flip: bool, x_flip: bool) -> [[GrayShade; 8]; 8] {
+fn flip_tile(tile: Pattern, y_flip: bool, x_flip: bool) -> Pattern {
     let mut new_tile = tile;
 
     if y_flip {
@@ -160,13 +171,13 @@ fn flip_tile(tile: [[GrayShade; 8]; 8], y_flip: bool, x_flip: bool) -> [[GraySha
 
 struct Sprite {
     below_bg: bool,
-    tile: [[GrayShade; 8]; 8],
+    tile: Pattern,
     x: usize,
     y: usize,
 }
 
 impl Sprite {
-    pub fn new(x: u8, y: u8, tile: [[GrayShade; 8]; 8], below_bg: bool) -> Sprite {
+    pub fn new(x: u8, y: u8, tile: Pattern, below_bg: bool) -> Sprite {
         Sprite {
             below_bg: below_bg,
             tile: tile,
@@ -215,6 +226,13 @@ impl VideoController {
             h_blank_interrupt: false,
 
             screen_buffer: [[GrayShade::C00; 160]; 144],
+            background_buffer: [[GrayShade::C00; 256]; 256],
+            window_buffer: [[GrayShade::C00; 256]; 256],
+
+            bg_patterns: [[[GrayShade::C00; 8]; 8]; 256],
+            sprite_patterns: [[[GrayShade::C00; 8]; 8]; 256],
+
+            sprites: vec![],
 
             should_refresh: false,
         }
@@ -230,7 +248,7 @@ impl VideoController {
         }
     }
 
-    fn read_pattern(&self, offset: u16) -> [[GrayShade; 8]; 8] {
+    fn read_pattern(&self, offset: u16) -> Pattern {
         let mut pattern = [[GrayShade::C00; 8]; 8];
 
         for j in 0..8 {
@@ -250,7 +268,7 @@ impl VideoController {
         pattern
     }
 
-    fn read_patterns(&self, offset: u16, inverse: bool) -> [[[GrayShade; 8]; 8]; 256] {
+    fn read_patterns(&self, offset: u16, inverse: bool) -> Patterns {
         let mut patterns = [[[GrayShade::C00; 8]; 8]; 256];
 
         for i in 0..256 {
@@ -268,7 +286,7 @@ impl VideoController {
         patterns
     }
 
-    fn read_background(&self, offset: u16, patterns: [[[GrayShade; 8]; 8]; 256]) -> [[GrayShade; 256]; 256] {
+    fn read_background(&self, offset: u16, patterns: &[[[GrayShade; 8]; 8]; 256]) -> BackgroundBuffer {
         let mut background = [[GrayShade::C00; 256]; 256];
 
         for i in 0..32 {
@@ -286,12 +304,12 @@ impl VideoController {
         background
     }
 
-    fn print_sprites(&mut self, sprites: &[Sprite], scanline: usize) {
+    fn print_sprites(&mut self, scanline: usize) {
         let mut i = 0;
 
         let mut visible_sprites = vec![];
-        while i < 40 && visible_sprites.len() < 10 {
-            let ref sprite = sprites[i];
+        while i < 40 && i < self.sprites.len() && visible_sprites.len() < 10 {
+            let ref sprite = self.sprites[i];
             i += 1;
 
             if scanline + 16 < sprite.y || scanline + 8 >= sprite.y {
@@ -312,7 +330,9 @@ impl VideoController {
                 if color != GrayShade::Transparent {
                     if !sprite.below_bg
                         || (self.screen_buffer[scanline][x] == GrayShade::C00) {
-                            self.write_pixel(x, scanline, color);
+                            if x <= 159 && scanline <= 143 {
+                                self.screen_buffer[scanline][x] = color;
+                            }
                         }
                     break;
                 }
@@ -320,7 +340,7 @@ impl VideoController {
         }
     }
 
-    fn translate_tile(&self, tile: [[GrayShade; 8]; 8], palette: SpritePalette) -> [[GrayShade; 8]; 8] {
+    fn translate_tile(&self, tile: Pattern, palette: SpritePalette) -> Pattern {
         let mut translated = [[GrayShade::C00; 8]; 8];
 
         for i in 0..8 {
@@ -352,7 +372,7 @@ impl VideoController {
         translated
     }
 
-    fn read_sprites(&mut self, patterns: [[[GrayShade; 8]; 8]; 256]) -> Vec<Sprite> {
+    fn read_sprites(&mut self) {
         let mut sprites = vec![];
 
         for i in 0..40 {
@@ -362,7 +382,7 @@ impl VideoController {
             let flags = self.oam_ram[i * 4 + 3];
 
             if self.lcd_controller.sprite_size == SpriteSize::C8by8 {
-                let tile = patterns[tile_index as usize];
+                let tile = self.sprite_patterns[tile_index as usize];
                 let below_bg =     flags & (0b10000000) > 0;
                 let y_flip   =     flags & (0b01000000) > 0;
                 let x_flip   =     flags & (0b00100000) > 0;
@@ -377,7 +397,7 @@ impl VideoController {
 
         // Sprites are ordered by display priority
         sprites.sort_by_key(|s| s.x);
-        sprites
+        self.sprites = sprites;
     }
 
     pub fn get_screen(&self) -> &ScreenBuffer {
@@ -391,62 +411,70 @@ impl VideoController {
     }
 
     fn refresh(&mut self) {
-        let sprite_patterns = self.read_patterns(0x0000, false);
-        let patterns = if self.lcd_controller.bg_tile_data == BgTileData::C8000 {
-            sprite_patterns
-        } else {
-            self.read_patterns(0x0800, true)
-        };
+        self.sprite_patterns = self.read_patterns(0x0000, false);
+        self.bg_patterns = self.read_patterns(0x0800, true);
 
-        let background = if self.lcd_controller.bg_tile_map == TileMap::C9800 {
-            self.read_background(0x1800, patterns)
-        } else {
-            self.read_background(0x1C00, patterns)
-        };
+        {
+            let patterns = if self.lcd_controller.bg_tile_data == BgTileData::C8000 {
+                &self.sprite_patterns
+            } else {
+                &self.bg_patterns
+            };
 
-        let window = if self.lcd_controller.window_tile_map == TileMap::C9800 {
-            self.read_background(0x1800, patterns)
-        } else {
-            self.read_background(0x1C00, patterns)
-        };
+            self.background_buffer = if self.lcd_controller.bg_tile_map == TileMap::C9800 {
+                self.read_background(0x1800, patterns)
+            } else {
+                self.read_background(0x1C00, patterns)
+            };
 
-        let sprites = self.read_sprites(sprite_patterns);
-
-        for i in 0..144 {
-            // Step 0: Blank screen
-            for j in 0..160 {
-                self.write_pixel(j as usize, i as usize, GrayShade::C00);
-            }
-
-            // Step 2: paint background
-            if self.lcd_controller.bg_window_on {
-                for j in 0..160 {
-                    let x = (j + (self.scroll_bg_x as usize)) % 256;
-                    let y = (i + (self.scroll_bg_y as usize)) % 256;
-                    if background[y][x] != GrayShade::C00 {
-                        self.write_pixel(j as usize, i as usize, background[y][x]);
-                    }
-                }
-            }
-
-            // Step 3: paint the window
-            if self.lcd_controller.window_on
-                    && self.lcd_controller.bg_window_on {
-                for j in 0..160 {
-                    if i >= self.window_y as usize &&
-                            j + 7 >= self.window_x as usize &&
-                            j < 249 + self.window_x as usize &&
-                            i < 256 + self.window_y as usize {
-                        let x = j - ((self.window_x as usize) - 7);
-                        let y = i - (self.window_y as usize);
-                        self.write_pixel(j as usize, i as usize, window[y][x]);
-                    }
-                }
-            }
-
-            // Step 4: paint sprites
-            self.print_sprites(&sprites, i);
+            self.window_buffer = if self.lcd_controller.window_tile_map == TileMap::C9800 {
+                self.read_background(0x1800, patterns)
+            } else {
+                self.read_background(0x1C00, patterns)
+            };
         }
+
+        self.read_sprites();
+    }
+
+    fn write_scanline(&mut self, i: usize) {
+        // Step 0: Blank screen
+        for j in 0..160 {
+            self.write_pixel(j as usize, i as usize, GrayShade::C00);
+        }
+
+        // Step 2: paint background
+        if self.lcd_controller.bg_window_on {
+            for j in 0..160 {
+                let x = (j + (self.scroll_bg_x as usize)) % 256;
+                let y = (i + (self.scroll_bg_y as usize)) % 256;
+
+                let pixel = self.background_buffer[y][x];
+                if pixel != GrayShade::C00 {
+                    self.write_pixel(j as usize, i as usize, pixel);
+                }
+            }
+        }
+
+        // Step 3: paint the window
+        if self.lcd_controller.window_on
+                && self.lcd_controller.bg_window_on {
+            for j in 0..160 {
+                if i >= self.window_y as usize
+                        && j + 7 >= self.window_x as usize
+                        && j < 249 + self.window_x as usize
+                        && i < 256 + self.window_y as usize {
+                    let x = j - ((self.window_x as usize) - 7);
+                    let y = i - (self.window_y as usize);
+
+                    let pixel = self.window_buffer[y][x];
+                    self.write_pixel(j as usize, i as usize, pixel);
+                }
+            }
+        }
+
+        // Step 4: paint sprites
+        self.print_sprites(i);
     }
 
     fn write_pixel(&mut self, x: usize, y: usize, color: GrayShade) {
@@ -505,6 +533,8 @@ impl VideoController {
                         interrupts.push(Interrupt::VBlank);
                     }
 
+                    let scanline = self.lcd_y_coordinate as usize;
+                    self.write_scanline(scanline);
                     self.lcd_y_coordinate += 1;
                 },
                 LCDMode::VBlank => {
