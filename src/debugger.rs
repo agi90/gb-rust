@@ -170,7 +170,7 @@ impl Debugger {
             io::stdout().flush().unwrap();
             io::stdin().read_line(&mut input).unwrap();
             input = input.replace("\n", "")
-                .replace("\r\n", "");
+                .replace("\r", "");
 
             let commands: Vec<&str> = input.split(' ').collect();
 

@@ -35,6 +35,7 @@ pub fn main() {
     let mut last_update = Instant::now();
 
     let mut debugger = Debugger::new();
+    let mut natural_speed = true;
     // Refresh 59.7 times a sec
     let target = Duration::new(0, (1e9/59.7) as u32);
     loop {
@@ -48,6 +49,7 @@ pub fn main() {
                 Event::Break => {
                     debugger.breakpoint(&mut cpu);
                 },
+                Event::ToggleSpeed => { natural_speed = !natural_speed },
                 Event::Continue => {},
             }
 
@@ -56,7 +58,7 @@ pub fn main() {
 
             let diff = Instant::now() - last_update;
 
-            if target > diff {
+            if target > diff && natural_speed {
                 thread::sleep(target - diff);
             }
 

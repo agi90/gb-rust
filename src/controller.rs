@@ -17,6 +17,7 @@ pub struct Controller {
 pub enum Event {
     Quit,
     Break,
+    ToggleSpeed,
     Continue,
 }
 
@@ -46,7 +47,12 @@ impl Controller {
                         match virtual_key {
                             Some(VirtualKeyCode::F1) => {
                                 return Event::Break;
-                            }
+                            },
+                            Some(VirtualKeyCode::F2) => {
+                                if state == ElementState::Pressed {
+                                    return Event::ToggleSpeed;
+                                }
+                            },
                             _ => {},
                         }
                     }
