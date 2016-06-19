@@ -419,25 +419,28 @@ impl VideoController {
             }
 
             // Step 2: paint background
-            for j in 0..160 {
-                let x = (j + (self.scroll_bg_x as usize)) % 256;
-                let y = (i + (self.scroll_bg_y as usize)) % 256;
-                if background[y][x] != GrayShade::C00 {
-                    self.write_pixel(j as usize, i as usize, background[y][x]);
+            if self.lcd_controller.bg_window_on {
+                for j in 0..160 {
+                    let x = (j + (self.scroll_bg_x as usize)) % 256;
+                    let y = (i + (self.scroll_bg_y as usize)) % 256;
+                    if background[y][x] != GrayShade::C00 {
+                        self.write_pixel(j as usize, i as usize, background[y][x]);
+                    }
                 }
             }
 
             // Step 3: paint the window
-            for j in 0..160 {
-                if self.lcd_controller.window_on &&
-                     i >= self.window_y as usize &&
-                     j + 7 >= self.window_x as usize &&
-                     j < 249 + self.window_x as usize &&
-                     i < 256 + self.window_y as usize
-                {
-                    let x = j - ((self.window_x as usize) - 7);
-                    let y = i - (self.window_y as usize);
-                    self.write_pixel(j as usize, i as usize, window[y][x]);
+            if self.lcd_controller.window_on
+                    && self.lcd_controller.bg_window_on {
+                for j in 0..160 {
+                    if i >= self.window_y as usize &&
+                            j + 7 >= self.window_x as usize &&
+                            j < 249 + self.window_x as usize &&
+                            i < 256 + self.window_y as usize {
+                        let x = j - ((self.window_x as usize) - 7);
+                        let y = i - (self.window_y as usize);
+                        self.write_pixel(j as usize, i as usize, window[y][x]);
+                    }
                 }
             }
 
