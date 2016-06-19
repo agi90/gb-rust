@@ -42,8 +42,13 @@ impl Controller {
                     return Event::Quit;
                 },
                 glutin::Event::KeyboardInput(state, _, virtual_key) => {
-                    if virtual_key == Some(VirtualKeyCode::B) {
-                        return Event::Break
+                    if state == ElementState::Pressed {
+                        match virtual_key {
+                            Some(VirtualKeyCode::F1) => {
+                                return Event::Break;
+                            }
+                            _ => {},
+                        }
                     }
 
                     let key = virtual_key.and_then(|k| match k {
