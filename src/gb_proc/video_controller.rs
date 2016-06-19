@@ -396,6 +396,7 @@ impl VideoController {
         }
 
         // Sprites are ordered by display priority
+        sprites.reverse();
         sprites.sort_by_key(|s| s.x);
         self.sprites = sprites;
     }
