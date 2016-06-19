@@ -238,16 +238,6 @@ impl VideoController {
         }
     }
 
-    fn get_color(&self, data: u8) -> GrayShade {
-        match data {
-            0b00 => self.bg_color_00,
-            0b01 => self.bg_color_01,
-            0b10 => self.bg_color_10,
-            0b11 => self.bg_color_11,
-            _ => panic!(),
-        }
-    }
-
     fn read_pattern(&self, offset: u16) -> Pattern {
         let mut pattern = [[GrayShade::C00; 8]; 8];
 
@@ -255,14 +245,14 @@ impl VideoController {
             let l = self.video_ram[offset as usize + (j * 2)];
             let h = self.video_ram[offset as usize + (j * 2) + 1];
 
-            pattern[j][7] = self.get_color( (0b00000001 & l)       + ((0b00000001 & h) << 1));
-            pattern[j][6] = self.get_color(((0b00000010 & l) >> 1) + ((0b00000010 & h)     ));
-            pattern[j][5] = self.get_color(((0b00000100 & l) >> 2) + ((0b00000100 & h) >> 1));
-            pattern[j][4] = self.get_color(((0b00001000 & l) >> 3) + ((0b00001000 & h) >> 2));
-            pattern[j][3] = self.get_color(((0b00010000 & l) >> 4) + ((0b00010000 & h) >> 3));
-            pattern[j][2] = self.get_color(((0b00100000 & l) >> 5) + ((0b00100000 & h) >> 4));
-            pattern[j][1] = self.get_color(((0b01000000 & l) >> 6) + ((0b01000000 & h) >> 5));
-            pattern[j][0] = self.get_color(((0b10000000 & l) >> 7) + ((0b10000000 & h) >> 6));
+            pattern[j][7] = GrayShade::from_u8( (0b00000001 & l)       + ((0b00000001 & h) << 1));
+            pattern[j][6] = GrayShade::from_u8(((0b00000010 & l) >> 1) + ((0b00000010 & h)     ));
+            pattern[j][5] = GrayShade::from_u8(((0b00000100 & l) >> 2) + ((0b00000100 & h) >> 1));
+            pattern[j][4] = GrayShade::from_u8(((0b00001000 & l) >> 3) + ((0b00001000 & h) >> 2));
+            pattern[j][3] = GrayShade::from_u8(((0b00010000 & l) >> 4) + ((0b00010000 & h) >> 3));
+            pattern[j][2] = GrayShade::from_u8(((0b00100000 & l) >> 5) + ((0b00100000 & h) >> 4));
+            pattern[j][1] = GrayShade::from_u8(((0b01000000 & l) >> 6) + ((0b01000000 & h) >> 5));
+            pattern[j][0] = GrayShade::from_u8(((0b10000000 & l) >> 7) + ((0b10000000 & h) >> 6));
         }
 
         pattern
@@ -286,6 +276,17 @@ impl VideoController {
         patterns
     }
 
+    fn get_bg_color(&self, data: GrayShade) -> GrayShade {
+        match data {
+            GrayShade::C00 => self.bg_color_00,
+            GrayShade::C01 => self.bg_color_01,
+            GrayShade::C10 => self.bg_color_10,
+            GrayShade::C11 => self.bg_color_11,
+            // The background can never be transparent
+            GrayShade::Transparent => panic!(),
+        }
+    }
+
     fn read_background(&self, offset: u16, patterns: &[[[GrayShade; 8]; 8]; 256]) -> BackgroundBuffer {
         let mut background = [[GrayShade::C00; 256]; 256];
 
@@ -295,7 +296,7 @@ impl VideoController {
 
                 for k in 0..8 {
                     for h in 0..8 {
-                        background[i * 8 + k][j * 8 + h] = patterns[v as usize][k][h];
+                        background[i * 8 + k][j * 8 + h] = self.get_bg_color(patterns[v as usize][k][h]);
                     }
                 }
             }
