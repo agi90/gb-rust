@@ -151,22 +151,22 @@ impl Handler for VideoController {
 
 fn flip_tile(tile: Pattern, y_flip: bool, x_flip: bool) -> Pattern {
     let mut new_tile = tile;
-
     if y_flip {
         for i in 0..8 {
             new_tile[i] = tile[7 - i];
         }
     }
 
+    let mut new_tile2 = new_tile;
     if x_flip {
         for i in 0..8 {
             for j in 0..8 {
-                new_tile[i][j] = tile[i][7 - j];
+                new_tile2[i][j] = new_tile[i][7 - j];
             }
         }
     }
 
-    new_tile
+    new_tile2
 }
 
 struct Sprite {
