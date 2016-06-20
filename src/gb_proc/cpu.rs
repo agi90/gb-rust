@@ -236,8 +236,6 @@ impl Cpu {
     pub fn get_cycles(&self) -> usize { self.cycles.clone() }
 
     fn interrupt(&mut self, interrupt: Interrupt) {
-        self.state = CpuState::Running;
-
         self.interrupt_handler.disable();
         let next = self.get_PC();
 
@@ -340,6 +338,10 @@ impl Cpu {
     pub fn next_instruction(&mut self) {
         self.interrupt_handler.add_interrupts(
             self.handler_holder.check_interrupts());
+
+        if self.interrupt_handler.has_interrupts() {
+            self.state = CpuState::Running;
+        }
 
         let interrupt = self.interrupt_handler.get_interrupt();
 
@@ -476,6 +478,14 @@ impl InterruptHandler {
     pub fn add_cycles(&mut self, cycles: usize) {
         let interrupts = self.timer_controller.add_cycles(cycles);
         self.add_interrupts(interrupts);
+    }
+
+    /// Checks weather an interrupt is queued up (even if it could be disabled)
+    pub fn has_interrupts(&self) -> bool {
+        self.register.v_blank
+            || self.register.stat
+            || self.register.timer
+            || self.register.joypad
     }
 
     pub fn get_interrupt(&mut self) -> Option<Interrupt> {
