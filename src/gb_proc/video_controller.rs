@@ -574,7 +574,12 @@ impl VideoController {
             (self.bg_color_11.to_u8() << 6)
     }
 
-    fn read_bgp(&self) -> u8 { unimplemented!(); }
+    fn read_bgp(&self) -> u8 {
+        self.bg_color_00.to_u8() +
+            self.bg_color_01.to_u8() << 2 +
+            self.bg_color_10.to_u8() << 4 +
+            self.bg_color_11.to_u8() << 6
+    }
 
     fn write_bgp(&mut self, v: u8) {
         self.bg_color_00 = GrayShade::from_u8(0b00000011 & v);
