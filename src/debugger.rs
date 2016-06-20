@@ -10,6 +10,7 @@ pub struct Debugger {
     stepping: bool,
     address_breakpoints: HashSet<u16>,
     op_breakpoints: HashSet<u8>,
+    last_command: String,
 }
 
 fn print_help() {
@@ -22,6 +23,7 @@ fn print_help() {
     println!("[p]rint [u16]    -- print memory at [u16]");
     println!("[s]et [u16] [u8] -- put value [u8] at memory address [u16]");
     println!("[c]ontinue       -- continue execution");
+    println!("[s]tep           -- go to next instruction");
     println!("d                -- continue execution but print cpu information");
     println!("[q]uit           -- quit application");
     println!("");
@@ -41,6 +43,7 @@ impl Debugger {
             stepping: false,
             address_breakpoints: HashSet::new(),
             op_breakpoints: HashSet::new(),
+            last_command: "s".to_string(),
         }
     }
 
@@ -69,6 +72,9 @@ impl Debugger {
             "d" => {
                 self.stepping = false;
 
+                return Ok(true);
+            },
+            "s" | "step" => {
                 return Ok(true);
             },
             "q" | "quit" => {
@@ -171,6 +177,13 @@ impl Debugger {
             io::stdin().read_line(&mut input).unwrap();
             input = input.replace("\n", "")
                 .replace("\r", "");
+
+            if input != "" {
+                self.last_command = input.clone();
+            } else {
+                input = self.last_command.clone();
+                println!("{}", input);
+            }
 
             let commands: Vec<&str> = input.split(' ').collect();
 
