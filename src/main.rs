@@ -36,8 +36,8 @@ pub fn main() {
 
     let mut debugger = Debugger::new();
     let mut natural_speed = true;
-    // Refresh 59.7 times a sec
-    let target = Duration::new(0, (1e9/59.7) as u32);
+    // This target seems to match the actual Game Boy in terms of speed
+    let target = Duration::new(0, (1e9/63.0) as u32);
     loop {
         debugger.check_breakpoints(&mut cpu);
 
