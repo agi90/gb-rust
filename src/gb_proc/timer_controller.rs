@@ -2,11 +2,12 @@ use std::num::Wrapping;
 use gb_proc::cpu::Interrupt;
 
 // Every X clocks
+#[derive(Clone, Copy)]
 enum ClockSelect {
-    C16,
-    C64,
-    C256,
-    C1024,
+    C1024 = 0b00,
+    C16   = 0b01,
+    C64   = 0b10,
+    C256  = 0b11,
 }
 
 pub struct TimerController {
@@ -45,6 +46,9 @@ impl TimerController {
         let mut interrupts = vec![];
         if self.last_clock > 16 {
             self.last_clock -= 16;
+
+            self.clock = (Wrapping(self.clock) + Wrapping(1)).0;
+
             let clock = self.inc_clock();
             let divider = self.inc_divider();
 
@@ -61,8 +65,6 @@ impl TimerController {
     }
 
     fn inc_clock(&mut self) -> bool {
-        self.clock = (Wrapping(self.clock) + Wrapping(1)).0;
-
         let should_increment = match self.clock_select {
             ClockSelect::C16   => true,
             ClockSelect::C64   => (self.clock %  4) == 0,
@@ -71,7 +73,7 @@ impl TimerController {
         };
 
         if should_increment {
-            self.timer += (Wrapping(self.timer) + Wrapping(1)).0;
+            self.timer = (Wrapping(self.timer) + Wrapping(1)).0;
             self.timer == 0
         } else {
             false
@@ -79,8 +81,12 @@ impl TimerController {
     }
 
     fn inc_divider(&mut self) -> bool {
-        self.divider = (Wrapping(self.divider) + Wrapping(1)).0;
-        self.divider == 0x00
+        if self.clock % 16 == 0 {
+            self.divider = (Wrapping(self.divider) + Wrapping(1)).0;
+            self.divider == 0x00
+        } else {
+            false
+        }
     }
 
     fn write_counter(&mut self, v: u8) {
@@ -118,7 +124,8 @@ impl TimerController {
     }
 
     fn read_control(&self) -> u8 {
-        unimplemented!();
+        (if self.timer_enabled { 0b00000100 } else { 0 }) +
+            self.clock_select as u8
     }
 
     pub fn read(&self, address: u16) -> u8 {

@@ -19,8 +19,10 @@ fn print_help() {
     println!("[l]ist           -- list breakpoints");
     println!("bo [u8]          -- breakpoint for opcode [u8]");
     println!("ba [u16]         -- breakpoint for address [u16]");
+    println!("bm [u16]         -- breaks whenever the memory at [u16] is accessed");
     println!("p cpu            -- display cpu information and registers");
     println!("[p]rint [u16]    -- print memory at [u16]");
+    println!("po [u16]         -- print opcode at [u16]");
     println!("[s]et [u16] [u8] -- put value [u8] at memory address [u16]");
     println!("[c]ontinue       -- continue execution");
     println!("[s]tep           -- go to next instruction");
@@ -61,6 +63,7 @@ impl Debugger {
             "clear" => {
                 self.op_breakpoints.clear();
                 self.address_breakpoints.clear();
+                cpu.clear_watch();
             },
             "c" | "continue" => {
                 self.stepping = false;
@@ -105,15 +108,24 @@ impl Debugger {
                 println!("Breakpoint for address {:04X}", address);
                 self.address_breakpoints.insert(address);
             },
+            "bm" => {
+                let address = try!(to_address(arg));
+                println!("Breakpoint for memory access at address {:04X}", address);
+                cpu.watch(address);
+            },
             "p" | "print" => {
                 if arg == "cpu" {
                     print_cpu_status(&cpu);
                 } else {
                     let address = try!(to_address(arg));
                     println!("${:04X}={:02X}", address, cpu.deref(address));
-                    self.address_breakpoints.insert(address);
                 }
             },
+            "po" => {
+                let address = try!(to_address(arg));
+                println!("${:04X} = {}", address,
+                         OpCode::from_byte(cpu.deref(address), false).to_string());
+            }
             _ => {
                 return Err(());
             },
@@ -155,7 +167,8 @@ impl Debugger {
         let op = cpu.deref_PC();
 
         if !self.address_breakpoints.contains(&address) &&
-                !self.op_breakpoints.contains(&op) {
+                !self.op_breakpoints.contains(&op) &&
+                !cpu.address_breakpoint() {
             return;
         }
 

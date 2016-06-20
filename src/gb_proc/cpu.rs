@@ -4,6 +4,9 @@ use gb_proc::handler_holder::Key;
 use gb_proc::timer_controller::TimerController;
 use gb_proc::video_controller::ScreenBuffer;
 
+use std::collections::HashSet;
+use std::cell::RefCell;
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum CpuState {
     Running,
@@ -38,6 +41,9 @@ pub struct Cpu {
     debug: bool,
 
     pub handler_holder: Box<HandlerHolder>,
+
+    watch_addresses: HashSet<u16>,
+    address_breakpoint: RefCell<bool>,
 }
 
 
@@ -111,12 +117,26 @@ impl Cpu {
             interrupt_handler: InterruptHandler::new(),
 
             debug: false,
+
+            watch_addresses: HashSet::new(),
+            address_breakpoint: RefCell::new(false),
         };
 
         cpu
     }
 
+    pub fn address_breakpoint(&self) -> bool {
+        let value = self.address_breakpoint.borrow().clone();
+        *self.address_breakpoint.borrow_mut() = false;
+
+        value
+    }
+
     pub fn deref(&self, address: u16) -> u8 {
+        if self.watch_addresses.contains(&address) {
+            *self.address_breakpoint.borrow_mut() = true;
+        }
+
         match address {
             0xFF04 ... 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.read(address),
             _ => self.handler_holder.get_handler_read(address)
@@ -125,6 +145,10 @@ impl Cpu {
     }
 
     pub fn set_deref(&mut self, address: u16, v: u8) {
+        if self.watch_addresses.contains(&address) {
+            *self.address_breakpoint.borrow_mut() = true;
+        }
+
         match address {
             0xFF46 => self.copy_memory_to_vram(v),
             0xFF04 ... 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.write(address, v),
@@ -138,6 +162,14 @@ impl Cpu {
             let v = self.deref(((v as u16) << 8) + i);
             self.set_deref(0xFE00 + (i as u16), v);
         }
+    }
+
+    pub fn watch(&mut self, address: u16) {
+        self.watch_addresses.insert(address);
+    }
+
+    pub fn clear_watch(&mut self) {
+        self.watch_addresses.clear();
     }
 
     pub fn set_Z_flag(&mut self) { self.Z_flag = true }
@@ -398,6 +430,8 @@ pub fn print_cpu_status(cpu: &Cpu) {
     println!("L = ${:02X}",   cpu.get_L_reg());
     println!("PC = ${:02X}",  cpu.get_PC());
     println!("SP = ${:02X}",  cpu.get_SP());
+    println!("IF = ${:02X}",  cpu.deref(0xFFFF));
+    println!("IE = ${:02X}",  cpu.deref(0xFF0F));
     println!("state = {:?}",  cpu.get_state());
     println!("cycles = {:?}", cpu.get_cycles());
 
@@ -590,11 +624,11 @@ impl InterruptRegister {
     }
 
     fn read_interrupt(&self) -> u8 {
-        (if self.v_blank && self.v_blank_enabled { 0b00000001 } else { 0 }) +
-        (if self.stat && self.stat_enabled       { 0b00000010 } else { 0 }) +
-        (if self.timer && self.timer_enabled     { 0b00000100 } else { 0 }) +
-        (if self.serial && self.serial_enabled   { 0b00001000 } else { 0 }) +
-        (if self.joypad && self.joypad_enabled   { 0b00010000 } else { 0 })
+        (if self.v_blank { 0b00000001 } else { 0 }) +
+        (if self.stat    { 0b00000010 } else { 0 }) +
+        (if self.timer   { 0b00000100 } else { 0 }) +
+        (if self.serial  { 0b00001000 } else { 0 }) +
+        (if self.joypad  { 0b00010000 } else { 0 })
     }
 
     fn write_interrupt(&mut self, v: u8) {

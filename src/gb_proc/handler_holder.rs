@@ -43,21 +43,28 @@ impl MemoryHolder {
 impl Handler for MemoryHolder {
     fn read(&self, address: u16) -> u8 {
         match address {
+            0xFF4D | 0xFF56 | 0xFF70 | 0xFF6C | 0xFF72 ... 0xFF77 => {
+                // These IO registers are legal in the GBC so we should not crash
+                // if the cpu tryies to access them, even though they are not
+                // implemented in the DMG.
+                0xFF
+            },
             0xC000 ... 0xDFFF => self.internal_ram[(address - 0xC000) as usize],
-            0xFEA0 ... 0xFEFF => panic!("Unusable IO ports."),
-            0xFF4C ... 0xFF7F => panic!("Unusable IO ports."),
             0xFF80 ... 0xFFFE => self.stack[(address - 0xFF80) as usize],
-            _ => unreachable!(),
+            _ => panic!(format!("Address not supported {:04X}", address)),
         }
     }
 
     fn write(&mut self, address: u16, v: u8) {
         match address {
+            0xFF4D | 0xFF56 | 0xFF70 | 0xFF6C | 0xFF72 ... 0xFF77 => {
+                // These IO registers are legal in the GBC so we should not crash
+                // if the cpu tryies to access them, even though they are not
+                // implemented in the DMG.
+            },
             0xC000 ... 0xDFFF => self.internal_ram[(address - 0xC000) as usize] = v,
-            0xFEA0 ... 0xFEFF => { /* println!("Writing to unusable IO port {:04X}", address) */ },
             0xFF80 ... 0xFFFE => self.stack[(address - 0xFF80) as usize] = v,
-            0xFF4C ... 0xFF7F => { /* println!("Writing to unusable IO port {:04X}", address) */ },
-            _ => unreachable!(),
+            _ => panic!(format!("Address not supported {:04X}", address)),
         }
     }
 }
