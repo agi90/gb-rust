@@ -264,7 +264,12 @@ impl Cpu {
         self.called_set_PC = true;
     }
 
-    pub fn add_cycles(&mut self, cycles: usize) { self.cycles += cycles }
+    pub fn add_cycles(&mut self, cycles: usize) {
+        self.cycles += cycles;
+        self.interrupt_handler.add_cycles(cycles);
+        self.handler_holder.add_cycles(cycles);
+    }
+
     pub fn get_cycles(&self) -> usize { self.cycles.clone() }
 
     fn interrupt(&mut self, interrupt: Interrupt) {
@@ -408,8 +413,6 @@ impl Cpu {
         };
 
         self.add_cycles(cycles);
-        self.interrupt_handler.add_cycles(cycles);
-        self.handler_holder.add_cycles(cycles);
     }
 }
 

@@ -1416,6 +1416,7 @@ fn jp_nn(cpu: &mut Cpu) {
 
 fn jp_cond_nn(cond: bool, cpu: &mut Cpu) {
     if cond {
+        cpu.add_cycles(4);
         jp_nn(cpu);
     } else {
         // discard operand
@@ -1459,6 +1460,7 @@ fn jr_n(cpu: &mut Cpu) {
 
 fn jr_cond_n(cond: bool, cpu: &mut Cpu) {
     if cond {
+        cpu.add_cycles(4);
         jr_n(cpu);
     } else {
         // Discard operand
@@ -1499,6 +1501,7 @@ fn call_nn(cpu: &mut Cpu) {
 
 fn call_cond_nn(cond: bool, cpu: &mut Cpu) {
     if cond {
+        cpu.add_cycles(12);
         call_nn(cpu);
     } else {
         // discard operand
@@ -1555,6 +1558,7 @@ fn ret(cpu: &mut Cpu) {
 
 fn ret_cond(cond: bool, cpu: &mut Cpu) {
     if cond {
+        cpu.add_cycles(12);
         ret(cpu);
     }
 }
@@ -2675,10 +2679,10 @@ op_codes!(
     // cc = Z,  Jump if C flag is set
     //
     // nn = two byte immediate value. (LS byte first)
-    JpNZnn: ("JP NZ,nn", 0xC2, 16, jp_NZ_nn),
-    JpZnn:  ("JP Z,nn",  0xCA, 16, jp_Z_nn),
-    JpNCnn: ("JP NC,nn", 0xD2, 16, jp_NC_nn),
-    JpCnn:  ("JP C,nn",  0xDA, 16, jp_C_nn),
+    JpNZnn: ("JP NZ,nn", 0xC2, 12, jp_NZ_nn),
+    JpZnn:  ("JP Z,nn",  0xCA, 12, jp_Z_nn),
+    JpNCnn: ("JP NC,nn", 0xD2, 12, jp_NC_nn),
+    JpCnn:  ("JP C,nn",  0xDA, 12, jp_C_nn),
 
     // JP (HL)
     //
@@ -2702,10 +2706,10 @@ op_codes!(
     // cc = Z,  Jump if Z flag is set
     // cc = NC, Jump if C flag is reset
     // cc = C,  Jump if C flag is set
-    JrNZn: ("JR NZ,n", 0x20, 12, jr_NZ_n),
-    JrZn:  ("JR Z,n",  0x28, 12, jr_Z_n),
-    JrNCn: ("JR NC,n", 0x30, 12, jr_NC_n),
-    JrCn:  ("JR C,n",  0x38, 12, jr_C_n),
+    JrNZn: ("JR NZ,n", 0x20, 8, jr_NZ_n),
+    JrZn:  ("JR Z,n",  0x28, 8, jr_Z_n),
+    JrNCn: ("JR NC,n", 0x30, 8, jr_NC_n),
+    JrCn:  ("JR C,n",  0x38, 8, jr_C_n),
 
     // CALL nn
     //
@@ -2713,7 +2717,7 @@ op_codes!(
     // jump to address nn
     //
     // nn = two byte immediate value. (LS byte first.)
-    Callnn: ("CALL nn", 0xCD, 24, call_nn),
+    Callnn: ("CALL nn", 0xCD, 12, call_nn),
 
     // CALL cc,nn
     //
@@ -2756,10 +2760,10 @@ op_codes!(
     // cc = Z,  Jump if Z flag is set
     // cc = NC, Jump if C flag is reset
     // cc = C,  Jump if C flag is set
-    RetNZ: ("RET NZ", 0xC0, 20, ret_NZ),
-    RetZ:  ("RET Z",  0xC8, 20, ret_Z),
-    RetNC: ("RET NC", 0xD0, 20, ret_NC),
-    RetC:  ("RET C",  0xD8, 20, ret_C),
+    RetNZ: ("RET NZ", 0xC0, 8, ret_NZ),
+    RetZ:  ("RET Z",  0xC8, 8, ret_Z),
+    RetNC: ("RET NC", 0xD0, 8, ret_NC),
+    RetC:  ("RET C",  0xD8, 8, ret_C),
 
     // RETI
     //
