@@ -388,7 +388,7 @@ impl Cpu {
             return;
         }
 
-        let cycles = if self.state == CpuState::Running {
+        if self.state == CpuState::Running {
             let op = self.next_opcode();
 
             if self.debug {
@@ -401,19 +401,18 @@ impl Cpu {
 
             op.execute(self);
 
+            // Fetching next instruction
+            self.add_cycles(4);
+
             if !self.did_call_set_PC() {
                 // No jump happened so we need to increase PC
                 self.inc_PC();
             } else {
                 self.reset_call_set_PC();
             }
-
-            op.get_cycles()
         } else {
-            1
+            self.add_cycles(4);
         };
-
-        self.add_cycles(cycles);
     }
 }
 
@@ -438,7 +437,7 @@ pub fn print_cpu_status(cpu: &Cpu) {
     println!("IE = ${:02X}",  cpu.deref(0xFF0F));
     println!("state = {:?}",  cpu.get_state());
     println!("cycles = {:?}", cpu.get_cycles());
-
+    println!("$FF05 = {:02X}", cpu.deref(0xFF05));
     println!("=== STACK ===");
     println!("${:04X} = {:02X}", cpu.get_SP(),     cpu.deref(cpu.get_SP()));
 

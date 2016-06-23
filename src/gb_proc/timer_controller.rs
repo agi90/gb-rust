@@ -2,7 +2,7 @@ use std::num::Wrapping;
 use gb_proc::cpu::Interrupt;
 
 // Every X clocks
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum ClockSelect {
     C1024 = 0b00,
     C16   = 0b01,
@@ -40,11 +40,12 @@ impl TimerController {
     }
 
     pub fn add_cycles(&mut self, cycles: usize) -> Vec<Interrupt> {
+        // println!("add_cycles cycles={} last_clock={}", cycles, self.last_clock);
         self.last_clock += cycles;
         self.last_divider += cycles;
 
         let mut interrupts = vec![];
-        if self.last_clock > 16 {
+        while self.last_clock >= 16 {
             self.last_clock -= 16;
 
             self.clock = (Wrapping(self.clock) + Wrapping(1)).0;
@@ -73,8 +74,13 @@ impl TimerController {
         };
 
         if should_increment {
-            self.timer = (Wrapping(self.timer) + Wrapping(1)).0;
-            self.timer == 0
+            if self.timer == 0xFF {
+                self.timer = self.modulo;
+                true
+            } else {
+                self.timer = self.timer + 1;
+                false
+            }
         } else {
             false
         }
@@ -94,7 +100,6 @@ impl TimerController {
     }
 
     fn write_modulo(&mut self, v: u8) {
-        // not totally sure about this
         self.modulo = v;
     }
 
@@ -120,7 +125,7 @@ impl TimerController {
     }
 
     fn read_modulo(&self) -> u8 {
-        unimplemented!();
+        self.modulo
     }
 
     fn read_control(&self) -> u8 {
