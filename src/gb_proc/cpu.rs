@@ -362,6 +362,7 @@ impl Cpu {
 
         if hex == 0xCB {
             self.inc_PC();
+            self.add_cycles(4);
             OpCode::from_byte(self.deref_PC(), true)
         } else {
             OpCode::from_byte(hex, false)
