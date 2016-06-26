@@ -32,7 +32,10 @@ impl GrayShade {
     }
 }
 
-pub type ScreenBuffer = [[GrayShade; 160]; 144];
+const SCREEN_X: usize = 160;
+const SCREEN_Y: usize = 144;
+
+pub type ScreenBuffer = [[GrayShade; SCREEN_X]; SCREEN_Y];
 pub type BackgroundBuffer = [[GrayShade; 256]; 256];
 
 type Pattern = [[GrayShade; 8]; 8];
@@ -225,7 +228,7 @@ impl VideoController {
             v_blank_interrupt: false,
             h_blank_interrupt: false,
 
-            screen_buffer: [[GrayShade::C00; 160]; 144],
+            screen_buffer: [[GrayShade::C00; SCREEN_X]; SCREEN_Y],
             background_buffer: [[GrayShade::C00; 256]; 256],
             window_buffer: [[GrayShade::C00; 256]; 256],
 
@@ -320,7 +323,7 @@ impl VideoController {
             visible_sprites.push(sprite);
         }
 
-        for x in 0..160 {
+        for x in 0..SCREEN_X {
             for sprite in &visible_sprites {
                 if x + 8 < sprite.x || x >= sprite.x {
                     continue;
@@ -331,7 +334,7 @@ impl VideoController {
                 if color != GrayShade::Transparent {
                     if !sprite.below_bg
                         || (self.screen_buffer[scanline][x] == GrayShade::C00) {
-                            if x <= 159 && scanline <= 143 {
+                            if x < SCREEN_X && scanline < SCREEN_Y {
                                 self.screen_buffer[scanline][x] = color;
                             }
                         }
@@ -441,13 +444,13 @@ impl VideoController {
 
     fn write_scanline(&mut self, i: usize) {
         // Step 0: Blank screen
-        for j in 0..160 {
+        for j in 0..SCREEN_X {
             self.write_pixel(j as usize, i as usize, GrayShade::C00);
         }
 
         // Step 2: paint background
         if self.lcd_controller.bg_window_on {
-            for j in 0..160 {
+            for j in 0..SCREEN_X {
                 let x = (j + (self.scroll_bg_x as usize)) % 256;
                 let y = (i + (self.scroll_bg_y as usize)) % 256;
 
@@ -461,7 +464,7 @@ impl VideoController {
         // Step 3: paint the window
         if self.lcd_controller.window_on
                 && self.lcd_controller.bg_window_on {
-            for j in 0..160 {
+            for j in 0..SCREEN_X {
                 if i >= self.window_y as usize
                         && j + 7 >= self.window_x as usize
                         && j < 249 + self.window_x as usize
@@ -480,7 +483,7 @@ impl VideoController {
     }
 
     fn write_pixel(&mut self, x: usize, y: usize, color: GrayShade) {
-        if x > 159 || y > 143 {
+        if x >= SCREEN_X || y >= SCREEN_Y {
             return;
         }
 
@@ -528,7 +531,7 @@ impl VideoController {
                 },
                 LCDMode::LCDTransfer => { self.mode = LCDMode::HBlank; },
                 LCDMode::HBlank => {
-                    if self.lcd_y_coordinate < 143 {
+                    if self.lcd_y_coordinate <= SCREEN_Y as u8 {
                         self.mode = LCDMode::SearchingOAM;
                     } else {
                         self.mode = LCDMode::VBlank;
