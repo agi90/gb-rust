@@ -2,30 +2,13 @@ use std::num::Wrapping;
 use bitfield::Bitfield;
 use gb_proc::cpu::{Handler, Interrupt};
 
-// Every X clocks
-#[derive(Clone, Copy, Debug)]
-enum ClockSelect {
-    C1024 = 0b00,
-    C16   = 0b01,
-    C64   = 0b10,
-    C256  = 0b11,
-}
-
-impl Into<u8> for ClockSelect {
-    fn into(self) -> u8 {
-        self as u8
-    }
-}
-
-impl From<u8> for ClockSelect {
-    fn from(v: u8) -> ClockSelect {
-        match v {
-            0b00 => ClockSelect::C1024,
-            0b01 => ClockSelect::C16,
-            0b10 => ClockSelect::C64,
-            0b11 => ClockSelect::C256,
-            _ => panic!(),
-        }
+u8_enum!{
+    ClockSelect {
+        // Every X clocks
+        C1024 = 0b00,
+        C16   = 0b01,
+        C64   = 0b10,
+        C256  = 0b11,
     }
 }
 
