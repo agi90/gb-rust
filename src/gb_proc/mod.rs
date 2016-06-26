@@ -1,3 +1,124 @@
+macro_rules! u8_enum {
+    {
+        $name: ident {
+            $($field_name: ident = $value: expr),+,
+        }
+    } => {
+        #[derive(Clone, Copy, Debug)]
+        enum $name {
+            $(
+                $field_name = $value,
+            )+
+        }
+
+        impl Into<u8> for $name {
+            fn into(self) -> u8 {
+                self as u8
+            }
+        }
+
+        impl From<u8> for $name {
+            fn from(v: u8) -> $name {
+                match v {
+                    $(
+                        $value => $name::$field_name
+                    ),+,
+                    _ => panic!("Enum value not recognized: ${:02X}", v),
+                }
+            }
+        }
+    }
+}
+
+macro_rules! memory_mapper {
+    {
+        name: $name: ident,
+        fields: {
+            getters: [
+                $($hex:expr, $field_name: ident, $default: expr, [
+                    $($bitfield_getter: ident,
+                    $method_getter: ident,
+                    $method_type: ident);*
+                ]);*
+            ],
+            getter_setters: [
+                $($hex_s:expr, $field_name_s: ident, $default_s: expr, [
+                    $($bitfield_getter_s: ident,
+                    $bitfield_setter_s: ident,
+                    $method_getter_s: ident,
+                    $method_setter_s: ident,
+                    $method_type_s: ident);*
+                ]);*
+            ],
+        },
+    } => {
+        struct $name {
+            $($field_name: Bitfield),+,
+        }
+
+        impl $name {
+            pub fn new() -> $name {
+                $name {
+                    $($field_name: Bitfield::new($default)),+,
+                }
+            }
+
+            $($(
+                pub fn $method_getter(&self) -> $method_type {
+                    self.$field_name.$bitfield_getter().into()
+                }
+            )*)*
+
+            $($(
+                pub fn $method_getter_s(&self) -> $method_type_s {
+                    self.$field_name_s.$bitfield_getter_s().into()
+                }
+
+                pub fn $method_setter_s(&mut self, v: $method_type_s) {
+                    self.$field_name_s.$bitfield_setter_s(v.into());
+                }
+            )*)*
+        }
+
+        impl Handler for $name {
+            fn read(&self, address: u16) -> u8 {
+                match address {
+                    $($hex => self.$field_name.get()),+,
+                    _ => panic!("Could not handle read at ${:04X}", address),
+                }
+            }
+
+            fn write(&mut self, address: u16, v: u8) {
+                match address {
+                    $($hex => {
+                        self.$field_name.set(v);
+                    }),+,
+                    _ => panic!("Could not handle write at ${:04X} v=${:02X}", address, v),
+                }
+            }
+        }
+    }
+}
+
+macro_rules! memory_handler {
+    {
+        parent: $parent: ident,
+        mapper: $mapper: ident,
+        callback: $callback: ident,
+    } => {
+        impl Handler for $parent {
+            fn read(&self, address: u16) -> u8 {
+                self.$mapper.read(address)
+            }
+
+            fn write(&mut self, address: u16, v: u8) {
+                self.$mapper.write(address, v);
+                self.$callback(address);
+            }
+        }
+    }
+}
+
 #[allow(non_snake_case)]
 pub mod opcodes;
 #[allow(non_snake_case)]
@@ -14,4 +135,3 @@ pub mod cartridge;
 
 #[allow(non_snake_case)]
 pub mod handler_holder;
-

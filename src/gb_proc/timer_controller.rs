@@ -1,5 +1,6 @@
 use std::num::Wrapping;
-use gb_proc::cpu::Interrupt;
+use bitfield::Bitfield;
+use gb_proc::cpu::{Handler, Interrupt};
 
 // Every X clocks
 #[derive(Clone, Copy, Debug)]
@@ -10,32 +11,40 @@ enum ClockSelect {
     C256  = 0b11,
 }
 
+impl Into<u8> for ClockSelect {
+    fn into(self) -> u8 {
+        self as u8
+    }
+}
+
+impl From<u8> for ClockSelect {
+    fn from(v: u8) -> ClockSelect {
+        match v {
+            0b00 => ClockSelect::C1024,
+            0b01 => ClockSelect::C16,
+            0b10 => ClockSelect::C64,
+            0b11 => ClockSelect::C256,
+            _ => panic!(),
+        }
+    }
+}
+
 pub struct TimerController {
     clock: usize,
-    modulo: u8,
-    divider: u8,
-    timer: u8,
-
-    timer_enabled: bool,
-    clock_select: ClockSelect,
-
     last_clock: usize,
     last_divider: usize,
+
+    mapper: TimerMemoryMapper,
 }
 
 impl TimerController {
     pub fn new() -> TimerController {
         TimerController {
             clock: 0,
-            modulo: 0,
-            divider: 0,
-            timer: 0,
-
-            timer_enabled: false,
-            clock_select: ClockSelect::C1024,
-
             last_clock: 0,
             last_divider: 0,
+
+            mapper: TimerMemoryMapper::new(),
         }
     }
 
@@ -58,7 +67,7 @@ impl TimerController {
             }
         }
 
-        if !self.timer_enabled {
+        if self.mapper.get_timer_enabled() == 0 {
             return vec![];
         }
 
@@ -66,7 +75,7 @@ impl TimerController {
     }
 
     fn inc_clock(&mut self) -> bool {
-        let should_increment = match self.clock_select {
+        let should_increment = match self.mapper.get_clock_select() {
             ClockSelect::C16   => true,
             ClockSelect::C64   => (self.clock %  4) == 0,
             ClockSelect::C256  => (self.clock % 16) == 0,
@@ -74,11 +83,11 @@ impl TimerController {
         };
 
         if should_increment {
-            if self.timer == 0xFF {
-                self.timer = self.modulo;
+            if *self.mapper.timer == 0xFF {
+                self.mapper.timer = self.mapper.modulo;
                 true
             } else {
-                self.timer = self.timer + 1;
+                *self.mapper.timer = *self.mapper.timer + 1;
                 false
             }
         } else {
@@ -88,69 +97,39 @@ impl TimerController {
 
     fn inc_divider(&mut self) -> bool {
         if self.clock % 16 == 0 {
-            self.divider = (Wrapping(self.divider) + Wrapping(1)).0;
-            self.divider == 0x00
+            *self.mapper.divider = (Wrapping(*self.mapper.divider) + Wrapping(1)).0;
+            *self.mapper.divider == 0x00
         } else {
             false
         }
     }
 
-    fn write_counter(&mut self, v: u8) {
-        self.timer = v;
-    }
-
-    fn write_modulo(&mut self, v: u8) {
-        self.modulo = v;
-    }
-
-    fn write_control(&mut self, v: u8) {
-        self.timer_enabled  = (v & 0b00000100) > 0;
-        let clock_select    = v & 0b00000011;
-
-        self.clock_select = match clock_select {
-            0 => ClockSelect::C1024,
-            1 => ClockSelect::C16,
-            2 => ClockSelect::C64,
-            3 => ClockSelect::C256,
-            _ => unreachable!(),
-        }
-    }
-
-    fn read_divider(&self) -> u8 {
-        self.divider
-    }
-
-    fn read_counter(&self) -> u8 {
-        self.timer
-    }
-
-    fn read_modulo(&self) -> u8 {
-        self.modulo
-    }
-
-    fn read_control(&self) -> u8 {
-        (if self.timer_enabled { 0b00000100 } else { 0 }) +
-            self.clock_select as u8
-    }
-
-    pub fn read(&self, address: u16) -> u8 {
+    pub fn write_callback(&mut self, address: u16) {
         match address {
-            0xFF04 => self.read_divider(),
-            0xFF05 => self.read_counter(),
-            0xFF06 => self.read_modulo(),
-            0xFF07 => self.read_control(),
-            _      => panic!(),
+            0xFF04 => { *self.mapper.divider = 0 },
+            _ => {},
         }
     }
+}
 
-    pub fn write(&mut self, address: u16, v: u8) {
-        match address {
-            // Divider is always set to zero regardless of v
-            0xFF04 => { self.divider = 0 },
-            0xFF05 => self.write_counter(v),
-            0xFF06 => self.write_modulo(v),
-            0xFF07 => self.write_control(v),
-            _      => panic!(),
-        }
-    }
+memory_mapper!{
+    name: TimerMemoryMapper,
+    fields: {
+        getters: [
+            0xFF04, divider, 0, [];
+            0xFF05, timer,   0, [];
+            0xFF06, modulo,  0, [];
+            0xFF07, control, 0, [
+                get_01, get_clock_select,  ClockSelect;
+                get_2,  get_timer_enabled, u8
+            ]
+        ],
+        getter_setters: [],
+    },
+}
+
+memory_handler!{
+    parent: TimerController,
+    mapper: mapper,
+    callback: write_callback,
 }

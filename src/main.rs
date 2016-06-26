@@ -8,6 +8,7 @@ extern crate glium;
 pub mod gb_proc;
 pub mod gpu;
 pub mod controller;
+#[allow(dead_code)]
 mod bitfield;
 mod debugger;
 

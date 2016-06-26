@@ -1,175 +1,178 @@
+use std::convert::From;
 use gb_proc::cpu::Handler;
+use bitfield::Bitfield;
 
 #[derive(Clone, Copy, Debug)]
-enum WavePattern {
-    C12 = 0b00,
-    C25 = 0b01,
-    C50 = 0b10,
-    C75 = 0b11,
+
+u8_enum!{
+    WavePattern {
+        C12 = 0b00,
+        C25 = 0b01,
+        C50 = 0b10,
+        C75 = 0b11,
+    }
 }
 
-impl WavePattern {
-    pub fn from_byte(v: u8) -> WavePattern {
-        match v {
-            0b00 => WavePattern::C12,
-            0b01 => WavePattern::C25,
-            0b10 => WavePattern::C50,
-            0b11 => WavePattern::C75,
-            _ => panic!(),
-        }
+u8_enum!{
+    OutputLevel {
+        Mute          = 0b00,
+        WavePattern   = 0b01,
+        RightShifted2 = 0b10,
+        RightShifted4 = 0b11,
+    }
+}
+
+u8_enum!{
+    SweepTime {
+        NoChange = 0b000,
+        Ms7800   = 0b001,
+        Ms15600  = 0b010,
+        Ms23400  = 0b011,
+        Ms31300  = 0b100,
+        Ms39100  = 0b101,
+        Ms46900  = 0b110,
+        Ms54700  = 0b111,
+    }
+}
+
+u8_enum!{
+    SweepType {
+        Addition = 0b0,
+        Subtraction = 0b1,
+    }
+}
+
+u8_enum!{
+    EnvelopeAmplication {
+        Attenuate = 0b0,
+        Amplify   = 0b1,
+    }
+}
+
+u8_enum!{
+    SoundSteps {
+        C15 = 0b0,
+        C7  = 0b1,
+    }
+}
+
+u8_enum!{
+    SoundRatio {
+        Two     = 0b000,
+        One     = 0b001,
+        Half    = 0b010,
+        Third   = 0b011,
+        Fourth  = 0b100,
+        Fifth   = 0b101,
+        Sixth   = 0b110,
+        Seventh = 0b111,
     }
 }
 
 pub struct SoundController {
-    sound_enabled: bool,
-    selection_sound: u8,
-
-    channel_1_duration: u8,
-    channel_1_pattern: WavePattern,
-    channel_1_counter: u8,
-    channel_1_consecutive: bool,
-    channel_1_on: bool,
-    channel_1_level: u8,
-
-    channel_2_duration: u8,
-    channel_2_pattern: WavePattern,
-    channel_2_counter: u8,
-    channel_2_consecutive: bool,
-    channel_2_on: bool,
-    channel_2_level: u8,
-
-    last_cycle: usize,
+    mapper: SoundMemoryMapper,
+    wave_pattern: [u8; 16],
 }
 
 impl SoundController {
     pub fn new() -> SoundController {
         SoundController {
-            sound_enabled: true,
-            selection_sound: 0xF3,
-
-            channel_1_duration: 0x01,
-            channel_1_pattern: WavePattern::C50,
-            channel_1_counter: 0x00,
-            channel_1_consecutive: false,
-            channel_1_on: false,
-            channel_1_level: 0b111,
-
-            channel_2_duration: 0x01,
-            channel_2_pattern: WavePattern::C50,
-            channel_2_counter: 0x00,
-            channel_2_consecutive: false,
-            channel_2_on: false,
-            channel_2_level: 0b111,
-
-            last_cycle: 0,
+            mapper: SoundMemoryMapper::new(),
+            wave_pattern: [0; 16],
         }
     }
 
-    pub fn add_cycles(&mut self, cycles: usize) {
-        self.last_cycle += cycles;
-
-        // 1/256th of second
-        if self.last_cycle > 16384 {
-            self.last_cycle -= 16384;
-
-            self.channel_1_counter += 1;
-            if self.channel_1_counter > self.channel_1_duration {
-                self.channel_1_counter = 0;
-            }
-
-            self.channel_2_counter += 1;
-            if self.channel_2_counter > self.channel_2_duration {
-                self.channel_2_counter = 0;
-            }
-        }
-    }
-
-    fn get_channel_2_sound(&self) -> u8 {
-        (self.channel_2_pattern as u8) << 6
-    }
-
-    fn get_channel_1_sound(&self) -> u8 {
-        (self.channel_1_pattern as u8) << 6
-    }
-
-    fn set_channel_2_sound(&mut self, v: u8) {
-        self.channel_2_pattern = WavePattern::from_byte((v & 0b11000000) >> 6);
-        self.channel_2_duration = v & 0b00111111;
-        self.channel_2_counter = 0;
-    }
-
-    fn set_channel_1_sound(&mut self, v: u8) {
-        self.channel_1_pattern = WavePattern::from_byte((v & 0b11000000) >> 6);
-        self.channel_1_duration = v & 0b00111111;
-        self.channel_1_counter = 0;
-    }
-
-    fn set_channel_control(&mut self, v: u8) {
-        self.channel_2_on    = (v & 0b10000000) > 0;
-        self.channel_2_level = (v & 0b01110000) >> 4;
-        self.channel_1_on    = (v & 0b00001000) > 0;
-        self.channel_1_level = v & 0b00000111;
-    }
-
-    fn get_channel_control(&self) -> u8 {
-        (if self.channel_2_on { 0b10000000 } else { 0 }) +
-           (self.channel_2_level << 4) +
-        (if self.channel_1_on { 0b00001000 } else { 0 }) +
-            self.channel_1_level
-    }
-
-    fn get_channel_2_frequency(&self) -> u8 {
-        if self.channel_2_consecutive { 0b01000000 } else { 0 }
-    }
-
-    fn get_channel_1_frequency(&self) -> u8 {
-        if self.channel_1_consecutive { 0b01000000 } else { 0 }
-    }
-
-    fn set_channel_2_frequency(&mut self, v: u8) {
-        self.channel_2_consecutive = v & 0b01000000 > 0;
-        // The other bits are devoted to outputting sound
-    }
-
-    fn set_channel_1_frequency(&mut self, v: u8) {
-        self.channel_1_consecutive = v & 0b01000000 > 0;
-        // The other bits are devoted to outputting sound
-    }
-
-    pub fn sound_status_read(&self) -> u8 {
-        // Not really implemented for now
-        (if self.sound_enabled { 0b10000000 } else { 0 }) +
-                                 0b00000001
+    pub fn add_cycles(&mut self, _: usize) {
+        // TODO:
     }
 }
 
 impl Handler for SoundController {
     fn read(&self, address: u16) -> u8 {
         match address {
-            0xFF11 => self.get_channel_1_sound(),
-            0xFF14 => self.get_channel_1_frequency(),
-            0xFF16 => self.get_channel_2_sound(),
-            0xFF19 => self.get_channel_2_frequency(),
-            0xFF26 => self.sound_status_read(),
-            0xFF24 => self.get_channel_control(),
-            0xFF25 => self.selection_sound,
-            _      => unimplemented!(),
+            0xFF30 ... 0xFF3F => self.wave_pattern[address as usize - 0xFF30],
+            _ => self.mapper.read(address),
         }
     }
 
     fn write(&mut self, address: u16, v: u8) {
         match address {
-            0xFF11 => { self.set_channel_1_sound(v) },
-            0xFF14 => { self.set_channel_1_frequency(v) },
-            0xFF16 => { self.set_channel_2_sound(v) },
-            0xFF19 => { self.set_channel_2_frequency(v) },
-            0xFF24 => { self.set_channel_control(v) },
-            0xFF25 => { self.selection_sound = v },
-            _      => {
-                // TODO
-            }
+            0xFF30 ... 0xFF3F => self.wave_pattern[address as usize - 0xFF30] = v,
+            _ => self.mapper.write(address, v),
         }
     }
 }
 
-
+memory_mapper!{
+    name: SoundMemoryMapper,
+    fields: {
+        getters: [
+            0xFF10, sound_1_sweep, 0, [
+                // get_012, get_sound_1_sweep_shift, u8;
+                // get_3,   get_sound_1_sweep,       SweepType;
+                // get_456, get_sound_1_sweep_time,  SweepTime
+            ];
+            0xFF11, sound_1_wave_pattern, 0, [
+                // get_012345, get_sound_1_pattern_length, u8;
+                // get_67,     get_sound_1_pattern, WavePattern
+            ];
+            0xFF12, sound_1_register, 0, [
+                // get_012,  get_sound_1_envelope_sweep, u8;
+                // get_3,    get_sound_1_envelope_amplification, EnvelopeAmplication;
+                // get_4567, get_sound_1_envelope_volume, u8
+            ];
+            0xFF13, sound_1_frequency_low, 0, [];
+            0xFF14, sound_1_frequency_high, 0, [
+                // get_6, get_sound_1_consecutive, u8
+            ];
+            0xFF16, sound_2_wave_pattern, 0, [
+                // get_012345, get_sound_2_pattern_length, u8;
+                // get_67,     get_sound_2_pattern, WavePattern
+            ];
+            0xFF17, sound_2_sweep, 0, [
+                // get_012, get_sound_2_sweep_shift, u8;
+                // get_3,   get_sound_2_sweep,       SweepType;
+                // get_456, get_sound_2_sweep_time,  SweepTime
+            ];
+            0xFF18, sound_2_frequency_low, 0, [];
+            0xFF19, sound_2_frequency_hi, 0, [
+                // get_6, get_sound_2_consecutive, u8
+            ];
+            0xFF1A, sound_3_register, 0, [
+                // get_6, get_sound_3_on, u8
+            ];
+            0xFF1B, sound_3_length, 0, [];
+            0xFF1C, sound_3_output_level, 0, [
+                // get_56, get_sound_3_output_level, OutputLevel
+            ];
+            0xFF1D, sound_3_frequency_low, 0, [];
+            0xFF1E, sound_3_frequency_hi, 0, [
+                // get_6, get_sound_3_consecutive, u8
+            ];
+            0xFF20, sound_4_length, 0, [];
+            0xFF21, sound_4_sweep, 0, [
+                // get_012, get_sound_4_sweep_shift, u8;
+                // get_3,   get_sound_4_sweep,       SweepType;
+                // get_456, get_sound_4_sweep_time,  SweepTime
+            ];
+            0xFF22, sound_4_polynomial, 0, [
+                // get_012,  get_sound_4_ratio,       SoundRatio;
+                // get_3,    get_sound_4_step,        SoundSteps;
+                // get_4567, get_sound_4_shift_clock, u8
+            ];
+            0xFF23, sound_4_frequency, 0, [
+                // get_6, get_sound_4_consecutive, u8
+            ];
+            0xFF26, sound_status, 0, [];
+            0xFF24, sound_control, 0, [
+                // get_012, get_sound_1_level, u8;
+                // get_3,   get_sound_1_on,    u8;
+                // get_456, get_sound_2_level, u8;
+                // get_7,   get_sound_2_on,    u8
+            ];
+            0xFF25, selection_sound, 0xF3, []
+        ],
+        getter_setters: [
+        ],
+    },
+}
