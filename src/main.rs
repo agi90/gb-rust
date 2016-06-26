@@ -8,6 +8,7 @@ extern crate glium;
 pub mod gb_proc;
 pub mod gpu;
 pub mod controller;
+mod bitfield;
 mod debugger;
 
 use self::debugger::Debugger;

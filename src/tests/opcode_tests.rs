@@ -44,6 +44,7 @@ impl HandlerHolder for MockHandlerHolder {
     fn get_screen_buffer(&self) -> &ScreenBuffer {
         &self.screen_buffer
     }
+    fn should_refresh(&mut self) -> bool { false }
 }
 
 fn reset_all_registers(cpu: &mut Cpu) {
