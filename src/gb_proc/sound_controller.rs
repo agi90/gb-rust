@@ -105,7 +105,16 @@ impl Handler for SoundController {
 
 memory_mapper!{
     name: SoundMemoryMapper,
-    fields: {
+    fields: [
+        0xFF13, sound_1_frequency_low, 0;
+        0xFF18, sound_2_frequency_low, 0;
+        0xFF1B, sound_3_length, 0;
+        0xFF1D, sound_3_frequency_low, 0;
+        0xFF20, sound_4_length, 0;
+        0xFF26, sound_status, 0;
+        0xFF25, selection_sound, 0xF3;
+    ],
+    bitfields: {
         getters: [
             0xFF10, sound_1_sweep, 0, [
                 // get_012, get_sound_1_sweep_shift, u8;
@@ -121,7 +130,6 @@ memory_mapper!{
                 // get_3,    get_sound_1_envelope_amplification, EnvelopeAmplication;
                 // get_4567, get_sound_1_envelope_volume, u8
             ];
-            0xFF13, sound_1_frequency_low, 0, [];
             0xFF14, sound_1_frequency_high, 0, [
                 // get_6, get_sound_1_consecutive, u8
             ];
@@ -134,22 +142,18 @@ memory_mapper!{
                 // get_3,   get_sound_2_sweep,       SweepType;
                 // get_456, get_sound_2_sweep_time,  SweepTime
             ];
-            0xFF18, sound_2_frequency_low, 0, [];
             0xFF19, sound_2_frequency_hi, 0, [
                 // get_6, get_sound_2_consecutive, u8
             ];
             0xFF1A, sound_3_register, 0, [
                 // get_6, get_sound_3_on, u8
             ];
-            0xFF1B, sound_3_length, 0, [];
             0xFF1C, sound_3_output_level, 0, [
                 // get_56, get_sound_3_output_level, OutputLevel
             ];
-            0xFF1D, sound_3_frequency_low, 0, [];
             0xFF1E, sound_3_frequency_hi, 0, [
                 // get_6, get_sound_3_consecutive, u8
             ];
-            0xFF20, sound_4_length, 0, [];
             0xFF21, sound_4_sweep, 0, [
                 // get_012, get_sound_4_sweep_shift, u8;
                 // get_3,   get_sound_4_sweep,       SweepType;
@@ -163,14 +167,12 @@ memory_mapper!{
             0xFF23, sound_4_frequency, 0, [
                 // get_6, get_sound_4_consecutive, u8
             ];
-            0xFF26, sound_status, 0, [];
             0xFF24, sound_control, 0, [
                 // get_012, get_sound_1_level, u8;
                 // get_3,   get_sound_1_on,    u8;
                 // get_456, get_sound_2_level, u8;
                 // get_7,   get_sound_2_on,    u8
-            ];
-            0xFF25, selection_sound, 0xF3, []
+            ]
         ],
         getter_setters: [
         ],

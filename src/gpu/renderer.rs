@@ -124,7 +124,7 @@ impl GLRenderer {
         let mut index = 0;
         for y in 0..144 {
             for x in 0..160 {
-                pixel_buffer[index] = pixels[y][x] as u8;
+                pixel_buffer[index] = pixels[y][x] as u8 + 1;
                 index += 1;
             }
         }

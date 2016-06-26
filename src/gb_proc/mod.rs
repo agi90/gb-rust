@@ -4,8 +4,8 @@ macro_rules! u8_enum {
             $($field_name: ident = $value: expr),+,
         }
     } => {
-        #[derive(Clone, Copy, Debug)]
-        enum $name {
+        #[derive(PartialEq, Eq, Clone, Copy, Debug)]
+        pub enum $name {
             $(
                 $field_name = $value,
             )+
@@ -33,7 +33,10 @@ macro_rules! u8_enum {
 macro_rules! memory_mapper {
     {
         name: $name: ident,
-        fields: {
+        fields: [
+            $($hex_f:expr, $field_name_f: ident, $default_f: expr);*;
+        ],
+        bitfields: {
             getters: [
                 $($hex:expr, $field_name: ident, $default: expr, [
                     $($bitfield_getter: ident,
@@ -54,12 +57,17 @@ macro_rules! memory_mapper {
     } => {
         struct $name {
             $($field_name: Bitfield),+,
+            $($field_name_f: u8),+
+            $(,$field_name_s: Bitfield),*
         }
 
+        #[allow(dead_code)]
         impl $name {
             pub fn new() -> $name {
                 $name {
                     $($field_name: Bitfield::new($default)),+,
+                    $($field_name_f: $default_f),+,
+                    $($field_name_s: Bitfield::new($default_s)),*
                 }
             }
 
@@ -84,15 +92,19 @@ macro_rules! memory_mapper {
             fn read(&self, address: u16) -> u8 {
                 match address {
                     $($hex => self.$field_name.get()),+,
+                    $($hex_f => self.$field_name_f),+
+                    $(,$hex_s => self.$field_name_s.get()),*,
                     _ => panic!("Could not handle read at ${:04X}", address),
                 }
             }
 
             fn write(&mut self, address: u16, v: u8) {
                 match address {
+                    $($hex_f => self.$field_name_f = v),+,
                     $($hex => {
                         self.$field_name.set(v);
-                    }),+,
+                    }),+
+                    $(,$hex_s => self.$field_name_s.set(v)),*,
                     _ => panic!("Could not handle write at ${:04X} v=${:02X}", address, v),
                 }
             }

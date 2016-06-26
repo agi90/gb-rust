@@ -83,11 +83,11 @@ impl TimerController {
         };
 
         if should_increment {
-            if *self.mapper.timer == 0xFF {
+            if self.mapper.timer == 0xFF {
                 self.mapper.timer = self.mapper.modulo;
                 true
             } else {
-                *self.mapper.timer = *self.mapper.timer + 1;
+                self.mapper.timer = self.mapper.timer + 1;
                 false
             }
         } else {
@@ -97,8 +97,8 @@ impl TimerController {
 
     fn inc_divider(&mut self) -> bool {
         if self.clock % 16 == 0 {
-            *self.mapper.divider = (Wrapping(*self.mapper.divider) + Wrapping(1)).0;
-            *self.mapper.divider == 0x00
+            self.mapper.divider = (Wrapping(self.mapper.divider) + Wrapping(1)).0;
+            self.mapper.divider == 0x00
         } else {
             false
         }
@@ -106,7 +106,7 @@ impl TimerController {
 
     pub fn write_callback(&mut self, address: u16) {
         match address {
-            0xFF04 => { *self.mapper.divider = 0 },
+            0xFF04 => { self.mapper.divider = 0 },
             _ => {},
         }
     }
@@ -114,11 +114,13 @@ impl TimerController {
 
 memory_mapper!{
     name: TimerMemoryMapper,
-    fields: {
+    fields: [
+        0xFF04, divider, 0;
+        0xFF05, timer,   0;
+        0xFF06, modulo,  0;
+    ],
+    bitfields: {
         getters: [
-            0xFF04, divider, 0, [];
-            0xFF05, timer,   0, [];
-            0xFF06, modulo,  0, [];
             0xFF07, control, 0, [
                 get_01, get_clock_select,  ClockSelect;
                 get_2,  get_timer_enabled, u8
