@@ -440,7 +440,7 @@ impl VideoController {
                 },
                 LCDMode::LCDTransfer => { self.mode = LCDMode::HBlank; },
                 LCDMode::HBlank => {
-                    if self.mapper.lcd_y_coordinate <= SCREEN_Y as u8 {
+                    if self.mapper.lcd_y_coordinate < SCREEN_Y as u8 - 1 {
                         self.mode = LCDMode::SearchingOAM;
                     } else {
                         self.mode = LCDMode::VBlank;
