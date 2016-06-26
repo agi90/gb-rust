@@ -50,7 +50,7 @@ impl TimerController {
             }
         }
 
-        if self.mapper.get_timer_enabled() == 0 {
+        if self.mapper.timer_enabled() == 0 {
             return vec![];
         }
 
@@ -58,7 +58,7 @@ impl TimerController {
     }
 
     fn inc_clock(&mut self) -> bool {
-        let should_increment = match self.mapper.get_clock_select() {
+        let should_increment = match self.mapper.clock_select() {
             ClockSelect::C16   => true,
             ClockSelect::C64   => (self.clock %  4) == 0,
             ClockSelect::C256  => (self.clock % 16) == 0,
@@ -105,8 +105,8 @@ memory_mapper!{
     bitfields: {
         getters: [
             0xFF07, control, 0, [
-                get_01, get_clock_select,  ClockSelect;
-                get_2,  get_timer_enabled, u8
+                get_01, clock_select,  ClockSelect;
+                get_2,  timer_enabled, u8
             ]
         ],
         getter_setters: [],

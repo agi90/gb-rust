@@ -117,61 +117,61 @@ memory_mapper!{
     bitfields: {
         getters: [
             0xFF10, sound_1_sweep, 0, [
-                // get_012, get_sound_1_sweep_shift, u8;
-                // get_3,   get_sound_1_sweep,       SweepType;
-                // get_456, get_sound_1_sweep_time,  SweepTime
+                // get_012, sound_1_sweep_shift, u8;
+                // get_3,   sound_1_sweep,       SweepType;
+                // get_456, sound_1_sweep_time,  SweepTime
             ];
             0xFF11, sound_1_wave_pattern, 0, [
-                // get_012345, get_sound_1_pattern_length, u8;
-                // get_67,     get_sound_1_pattern, WavePattern
+                // get_012345, sound_1_pattern_length, u8;
+                // get_67,     sound_1_pattern, WavePattern
             ];
             0xFF12, sound_1_register, 0, [
-                // get_012,  get_sound_1_envelope_sweep, u8;
-                // get_3,    get_sound_1_envelope_amplification, EnvelopeAmplication;
-                // get_4567, get_sound_1_envelope_volume, u8
+                // get_012,  sound_1_envelope_sweep, u8;
+                // get_3,    sound_1_envelope_amplification, EnvelopeAmplication;
+                // get_4567, sound_1_envelope_volume, u8
             ];
             0xFF14, sound_1_frequency_high, 0, [
-                // get_6, get_sound_1_consecutive, u8
+                // get_6, sound_1_consecutive, u8
             ];
             0xFF16, sound_2_wave_pattern, 0, [
-                // get_012345, get_sound_2_pattern_length, u8;
-                // get_67,     get_sound_2_pattern, WavePattern
+                // get_012345, sound_2_pattern_length, u8;
+                // get_67,     sound_2_pattern, WavePattern
             ];
             0xFF17, sound_2_sweep, 0, [
-                // get_012, get_sound_2_sweep_shift, u8;
-                // get_3,   get_sound_2_sweep,       SweepType;
-                // get_456, get_sound_2_sweep_time,  SweepTime
+                // get_012, sound_2_sweep_shift, u8;
+                // get_3,   sound_2_sweep,       SweepType;
+                // get_456, sound_2_sweep_time,  SweepTime
             ];
             0xFF19, sound_2_frequency_hi, 0, [
-                // get_6, get_sound_2_consecutive, u8
+                // get_6, sound_2_consecutive, u8
             ];
             0xFF1A, sound_3_register, 0, [
-                // get_6, get_sound_3_on, u8
+                // get_6, sound_3_on, u8
             ];
             0xFF1C, sound_3_output_level, 0, [
-                // get_56, get_sound_3_output_level, OutputLevel
+                // get_56, sound_3_output_level, OutputLevel
             ];
             0xFF1E, sound_3_frequency_hi, 0, [
-                // get_6, get_sound_3_consecutive, u8
+                // get_6, sound_3_consecutive, u8
             ];
             0xFF21, sound_4_sweep, 0, [
-                // get_012, get_sound_4_sweep_shift, u8;
-                // get_3,   get_sound_4_sweep,       SweepType;
-                // get_456, get_sound_4_sweep_time,  SweepTime
+                // get_012, sound_4_sweep_shift, u8;
+                // get_3,   sound_4_sweep,       SweepType;
+                // get_456, sound_4_sweep_time,  SweepTime
             ];
             0xFF22, sound_4_polynomial, 0, [
-                // get_012,  get_sound_4_ratio,       SoundRatio;
-                // get_3,    get_sound_4_step,        SoundSteps;
-                // get_4567, get_sound_4_shift_clock, u8
+                // get_012,  sound_4_ratio,       SoundRatio;
+                // get_3,    sound_4_step,        SoundSteps;
+                // get_4567, sound_4_shift_clock, u8
             ];
             0xFF23, sound_4_frequency, 0, [
-                // get_6, get_sound_4_consecutive, u8
+                // get_6, sound_4_consecutive, u8
             ];
             0xFF24, sound_control, 0, [
-                // get_012, get_sound_1_level, u8;
-                // get_3,   get_sound_1_on,    u8;
-                // get_456, get_sound_2_level, u8;
-                // get_7,   get_sound_2_on,    u8
+                // get_012, sound_1_level, u8;
+                // get_3,   sound_1_on,    u8;
+                // get_456, sound_2_level, u8;
+                // get_7,   sound_2_on,    u8
             ]
         ],
         getter_setters: [
