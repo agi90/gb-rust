@@ -1,6 +1,7 @@
 use gb_proc::video_controller::{VideoController, ScreenBuffer};
 use gb_proc::sound_controller::SoundController;
 use gb_proc::cpu::{Handler, HandlerHolder, Interrupt};
+use bitfield::Bitfield;
 
 pub struct GBHandlerHolder {
     memory_holder: MemoryHolder,
@@ -134,45 +135,22 @@ impl HandlerHolder for GBHandlerHolder {
     }
 }
 
-struct SerialTransferController {
-    start_transfer: bool,
-    shift_clock: bool,
-    fast_clock: bool,
-}
-
-impl Handler for SerialTransferController {
-    fn read(&self, _: u16) -> u8 {
-        unimplemented!();
-    }
-
-    fn write(&mut self, address:u16, v: u8) {
-        match address {
-            0xFF01 => self.transfer_data(v),
-            0xFF02 => self.set_flags(v),
-            _ => panic!(),
-        }
-    }
-}
-
-impl SerialTransferController {
-    pub fn new() -> SerialTransferController {
-        SerialTransferController {
-            fast_clock: false,
-            shift_clock: false,
-            start_transfer: false,
-        }
-    }
-
-    fn transfer_data(&mut self, _: u8) {
-        // not implemented yet, but
-        // code call this for no reason apparently?
-    }
-
-    fn set_flags(&mut self, v: u8) {
-        self.shift_clock    = (v & 0b00000001) > 0;
-        self.fast_clock     = (v & 0b00000010) > 0;
-        self.start_transfer = (v & 0b10000000) > 0;
-    }
+memory_mapper!{
+    name: SerialTransferController,
+    fields: [
+        0xFF01, transfer_data, 0;
+    ],
+    bitfields: {
+        getters: [
+            0xFF02, flags, 0, [
+                get_0, shift_clock, u8;
+                get_1, fast_clock, u8;
+                get_7, start_transfer, u8
+            ]
+        ],
+        getter_setters: [
+        ],
+    },
 }
 
 #[derive(Debug)]
