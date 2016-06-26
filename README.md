@@ -9,3 +9,5 @@ Features:
 * MBC3 support
 * Works on Linux and Windows (didn't test OSX)
 * No sound
+
+This project is released under the MIT license.
