@@ -2,8 +2,6 @@ use std::convert::From;
 use gb_proc::cpu::Handler;
 use bitfield::Bitfield;
 
-#[derive(Clone, Copy, Debug)]
-
 u8_enum!{
     WavePattern {
         C12 = 0b00,
