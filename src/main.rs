@@ -24,10 +24,16 @@ use self::controller::{Event, Controller};
 mod tests;
 
 pub fn main() {
-    let mut f = File::open("rom.gb").unwrap();
-    let cartridge = Cartridge::from_file(&mut f);
+    let f = File::open("rom.gb");
+    if f.is_err() {
+        println!("Error: rom not found.");
+        println!("Please put your rom in a file called `rom.gb` in the same folder as the executable.");
+        return;
+    }
 
-    let mut controller = Controller::new();;
+    let cartridge = Cartridge::from_file(&mut f.unwrap());
+
+    let mut controller = Controller::new();
 
     let handler = GBHandlerHolder::new(Box::new(cartridge));
     let mut cpu = Cpu::new(Box::new(handler));
