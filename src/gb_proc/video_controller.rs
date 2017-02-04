@@ -232,6 +232,8 @@ impl VideoController {
             visible_sprites.push(sprite);
         }
 
+        visible_sprites.sort_by_key(|sp| sp.x);
+
         for x in 0..SCREEN_X {
             for sprite in &visible_sprites {
                 if x + 8 < sprite.x || x >= sprite.x {
@@ -308,9 +310,6 @@ impl VideoController {
             }
         }
 
-        // Sprites are ordered by display priority
-        sprites.reverse();
-        sprites.sort_by_key(|s| s.x);
         self.sprites = sprites;
     }
 
