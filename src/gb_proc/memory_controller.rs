@@ -143,7 +143,10 @@ impl Mbc for Mbc3 {
                 // println!("Setting offset to {:06X}", self.offset);
             },
             0x4000 ... 0x5FFF => {
-                match v {
+                // Writing to this area will cause the controller to switch
+                // banks of in-cartridge RAM.
+                // Only the lowest two bits are relevant for this register.
+                match v & 0b11 {
                     0x00 => self.ram_offset = 0,
                     0x01 => self.ram_offset = 8192,
                     0x02 => self.ram_offset = 16384,
