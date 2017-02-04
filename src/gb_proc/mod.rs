@@ -58,7 +58,7 @@ macro_rules! memory_mapper {
         struct $name {
             $($field_name: Bitfield),+,
             $($field_name_f: u8),+
-            $(,$field_name_s: Bitfield),*
+            $(,$field_name_s: Bitfield)*
         }
 
         #[allow(dead_code)]
@@ -93,7 +93,7 @@ macro_rules! memory_mapper {
                 match address {
                     $($hex => self.$field_name.get()),+,
                     $($hex_f => self.$field_name_f),+
-                    $(,$hex_s => self.$field_name_s.get()),*,
+                    $(,$hex_s => self.$field_name_s.get())*,
                     _ => panic!("Could not handle read at ${:04X}", address),
                 }
             }
@@ -104,7 +104,7 @@ macro_rules! memory_mapper {
                     $($hex => {
                         self.$field_name.set(v);
                     }),+
-                    $(,$hex_s => self.$field_name_s.set(v)),*,
+                    $(,$hex_s => self.$field_name_s.set(v))*,
                     _ => panic!("Could not handle write at ${:04X} v=${:02X}", address, v),
                 }
             }
