@@ -1,6 +1,7 @@
 use controller::Hardware;
 use gb_proc::opcodes::OpCode;
 use gb_proc::handler_holder::Key;
+use gb_proc::sound_controller::AudioBuffer;
 use gb_proc::timer_controller::TimerController;
 use gb_proc::video_controller::ScreenBuffer;
 
@@ -60,6 +61,7 @@ pub trait HandlerHolder {
     fn key_down(&mut self, key: Key);
     fn key_up(&mut self, key: Key);
     fn get_screen_buffer(&self) -> &ScreenBuffer;
+    fn get_audio_buffer(&self) -> &AudioBuffer;
     fn get_handler_read(&self, address: u16) -> &Handler;
     fn get_handler_write(&mut self, address: u16) -> &mut Handler;
     fn add_cycles(&mut self, cycles: usize);

@@ -7,3 +7,5 @@ authors = ["Giovanni Sferro <agi.novanta@gmail.com>"]
 glium = "0.14.0"
 nalgebra = "0.6"
 clap = "2.20.3"
+sdl2 = "0.28.0"
+rand = "0.3.15"

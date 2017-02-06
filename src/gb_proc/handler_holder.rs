@@ -1,5 +1,5 @@
 use gb_proc::video_controller::{VideoController, ScreenBuffer};
-use gb_proc::sound_controller::SoundController;
+use gb_proc::sound_controller::{SoundController, AudioBuffer};
 use gb_proc::cpu::{Handler, HandlerHolder, Interrupt};
 use bitfield::Bitfield;
 
@@ -76,6 +76,10 @@ impl HandlerHolder for GBHandlerHolder {
 
     fn should_refresh(&mut self) -> bool {
         self.video_controller.should_refresh()
+    }
+
+    fn get_audio_buffer(&self) -> &AudioBuffer {
+        self.sound_controller.get_audio()
     }
 
     fn key_up(&mut self, key: Key) {

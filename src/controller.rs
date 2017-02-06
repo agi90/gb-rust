@@ -4,7 +4,9 @@ use glium::glutin::{VirtualKeyCode, ElementState};
 use gpu::renderer::{GLRenderer, Renderer};
 use gb_proc::handler_holder::Key;
 use gb_proc::video_controller::ScreenBuffer;
+use gb_proc::sound_controller::AudioBuffer;
 use gb_proc::cpu::Interrupt;
+use sound::SDLPlayer;
 
 use glium;
 use glium::glutin;
@@ -12,6 +14,7 @@ use glium::glutin;
 pub struct Controller {
     display: GlutinFacade,
     renderer: GLRenderer,
+    player: SDLPlayer,
 }
 
 pub enum Event {
@@ -34,7 +37,12 @@ impl Controller {
         Controller {
             display: display,
             renderer: renderer,
+            player: SDLPlayer::new()
         }
+    }
+
+    pub fn refresh_sound(&mut self, audio_buffer: &AudioBuffer) {
+        self.player.refresh(audio_buffer);
     }
 
     pub fn check_events(&mut self, hardware: &mut Hardware) -> Event {

@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate glium;
+extern crate sdl2;
+extern crate rand;
 
 #[macro_use]
 extern crate clap;
@@ -7,6 +9,8 @@ extern crate clap;
 pub mod gb_proc;
 pub mod gpu;
 pub mod controller;
+mod sound;
+
 #[allow(dead_code)]
 mod bitfield;
 mod debugger;
@@ -72,6 +76,7 @@ pub fn main() {
         (about: "Yet another DMG emulator written in Rust.")
         (@arg ROM: +required "Selects the ROM to run.")
         (@arg mag: -m --magnification +takes_value "Number of times the screen should be magnified. Default is '3'.") 
+        (@arg sound: -s --sound "Enables sound emulation (experimental).")
         (@arg debug: -d --debug "Starts in debug mode.")
     ).get_matches();
 
@@ -100,6 +105,8 @@ pub fn main() {
         debugger.breakpoint(&mut cpu);
     }
 
+    let sound_enabled = matches.occurrences_of("sound") > 0;
+
     let mut natural_speed = true;
 
     // This target seems to match the actual Game Boy in terms of speed
@@ -121,6 +128,11 @@ pub fn main() {
 
             let screen = cpu.handler_holder.get_screen_buffer();
             controller.refresh(screen);
+
+            if sound_enabled {
+                let audio = cpu.handler_holder.get_audio_buffer();
+                controller.refresh_sound(audio);
+            }
 
             let diff = Instant::now() - last_update;
 
