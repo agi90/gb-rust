@@ -44,10 +44,10 @@ impl MemoryHolder {
 impl Handler for MemoryHolder {
     fn read(&self, address: u16) -> u8 {
         match address {
-            0xFF4D | 0xFF56 | 0xFF70 | 0xFF6C | 0xFF72 ... 0xFF77 => {
-                // These IO registers are legal in the GBC so we should not crash
-                // if the cpu tryies to access them, even though they are not
-                // implemented in the DMG.
+            0xFEA0 ... 0xFEFF | 0xFF4C ... 0xFF7F => {
+                // This area of the memory is not theoretically accessible but
+                // some games do try to read from here because of bugs in them.
+                // We will just return the default bus value.
                 0xFF
             },
             0xC000 ... 0xDFFF => self.internal_ram[(address - 0xC000) as usize],
@@ -58,11 +58,10 @@ impl Handler for MemoryHolder {
 
     fn write(&mut self, address: u16, v: u8) {
         match address {
-            0xFF4D | 0xFF56 | 0xFF70 | 0xFF6C | 0xFF72 ... 0xFF77 => {
-                // These IO registers are legal in the GBC so we should not crash
-                // if the cpu tryies to access them, even though they are not
-                // implemented in the DMG.
-            },
+            0xFEA0 ... 0xFEFF | 0xFF4C ... 0xFF7F => {
+                // This area is not mapped to anything in the game boy hardware,
+                // so writes have no effect.
+            }
             0xC000 ... 0xDFFF => self.internal_ram[(address - 0xC000) as usize] = v,
             0xFF80 ... 0xFFFE => self.stack[(address - 0xFF80) as usize] = v,
             _ => panic!(format!("Address not supported {:04X}", address)),
