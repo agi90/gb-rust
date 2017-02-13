@@ -5,12 +5,14 @@ Written mostly for fun, it's not intended for general use.
 
 To run a rom you need to have a file called `rom.gb` in the same folder as the executable.
 
-Features:
+###Features###
 * MBC3 support
 * Works on Linux and Windows (didn't test OSX)
 * No sound
 
 This project is released under the MIT license.
+
+###Tests###
 
 [Blargg](http://gbdev.gg8.se/files/roms/blargg-gb-tests/) tests:
 
@@ -22,15 +24,15 @@ This project is released under the MIT license.
 ![halt_bug_failed](https://cloud.githubusercontent.com/assets/4297388/22866864/affbd7a8-f131-11e6-86eb-aad2c9fe3cf4.png)
 ![interrupt_time_failed](https://cloud.githubusercontent.com/assets/4297388/22866865/b1b52cde-f131-11e6-9319-f5c8fa701d25.png)
 
-Todo:
+####Todo####
 
 - cgb_sound (not implemented)
 - dmg_sound (not implemented)
 - oam_bug (crashes)
 
-Games:
+###Screenshots###
 
-- Pokemon Red/Blue
+####Pokemon Red/Blue####
 
 ![pokemon-title](https://cloud.githubusercontent.com/assets/4297388/22866903/33867e84-f132-11e6-87ce-e0106849af65.png)
 ![pokemon-in-game](https://cloud.githubusercontent.com/assets/4297388/22866902/33843340-f132-11e6-963c-1e2558e3ef4d.png)
