@@ -19,6 +19,16 @@ $ cargo run --release -- rom.gb
 * Works on Linux and Windows (didn't test OSX)
 * No sound
 
+###Commands###
+* `F1` breaks execution and enters the debugger
+* `F2` toggle between normal speed and unlimited frame rate
+* Arrow keys control up/left/right/down
+* `A` controls gameboy button `A`
+* `S` controls gameboy button `B`
+* `D` controls gameboy button `Start`
+* `F` controls gameboy button `Select`
+* `h` will print a list of commands for the debugger while in debugging mode
+
 This project is released under the MIT license.
 
 ###Tests###
