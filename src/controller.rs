@@ -22,10 +22,10 @@ pub enum Event {
 }
 
 impl Controller {
-    pub fn new() -> Controller {
+    pub fn new(x: u32, y: u32) -> Controller {
         let mut display = glium::glutin::WindowBuilder::new()
             .with_title("gb-rust")
-            .with_dimensions(640, 576)
+            .with_dimensions(x, y)
             .build_glium()
             .unwrap();
 

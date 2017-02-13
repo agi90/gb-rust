@@ -3,7 +3,16 @@ Yet another DMG (Game Boy) emulator.
 
 Written mostly for fun, it's not intended for general use.
 
-To run a rom you need to have a file called `rom.gb` in the same folder as the executable.
+###Run###
+
+```
+$ cargo build --release
+$ cargo run --release -- rom.gb
+```
+
+###Command Line options###
+* `-d --debug` Will start the debugger immediately
+* `-m --magnification` Allows changing the magnification of the emulated screen.
 
 ###Features###
 * MBC3 support

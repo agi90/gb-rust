@@ -12,8 +12,8 @@ u8_enum!{
     }
 }
 
-const SCREEN_X: usize = 160;
-const SCREEN_Y: usize = 144;
+pub const SCREEN_X: usize = 160;
+pub const SCREEN_Y: usize = 144;
 
 const BACKGROUND_X: usize = 256;
 const BACKGROUND_Y: usize = 256;

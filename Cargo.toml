@@ -6,3 +6,4 @@ authors = ["Giovanni Sferro <agi.novanta@gmail.com>"]
 [dependencies]
 glium = "0.14.0"
 nalgebra = "0.6"
+clap = "2.20.3"
