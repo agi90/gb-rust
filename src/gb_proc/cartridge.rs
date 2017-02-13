@@ -82,7 +82,7 @@ impl Handler for Cartridge {
 }
 
 impl Cartridge {
-    pub fn from_file(file: &mut File) -> Cartridge {
+    pub fn from_file(file: &mut File, save_file: File) -> Cartridge {
         let mut s = vec![];
         file.read_to_end(&mut s).unwrap();
 
@@ -96,7 +96,7 @@ impl Cartridge {
             ram_size: get_ram_size(s[0x149]),
             destination_code_jp: s[0x14A] == 0,
             mask_rom_version_number: s[0x14C],
-            memory_controller: MemoryController::from_bytes(s),
+            memory_controller: MemoryController::from_bytes(s, save_file),
         }
     }
 }

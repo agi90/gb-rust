@@ -1,6 +1,6 @@
-use std::fs::{File, OpenOptions};
-use std::io::{Read, Write, Seek, SeekFrom};
 use std::cell::RefCell;
+use std::fs::File;
+use std::io::{Read, Write, Seek, SeekFrom};
 
 trait Mbc {
     fn read(&self, address: u16) -> u8;
@@ -59,14 +59,7 @@ struct Mbc3 {
 }
 
 impl Mbc3 {
-    pub fn new(data: Vec<u8>) -> Mbc3 {
-        let mut disk = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open("save.dat")
-            .unwrap();
-
+    pub fn new(data: Vec<u8>, mut disk: File) -> Mbc3 {
         let mut ram = vec![];
         disk.read_to_end(&mut ram).unwrap();
 
@@ -173,10 +166,10 @@ pub struct MemoryController {
 }
 
 impl MemoryController {
-    pub fn from_bytes(bytes: Vec<u8>) -> MemoryController {
+    pub fn from_bytes(bytes: Vec<u8>, save_file: File) -> MemoryController {
         let controller = match bytes[0x147] {
             0x00 => Box::new(Mbc0::new(bytes)) as Box<Mbc>,
-            0x0F | 0x10 | 0x11 | 0x12 | 0x13 | 0x01 => Box::new(Mbc3::new(bytes)) as Box<Mbc>,
+            0x0F | 0x10 | 0x11 | 0x12 | 0x13 | 0x01 => Box::new(Mbc3::new(bytes, save_file)) as Box<Mbc>,
             _ => {
                 println!("Unrecognized type {:02X}", bytes[0x147]);
                 panic!();
