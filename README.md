@@ -15,7 +15,7 @@ $ cargo run --release -- rom.gb
 * `-m --magnification` Allows changing the magnification of the emulated screen.
 
 ###Features###
-* MBC3 support
+* MBC0, MBC1, MBC3 support
 * Works on Linux and Windows (didn't test OSX)
 * No sound
 
