@@ -24,6 +24,8 @@ pub type ScreenBuffer = [[GrayShade; SCREEN_X]; SCREEN_Y];
 pub type BackgroundBuffer = [[GrayShade; BACKGROUND_X]; BACKGROUND_Y];
 
 type Pattern = [[GrayShade; 8]; 8];
+type Pattern16 = [[GrayShade; 8]; 16];
+
 type Patterns = [Pattern; PATTERNS_SIZE];
 
 pub struct VideoController {
@@ -106,16 +108,111 @@ fn flip_tile(tile: Pattern, y_flip: bool, x_flip: bool) -> Pattern {
     new_tile2
 }
 
-struct Sprite {
+enum Sprite {
+    C8by8(Sprite8),
+    C8by16(Sprite16),
+}
+
+impl Sprite {
+    pub fn is_visible(&self, scanline: usize) -> bool {
+        match self {
+            &Sprite::C8by8(ref sp) => {
+                scanline + 16 >= sp.y && scanline + 8 < sp.y
+            },
+            &Sprite::C8by16(ref sp) => {
+                scanline + 16 >= sp.y && scanline < sp.y
+            }
+        }
+    }
+
+    pub fn is_horizontally_visible(&self, x: usize) -> bool {
+        x + 8 >= self.x() && x < self.x()
+    }
+
+    pub fn below_bg(&self) -> bool {
+        match self {
+            &Sprite::C8by8(ref sp) => {
+                sp.below_bg
+            },
+            &Sprite::C8by16(ref sp) => {
+                sp.below_bg
+            }
+        }
+    }
+
+    pub fn get(&self, x: usize, y: usize) -> GrayShade {
+        match self {
+            &Sprite::C8by8(ref sp) => {
+                sp.tile[y][x]
+            },
+            &Sprite::C8by16(ref sp) => {
+                sp.tile[y][x]
+            }
+        }
+    }
+
+    pub fn y(&self) -> usize {
+        match self {
+            &Sprite::C8by8(ref sp) => {
+                sp.y
+            },
+            &Sprite::C8by16(ref sp) => {
+                sp.y
+            }
+        }
+    }
+
+    pub fn x(&self) -> usize {
+        match self {
+            &Sprite::C8by8(ref sp) => {
+                sp.x
+            },
+            &Sprite::C8by16(ref sp) => {
+                sp.x
+            }
+        }
+    }
+}
+
+struct Sprite8 {
     below_bg: bool,
     tile: Pattern,
     x: usize,
     y: usize,
 }
 
-impl Sprite {
-    pub fn new(x: u8, y: u8, tile: Pattern, below_bg: bool) -> Sprite {
-        Sprite {
+impl Sprite8 {
+    pub fn new(x: u8, y: u8, tile: Pattern, below_bg: bool) -> Sprite8 {
+        Sprite8 {
+            below_bg: below_bg,
+            tile: tile,
+            x: x as usize,
+            y: y as usize,
+        }
+    }
+}
+
+struct Sprite16 {
+    below_bg: bool,
+    tile: Pattern16,
+    x: usize,
+    y: usize,
+}
+
+impl Sprite16 {
+    pub fn new(x: u8, y: u8, upper_tile: Pattern, lower_tile: Pattern, below_bg: bool) -> Sprite16 {
+        let mut tile = [[GrayShade::C00; 8]; 16];
+        for x in 0..8 {
+            for y in 0..16 {
+                if y < 8 {
+                    tile[y][x] = upper_tile[y][x];
+                } else {
+                    tile[y][x] = lower_tile[y - 8][x];
+                }
+            }
+        }
+
+        Sprite16 {
             below_bg: below_bg,
             tile: tile,
             x: x as usize,
@@ -225,25 +322,25 @@ impl VideoController {
             let ref sprite = self.sprites[i];
             i += 1;
 
-            if scanline + 16 < sprite.y || scanline + 8 >= sprite.y {
+            if !sprite.is_visible(scanline) {
                 continue;
             }
 
             visible_sprites.push(sprite);
         }
 
-        visible_sprites.sort_by_key(|sp| sp.x);
+        visible_sprites.sort_by_key(|sp| sp.x());
 
         for x in 0..SCREEN_X {
             for sprite in &visible_sprites {
-                if x + 8 < sprite.x || x >= sprite.x {
+                if !sprite.is_horizontally_visible(x) {
                     continue;
                 }
 
-                let color = sprite.tile[scanline + 16 - sprite.y][ x + 8 - sprite.x];
+                let color = sprite.get(x + 8 - sprite.x(), scanline + 16 - sprite.y());
 
                 if color != GrayShade::Transparent {
-                    if !sprite.below_bg
+                    if !sprite.below_bg()
                         || (self.screen_buffer[scanline][x] == GrayShade::C00) {
                             if x < SCREEN_X && scanline < SCREEN_Y {
                                 self.screen_buffer[scanline][x] = color;
@@ -296,17 +393,24 @@ impl VideoController {
             let tile_index = self.oam_ram[i * 4 + 2];
             let flags = self.oam_ram[i * 4 + 3];
 
-            if self.mapper.sprite_size() == SpriteSize::C8by8 {
-                let tile = self.sprite_patterns[tile_index as usize];
-                let below_bg =     flags & (0b10000000) > 0;
-                let y_flip   =     flags & (0b01000000) > 0;
-                let x_flip   =     flags & (0b00100000) > 0;
-                let palette  =  if flags & (0b00010000) > 0 { SpritePalette::C1 } else { SpritePalette::C0 };
+            let below_bg =     flags & (0b10000000) > 0;
+            let y_flip   =     flags & (0b01000000) > 0;
+            let x_flip   =     flags & (0b00100000) > 0;
+            let palette  =  if flags & (0b00010000) > 0 { SpritePalette::C1 } else { SpritePalette::C0 };
 
-                let translated_tile = flip_tile(self.translate_tile(tile, palette), y_flip, x_flip);
-                sprites.push(Sprite::new(x, y, translated_tile, below_bg));
-            } else {
-                unimplemented!();
+            match self.mapper.sprite_size() {
+                SpriteSize::C8by8 => {
+                    let tile = self.sprite_patterns[tile_index as usize];
+                    let translated_tile = flip_tile(self.translate_tile(tile, palette), y_flip, x_flip);
+                    sprites.push(Sprite::C8by8(Sprite8::new(x, y, translated_tile, below_bg)));
+                },
+                SpriteSize::C8by16 => {
+                    let tile1 = self.sprite_patterns[(tile_index & 0xFE) as usize];
+                    let tile2 = self.sprite_patterns[(tile_index | 0x01) as usize];
+                    let translated_tile1 = flip_tile(self.translate_tile(tile1, palette), y_flip, x_flip);
+                    let translated_tile2 = flip_tile(self.translate_tile(tile2, palette), y_flip, x_flip);
+                    sprites.push(Sprite::C8by16(Sprite16::new(x, y, translated_tile1, translated_tile2, below_bg)));
+                }
             }
         }
 
