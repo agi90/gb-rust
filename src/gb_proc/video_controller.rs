@@ -387,10 +387,18 @@ impl VideoController {
     fn read_sprites(&mut self) {
         let mut sprites = vec![];
 
+        // OAM ram contains information for 40 sprites. For each sprite:
         for i in 0..40 {
+            // - byte 1 is the Y position
             let y = self.oam_ram[i * 4];
+
+            // - byte 2 is the X position
             let x = self.oam_ram[i * 4 + 1];
+
+            // - byte 3 contains the tile number (or the tile numbers for 16x8 sprites)
             let tile_index = self.oam_ram[i * 4 + 2];
+
+            // - byte 4 contains some flags about the sprite
             let flags = self.oam_ram[i * 4 + 3];
 
             let below_bg =     flags & (0b10000000) > 0;
@@ -512,7 +520,10 @@ impl VideoController {
 
     pub fn write_ram(&mut self, address: u16, v: u8) {
         if self.mode == LCDMode::LCDTransfer {
-            return;
+            // In theory the gb should not be allowed to write to RAM
+            // when in this state TODO: double check. In practice I suspect
+            // there are some timing bugs that make this miss some video ram
+            // updates. For now we ignore this and just happily write to RAM.
         }
 
         self.video_ram[(address - 0x8000) as usize] = v;
