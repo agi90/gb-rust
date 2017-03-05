@@ -29,8 +29,6 @@ type Pattern16 = [[GrayShade; 8]; 16];
 type Patterns = [Pattern; PATTERNS_SIZE];
 
 pub struct VideoController {
-    mode: LCDMode,
-
     cycles: usize,
     total_cycles: usize,
 
@@ -51,12 +49,13 @@ pub struct VideoController {
     mapper: VideoMemoryMapper,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-enum LCDMode {
-    HBlank = 0,
-    VBlank = 1,
-    SearchingOAM = 2,
-    LCDTransfer = 3,
+u8_enum!{
+    LCDMode {
+        HBlank = 0,
+        VBlank = 1,
+        SearchingOAM = 2,
+        LCDTransfer = 3,
+    }
 }
 
 impl LCDMode {
@@ -224,8 +223,6 @@ impl Sprite16 {
 impl VideoController {
     pub fn new() -> VideoController {
         VideoController {
-            mode: LCDMode::SearchingOAM,
-
             cycles: 0,
             total_cycles: 0,
 
@@ -511,7 +508,7 @@ impl VideoController {
     }
 
     pub fn read_ram(&self, address: u16) -> u8 {
-        if self.mode == LCDMode::LCDTransfer {
+        if self.mapper.mode() == LCDMode::LCDTransfer {
             0xFF
         } else {
             self.video_ram[(address - 0x8000) as usize]
@@ -519,7 +516,7 @@ impl VideoController {
     }
 
     pub fn write_ram(&mut self, address: u16, v: u8) {
-        if self.mode == LCDMode::LCDTransfer {
+        if self.mapper.mode() == LCDMode::LCDTransfer {
             // In theory the gb should not be allowed to write to RAM
             // when in this state TODO: double check. In practice I suspect
             // there are some timing bugs that make this miss some video ram
@@ -532,7 +529,7 @@ impl VideoController {
     pub fn add_cycles(&mut self, cycles: usize) {
         if self.mapper.lcd_on() == 0 {
             self.cycles = 0;
-            self.mode = LCDMode::SearchingOAM;
+            self.mapper.set_mode(LCDMode::SearchingOAM);
             self.mapper.lcd_y_coordinate = 0;
 
             return;
@@ -550,7 +547,7 @@ impl VideoController {
             LCDMode::LCDTransfer  => false,
         };
 
-        self.mode = mode;
+        self.mapper.set_mode(mode);
 
         if enabled {
             interrupts.push(Interrupt::Stat);
@@ -560,10 +557,10 @@ impl VideoController {
     pub fn check_interrupts(&mut self) -> Vec<Interrupt> {
         let mut interrupts = vec![];
 
-        if self.cycles > self.mode.duration() {
-            self.cycles -= self.mode.duration();
+        if self.cycles > self.mapper.mode().duration() {
+            self.cycles -= self.mapper.mode().duration();
 
-            match self.mode {
+            match self.mapper.mode() {
                 LCDMode::SearchingOAM => {
                     self.switch_to(LCDMode::LCDTransfer, &mut interrupts);
                 },
@@ -684,6 +681,7 @@ memory_mapper!{
         ],
         getter_setters: [
             0xFF41, stat, 0, [
+                get_01, set_01, mode,              set_mode,              LCDMode;
                 get_2,  set_2,  ly_coincidence,    set_ly_coincidence,    u8;
                 get_3,  set_3,  h_blank_interrupt, set_h_blank_interrupt, u8;
                 get_4,  set_4,  v_blank_interrupt, set_v_blank_interrupt, u8;
