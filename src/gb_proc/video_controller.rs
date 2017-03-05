@@ -542,6 +542,21 @@ impl VideoController {
         self.total_cycles += cycles;
     }
 
+    fn switch_to(&mut self, mode: LCDMode, interrupts: &mut Vec<Interrupt>) {
+        let enabled = match mode {
+            LCDMode::SearchingOAM => self.mapper.oam_interrupt() == 1,
+            LCDMode::HBlank       => self.mapper.h_blank_interrupt() == 1,
+            LCDMode::VBlank       => self.mapper.v_blank_interrupt() == 1,
+            LCDMode::LCDTransfer  => false,
+        };
+
+        self.mode = mode;
+
+        if enabled {
+            interrupts.push(Interrupt::Stat);
+        }
+    }
+
     pub fn check_interrupts(&mut self) -> Vec<Interrupt> {
         let mut interrupts = vec![];
 
@@ -550,15 +565,17 @@ impl VideoController {
 
             match self.mode {
                 LCDMode::SearchingOAM => {
-                    self.mode = LCDMode::LCDTransfer;
+                    self.switch_to(LCDMode::LCDTransfer, &mut interrupts);
                 },
-                LCDMode::LCDTransfer => { self.mode = LCDMode::HBlank; },
+                LCDMode::LCDTransfer => {
+                    self.switch_to(LCDMode::HBlank, &mut interrupts);
+                },
                 LCDMode::HBlank => {
                     if self.mapper.lcd_y_coordinate < SCREEN_Y as u8 - 1 {
-                        self.mode = LCDMode::SearchingOAM;
+                        self.switch_to(LCDMode::SearchingOAM, &mut interrupts);
                     } else {
-                        self.mode = LCDMode::VBlank;
                         interrupts.push(Interrupt::VBlank);
+                        self.switch_to(LCDMode::VBlank, &mut interrupts);
                     }
 
                     let scanline = self.mapper.lcd_y_coordinate as usize;
@@ -567,7 +584,7 @@ impl VideoController {
                 },
                 LCDMode::VBlank => {
                     if self.mapper.lcd_y_coordinate == 153 {
-                        self.mode = LCDMode::SearchingOAM;
+                        self.switch_to(LCDMode::SearchingOAM, &mut interrupts);
                         self.refresh();
                         self.should_refresh = true;
                     }
@@ -668,9 +685,9 @@ memory_mapper!{
         getter_setters: [
             0xFF41, stat, 0, [
                 get_2, set_2, ly_coincidence, set_ly_coincidence,       u8;
-                // get_3, set_3, h_blank_interrupt, set_h_blank_interrupt, u8;
-                // get_4, set_4, v_blank_interrupt, set_v_blank_interrupt, u8;
-                // get_5, set_5, oam_interrupt, set_oam_interrupt,         u8;
+                get_3, set_3, h_blank_interrupt, set_h_blank_interrupt, u8;
+                get_4, set_4, v_blank_interrupt, set_v_blank_interrupt, u8;
+                get_5, set_5, oam_interrupt, set_oam_interrupt,         u8;
                 get_6, set_6, lyc_ly_coincidence_interrupt, set_lyc_ly_coincidence, u8
             ]
         ],
