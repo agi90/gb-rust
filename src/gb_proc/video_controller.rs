@@ -684,11 +684,11 @@ memory_mapper!{
         ],
         getter_setters: [
             0xFF41, stat, 0, [
-                get_2, set_2, ly_coincidence, set_ly_coincidence,       u8;
-                get_3, set_3, h_blank_interrupt, set_h_blank_interrupt, u8;
-                get_4, set_4, v_blank_interrupt, set_v_blank_interrupt, u8;
-                get_5, set_5, oam_interrupt, set_oam_interrupt,         u8;
-                get_6, set_6, lyc_ly_coincidence_interrupt, set_lyc_ly_coincidence, u8
+                get_2,  set_2,  ly_coincidence,    set_ly_coincidence,    u8;
+                get_3,  set_3,  h_blank_interrupt, set_h_blank_interrupt, u8;
+                get_4,  set_4,  v_blank_interrupt, set_v_blank_interrupt, u8;
+                get_5,  set_5,  oam_interrupt,     set_oam_interrupt,     u8;
+                get_6,  set_6,  lyc_ly_coincidence_interrupt, set_lyc_ly_coincidence, u8
             ]
         ],
     },
