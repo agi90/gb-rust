@@ -116,9 +116,34 @@ impl AudioCallback for Sound<WhiteNoise> {
     }
 }
 
+struct WavePattern {
+    pattern: [u8; 32],
+}
+
+impl AudioCallback for Sound<WavePattern> {
+    type Channel = f32;
+
+    fn callback(&mut self, out: &mut [f32]) {
+        let mut i = 0;
+        while i < out.len() {
+            let index = (self.phase * 32.0) as usize;
+            let value = (self.sound.pattern[index] as f32 - 7.0) / 8.0 * self.volume;
+            // The out array contains both left and right data
+            // interleaved [L,R,L,R,L, ...]
+            out[i] = if self.left { value } else { 0.0 };
+            out[i + 1] = if self.right { value } else { 0.0 };
+
+            self.phase = (self.phase + self.phase_inc) % 1.0;
+
+            i += 2;
+        }
+    }
+}
+
 pub struct SDLPlayer {
     device_1: AudioDevice<Sound<SquareWave>>,
     device_2: AudioDevice<Sound<SquareWave>>,
+    device_3: AudioDevice<Sound<WavePattern>>,
     device_4: AudioDevice<Sound<WhiteNoise>>,
     frequency: u32,
 }
@@ -185,6 +210,9 @@ impl SDLPlayer {
             device_2: init_device(&audio_subsystem, SquareWave {
                 wave_duty: 0.5,
             }),
+            device_3: init_device(&audio_subsystem, WavePattern {
+                pattern: [0; 32],
+            }),
             device_4: init_device(&audio_subsystem, WhiteNoise {
                 rng: fake_rng,
                 rng_state: 0xFF00,
@@ -194,19 +222,28 @@ impl SDLPlayer {
     }
 
     pub fn refresh(&mut self, audio_buffer: &AudioBuffer) {
-        let frequency = self.frequency;
+        let frequency = self.frequency as f32;
 
-        refresh_line(&mut self.device_1, &audio_buffer.sound_1, self.frequency as f32, |b, l| {
+        refresh_line(&mut self.device_1, &audio_buffer.sound_1, frequency, |b, l| {
             b.sound.wave_duty = l.sound.wave_duty;
         });
 
-        refresh_line(&mut self.device_2, &audio_buffer.sound_2, self.frequency as f32, |b, l| {
+        refresh_line(&mut self.device_2, &audio_buffer.sound_2, frequency, |b, l| {
             b.sound.wave_duty = l.sound.wave_duty;
         });
 
-        refresh_line(&mut self.device_4, &audio_buffer.sound_4, self.frequency as f32, |b, l| {
+        refresh_line(&mut self.device_3, &audio_buffer.sound_3, frequency, |b, l| {
+            let mut pattern = [0; 32];
+            for i in 0..16 {
+                pattern[i*2] =     (l.sound.wave_pattern[i] & 0b11110000) >> 4;
+                pattern[i*2 + 1] =  l.sound.wave_pattern[i] & 0b00001111;
+            }
+            b.sound.pattern = pattern;
+        });
+
+        refresh_line(&mut self.device_4, &audio_buffer.sound_4, frequency, |b, l| {
             b.sound.rng = l.sound.rng;
-            b.phase_inc = frequency as f32 / l.frequency as f32;
+            b.phase_inc = frequency / l.frequency as f32;
         });
     }
 }
