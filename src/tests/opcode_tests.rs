@@ -1,6 +1,15 @@
 use gb_proc::cpu::{Cpu, Handler, HandlerHolder, Interrupt, print_cpu_status};
 use gb_proc::opcodes::OpCode;
 use gb_proc::video_controller::{ScreenBuffer, GrayShade};
+use gb_proc::sound_controller::{
+    AudioBuffer,
+    AudioLine,
+    WaveDuty,
+    Wave,
+    Noise,
+    NoisePattern,
+};
+
 use gb_proc::handler_holder::Key;
 
 use std::num::Wrapping;
@@ -8,6 +17,7 @@ use std::num::Wrapping;
 struct MockHandlerHolder {
     memory: [u8; 512],
     screen_buffer: ScreenBuffer,
+    audio_buffer: AudioBuffer,
 }
 
 impl MockHandlerHolder {
@@ -15,6 +25,20 @@ impl MockHandlerHolder {
         MockHandlerHolder {
             memory: [0; 512],
             screen_buffer: [[GrayShade::C00; 160]; 144],
+            audio_buffer: AudioBuffer {
+                sound_1: AudioLine::new(WaveDuty {
+                    wave_duty: 0.5,
+                }),
+                sound_2: AudioLine::new(WaveDuty {
+                    wave_duty: 0.5,
+                }),
+                sound_3: AudioLine::new(Wave {
+                    wave_pattern: [0; 16],
+                }),
+                sound_4: AudioLine::new(Noise {
+                    pattern: NoisePattern::C7,
+                }),
+            }
         }
     }
 }
@@ -45,6 +69,9 @@ impl HandlerHolder for MockHandlerHolder {
         &self.screen_buffer
     }
     fn should_refresh(&mut self) -> bool { false }
+    fn get_audio_buffer(&self) -> &AudioBuffer {
+        &self.audio_buffer
+    }
 }
 
 fn reset_all_registers(cpu: &mut Cpu) {

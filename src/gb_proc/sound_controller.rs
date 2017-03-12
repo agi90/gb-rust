@@ -59,7 +59,7 @@ u8_enum!{
 }
 
 u8_enum!{
-    SoundSteps {
+    NoisePattern {
         C15 = 0b0,
         C7  = 0b1,
     }
@@ -70,7 +70,7 @@ pub struct WaveDuty {
 }
 
 pub struct Noise {
-    pub rng: fn(u16) -> u16,
+    pub pattern: NoisePattern,
 }
 
 pub struct Wave {
@@ -129,11 +129,6 @@ impl WavePattern {
             &WavePattern::C75 => 0.75,
         }
     }
-}
-
-fn sound_16_bit_rng(v: u16) -> u16 {
-    let bit = (v ^ (v >> 1)) & 1;
-    (v >> 1) | (bit << 15)
 }
 
 trait LineMapper {
@@ -222,21 +217,26 @@ fn update_sweep<T>(cycles: usize, line: &mut LineMapper, sound: &mut AudioLine<T
     }
 
     sound.envelope_counter -= cycles as i64;
-    if sound.envelope_counter < 0 && line.envelope_sweep() > 0 {
-        let direction = line.direction();
-        let volume = line.volume();
-        line.set_volume(
-            match direction {
-                SweepDirection::Up   => if volume == 0xF { 0x0 } else { volume + 1 },
-                SweepDirection::Down => if volume == 0x0 { 0xF } else { volume - 1 },
-            }
-        );
+    let sweep = line.envelope_sweep();
+    let volume = line.volume();
+    let direction = line.direction();
 
-        let envelope_sweep = line.envelope_sweep();
-        line.set_envelope_sweep(envelope_sweep - 1);
+    let is_sweep_completed = match direction {
+        SweepDirection::Up   => volume == 0xF,
+        SweepDirection::Down => volume == 0x0,
+    };
 
-        if line.envelope_sweep() > 0 {
-            sound.envelope_counter += 65536;
+    if sound.envelope_counter < 0 && sweep > 0 && !is_sweep_completed {
+        let new_volume = match direction {
+            SweepDirection::Up   => volume + 1,
+            SweepDirection::Down => volume - 1,
+        };
+
+        line.set_volume(new_volume);
+        sound.volume = new_volume as f32 / 16.0;
+
+        if volume != 0xF && volume != 0x0 {
+            sound.envelope_counter += 65536 * sweep as i64;
         } else {
             sound.envelope_counter = 0;
         }
@@ -258,7 +258,7 @@ impl SoundController {
                     wave_pattern: [0; 16],
                 }),
                 sound_4: AudioLine::new(Noise {
-                    rng: sound_16_bit_rng,
+                    pattern: NoisePattern::C7,
                 }),
             }
         }
@@ -344,7 +344,9 @@ impl SoundController {
                 let s = self.mapper.sound_4_shift_clock() as i32;
 
                 self.buffer.sound_4.frequency =
-                    (1048576.0 / r / (2.0 as f64).powi(s + 1)) as u64;
+                    (524288.0 / r / (2.0 as f64).powi(s + 1)) as u64;
+
+                self.buffer.sound_4.sound.pattern = self.mapper.sound_4_step();
             },
             0xFF25 => {
                 self.buffer.sound_1.playing_left = self.buffer.sound_1.on &&
@@ -467,7 +469,7 @@ memory_mapper!{
             ];
             0xFF22, sound_4_polynomial, 0, [
                 get_012,  sound_4_ratio,       u8;
-                get_3,    sound_4_step,        SoundSteps;
+                get_3,    sound_4_step,        NoisePattern;
                 get_4567, sound_4_shift_clock, u8
             ]
         ],

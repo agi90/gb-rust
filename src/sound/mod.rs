@@ -1,6 +1,7 @@
 use gb_proc::sound_controller::{
     AudioBuffer,
-    AudioLine
+    AudioLine,
+    NoisePattern,
 };
 
 use sdl2::audio::{
@@ -77,8 +78,16 @@ impl AudioCallback for Sound<SquareWave> {
 }
 
 struct WhiteNoise {
-    rng: fn(u16) -> u16,
-    rng_state: u16,
+    sound_7_bit: [u8; 127],
+    sound_15_bit: [u8; 32767],
+    pattern: NoisePattern,
+}
+
+fn length(pattern: NoisePattern) -> f32 {
+    match pattern {
+        NoisePattern::C7 => 127.0,
+        NoisePattern::C15 => 32767.0,
+    }
 }
 
 impl AudioCallback for Sound<WhiteNoise> {
@@ -86,21 +95,15 @@ impl AudioCallback for Sound<WhiteNoise> {
 
     fn callback(&mut self, out: &mut [f32]) {
         let mut i = 0;
-        let mut current = false;
-
-        self.phase = self.phase.fract();
-
+        self.phase = self.phase % length(self.sound.pattern);
         while i < out.len() {
-            while self.phase < i as f32 {
-                self.sound.rng_state = (self.sound.rng)(self.sound.rng_state);
-                self.phase += self.phase_inc;
-            }
-
-            if self.sound.rng_state & 1 == 1 {
-                current = !current;
+            let index = self.phase as usize;
+            let bit = match self.sound.pattern {
+                NoisePattern::C15 => self.sound.sound_15_bit[index],
+                NoisePattern::C7  => self.sound.sound_7_bit[index],
             };
 
-            let value = if current {
+            let value = if bit == 1 {
                 self.volume
             } else {
                 -self.volume
@@ -110,6 +113,8 @@ impl AudioCallback for Sound<WhiteNoise> {
             // interleaved [L,R,L,R,L, ...]
             out[i] = if self.left { value } else { 0.0 };
             out[i + 1] = if self.right { value } else { 0.0 };
+
+            self.phase = (self.phase + self.phase_inc) % length(self.sound.pattern);
 
             i += 2;
         }
@@ -140,6 +145,42 @@ impl AudioCallback for Sound<WavePattern> {
     }
 }
 
+fn generate_noise_array(out: &mut [u8], generator: u16, bits: u32) {
+    assert!(bits < 16);
+
+    let mut v = 2u16.pow(bits) - 1;
+
+    for i in 0..out.len() {
+        out[i] = (v & 1) as u8;
+        v = sound_rng(v, generator);
+    }
+
+    // Let's verify that we have reached the end of the cycle
+    assert_eq!(2u16.pow(bits) - 1, v);
+}
+
+fn generate_noise_7_bit() -> [u8; 127] {
+    let mut pattern = [0; 127];
+    generate_noise_array(&mut pattern, 0b1000001, 7);
+    pattern
+}
+
+fn generate_noise_15_bit() -> [u8; 32767] {
+    let mut pattern = [0; 32767];
+    generate_noise_array(&mut pattern, 0b100000000000001, 15);
+    pattern
+}
+
+fn sound_rng(v: u16, generator: u16) -> u16 {
+    let bit = v & 1;
+    let next = v >> 1;
+    if bit != 0 {
+        next ^ generator
+    } else {
+        next
+    }
+}
+
 pub struct SDLPlayer {
     device_1: AudioDevice<Sound<SquareWave>>,
     device_2: AudioDevice<Sound<SquareWave>>,
@@ -147,8 +188,6 @@ pub struct SDLPlayer {
     device_4: AudioDevice<Sound<WhiteNoise>>,
     frequency: u32,
 }
-
-fn fake_rng(_: u16) -> u16 { 0 }
 
 fn refresh_line<T, V, F>(
     device: &mut AudioDevice<Sound<V>>,
@@ -214,8 +253,9 @@ impl SDLPlayer {
                 pattern: [0; 32],
             }),
             device_4: init_device(&audio_subsystem, WhiteNoise {
-                rng: fake_rng,
-                rng_state: 0xFF00,
+                sound_7_bit: generate_noise_7_bit(),
+                sound_15_bit: generate_noise_15_bit(),
+                pattern: NoisePattern::C7,
             }),
             frequency: 44100,
         }
@@ -242,8 +282,7 @@ impl SDLPlayer {
         });
 
         refresh_line(&mut self.device_4, &audio_buffer.sound_4, frequency, |b, l| {
-            b.sound.rng = l.sound.rng;
-            b.phase_inc = frequency / l.frequency as f32;
+            b.sound.pattern = l.sound.pattern;
         });
     }
 }
