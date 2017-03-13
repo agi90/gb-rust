@@ -58,22 +58,31 @@ struct Mbc13 {
     ram_offset: usize,
     ram_enabled: bool,
 
+    rom_banks: usize,
     mode: MbcMode,
 }
+
+const BANK_SIZE: usize = 0x4000;
+const RAM_BANK_SIZE: usize = 0x2000;
 
 impl Mbc13 {
     pub fn new(data: Vec<u8>, mut disk: File, mode: MbcMode) -> Mbc13 {
         let mut ram = vec![];
         disk.read_to_end(&mut ram).unwrap();
 
-        if ram.len() < 32768 {
+        if ram.len() < BANK_SIZE * 2 {
             println!("Warning: invalid file size, blanking ram.");
             disk.seek(SeekFrom::Start(0)).unwrap();
-            disk.write_all(&[0; 32768]).unwrap();
+            disk.write_all(&[0; BANK_SIZE * 2]).unwrap();
+        }
+
+        if data.len() % BANK_SIZE != 0 {
+            panic!(format!("Invalid rom size (must be an integer multiple of {})", BANK_SIZE));
         }
 
         Mbc13 {
             selected_bank: 1,
+            rom_banks: data.len() / BANK_SIZE,
             data: data,
             offset: 0,
             ram: RefCell::new(disk),
@@ -112,8 +121,11 @@ impl Mbc13 {
         // Any write to this area will enable the bank of memory contained in v
         // if 0 is selected we will select 1 because 0 is already available
         // statically in 0 0000 - 3FFF
-        if v > 0 {
-            self.offset = ((v - 1) as usize) * 0x4000;
+        // Moreover, if the requested bank is out of range, the DMG wraps around
+        // and picks a valid bank regardless of the value.
+        let bank = v as usize % self.rom_banks;
+        if bank > 0 {
+            self.offset = (bank - 1) * BANK_SIZE;
         } else {
             self.offset = 0x0000;
         }
@@ -127,7 +139,10 @@ impl Mbc13 {
             _ => v,
         };
 
-        self.offset = ((v_bug - 1) as usize) * 0x4000;
+        // The rom bank selected will wrap around if the value is out of range.
+        let bank = v_bug as usize % self.rom_banks;
+
+        self.offset = (bank - 1) * BANK_SIZE;
     }
 }
 
@@ -160,13 +175,7 @@ impl Mbc for Mbc13 {
                 // Writing to this area will cause the controller to switch
                 // banks of in-cartridge RAM.
                 // Only the lowest two bits are relevant for this register.
-                match v & 0b11 {
-                    0x00 => self.ram_offset = 0,
-                    0x01 => self.ram_offset = 8192,
-                    0x02 => self.ram_offset = 16384,
-                    0x03 => self.ram_offset = 24576,
-                    _ => unimplemented!(),
-                }
+                self.ram_offset = RAM_BANK_SIZE * (v & 0b11) as usize;
             },
             0x6000 ... 0x7FFF => {
                 // TODO

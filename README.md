@@ -42,11 +42,10 @@ This project is released under the MIT license.
 ![screenshot_priority_passed](https://cloud.githubusercontent.com/assets/4297388/22866803/c91ae00e-f130-11e6-97dd-e6c199545481.png)
 ![halt_bug_failed](https://cloud.githubusercontent.com/assets/4297388/22866864/affbd7a8-f131-11e6-86eb-aad2c9fe3cf4.png)
 ![interrupt_time_failed](https://cloud.githubusercontent.com/assets/4297388/22866865/b1b52cde-f131-11e6-9319-f5c8fa701d25.png)
+![dmg_sound_failed](https://cloud.githubusercontent.com/assets/4297388/23840717/cf87d060-0764-11e7-8c56-9826f3d5c338.png)
 
 ####Todo####
 
-- cgb_sound (not implemented)
-- dmg_sound (not implemented)
 - oam_bug (crashes)
 
 ###Screenshots###
@@ -63,6 +62,3 @@ This project is released under the MIT license.
 ![tetris-1](https://cloud.githubusercontent.com/assets/4297388/23596578/c1ba7ca0-01e0-11e7-9aae-caf4faac3649.png)
 ![tetris-2](https://cloud.githubusercontent.com/assets/4297388/23596579/c1bafaae-01e0-11e7-8ed1-030f89d437a1.png)
 ![tetris-3](https://cloud.githubusercontent.com/assets/4297388/23596601/fdee1f9c-01e0-11e7-8427-8254614028be.png)
-
-
-
