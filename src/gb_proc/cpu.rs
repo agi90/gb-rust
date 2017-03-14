@@ -1,7 +1,7 @@
 use controller::Hardware;
 use gb_proc::opcodes::OpCode;
 use gb_proc::handler_holder::Key;
-use gb_proc::sound_controller::AudioBuffer;
+use gb_proc::apu::AudioBuffer;
 use gb_proc::timer_controller::TimerController;
 use gb_proc::video_controller::ScreenBuffer;
 

@@ -4,7 +4,7 @@ use glium::glutin::{VirtualKeyCode, ElementState};
 use gpu::renderer::{GLRenderer, Renderer};
 use gb_proc::handler_holder::Key;
 use gb_proc::video_controller::ScreenBuffer;
-use gb_proc::sound_controller::AudioBuffer;
+use gb_proc::apu::AudioBuffer;
 use gb_proc::cpu::Interrupt;
 use sound::SDLPlayer;
 

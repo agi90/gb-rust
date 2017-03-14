@@ -1,5 +1,5 @@
 use gb_proc::video_controller::{VideoController, ScreenBuffer};
-use gb_proc::sound_controller::{SoundController, AudioBuffer};
+use gb_proc::apu::{SoundController, AudioBuffer};
 use gb_proc::cpu::{Handler, HandlerHolder, Interrupt};
 use bitfield::Bitfield;
 
@@ -9,7 +9,7 @@ pub struct GBHandlerHolder {
     pub video_controller: VideoController,
     joypad_register: JoypadRegister,
     serial_transfer_controller: SerialTransferController,
-    sound_controller: SoundController,
+    apu: SoundController,
 }
 
 impl GBHandlerHolder {
@@ -20,7 +20,7 @@ impl GBHandlerHolder {
             video_controller: VideoController::new(),
             joypad_register: JoypadRegister::new(),
             serial_transfer_controller: SerialTransferController::new(),
-            sound_controller: SoundController::new(),
+            apu: SoundController::new(),
         }
     }
 }
@@ -79,7 +79,7 @@ impl HandlerHolder for GBHandlerHolder {
     }
 
     fn get_audio_buffer(&self) -> &AudioBuffer {
-        self.sound_controller.get_audio()
+        self.apu.get_audio()
     }
 
     fn key_up(&mut self, key: Key) {
@@ -103,7 +103,7 @@ impl HandlerHolder for GBHandlerHolder {
             0xFEA0 ... 0xFEFF => &self.memory_holder,
             0xFF00            => &self.joypad_register,
             0xFF01 ... 0xFF02 => &self.serial_transfer_controller,
-            0xFF09 ... 0xFF3F => &self.sound_controller,
+            0xFF09 ... 0xFF3F => &self.apu,
             0xFF40 ... 0xFF4B => &self.video_controller,
             0xFF4C ... 0xFFFE => &self.memory_holder,
             _ => unreachable!(),
@@ -121,7 +121,7 @@ impl HandlerHolder for GBHandlerHolder {
             0xFEA0 ... 0xFEFF => &mut self.memory_holder,
             0xFF00            => &mut self.joypad_register,
             0xFF01 ... 0xFF02 => &mut self.serial_transfer_controller,
-            0xFF09 ... 0xFF3F => &mut self.sound_controller,
+            0xFF09 ... 0xFF3F => &mut self.apu,
             0xFF40 ... 0xFF4B => &mut self.video_controller,
             0xFF4C ... 0xFFFE => &mut self.memory_holder,
             _ => unimplemented!(),
@@ -130,7 +130,7 @@ impl HandlerHolder for GBHandlerHolder {
 
     fn add_cycles(&mut self, cycles: usize) {
         self.video_controller.add_cycles(cycles);
-        self.sound_controller.add_cycles(cycles);
+        self.apu.add_cycles(cycles);
     }
 
     fn check_interrupts(&mut self) -> Vec<Interrupt> {

@@ -1,4 +1,4 @@
-use gb_proc::sound_controller::{
+use gb_proc::apu::{
     AudioBuffer,
     AudioLine,
     NoisePattern,
