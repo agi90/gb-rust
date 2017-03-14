@@ -9,7 +9,6 @@ use sdl2::audio::{
     AudioDevice,
     AudioSpecDesired
 };
-
 use std::ops::DerefMut;
 
 use sdl2;
@@ -195,18 +194,18 @@ fn refresh_line<T, V, F>(
     frequency: f32,
     refresh_buffer: F)
     where Sound<V>: AudioCallback + DmgSound,
-          F: Fn(&mut Sound<V>, &AudioLine<T>)
+          F: Fn(&mut Sound<V>, &AudioLine<T>) -> u64
 {
     if !line.playing_left && !line.playing_right {
         device.pause();
     } else {
         {
             let mut old_buffer = device.lock();
-            old_buffer.deref_mut().set_phase_inc(line.frequency as f32 / frequency);
+            let line_frequency = refresh_buffer(old_buffer.deref_mut(), line) as f32;
+            old_buffer.deref_mut().set_phase_inc(line_frequency / frequency);
             old_buffer.deref_mut().set_left(line.playing_left);
             old_buffer.deref_mut().set_right(line.playing_right);
             old_buffer.deref_mut().set_volume(line.volume as f32 * 0.25);
-            refresh_buffer(old_buffer.deref_mut(), line);
         }
 
         device.resume();
@@ -266,10 +265,12 @@ impl SDLPlayer {
 
         refresh_line(&mut self.device_1, &audio_buffer.sound_1, frequency, |b, l| {
             b.sound.wave_duty = l.sound.wave_duty;
+            131072 / (2048 - l.frequency)
         });
 
         refresh_line(&mut self.device_2, &audio_buffer.sound_2, frequency, |b, l| {
             b.sound.wave_duty = l.sound.wave_duty;
+            131072 / (2048 - l.frequency)
         });
 
         refresh_line(&mut self.device_3, &audio_buffer.sound_3, frequency, |b, l| {
@@ -279,10 +280,12 @@ impl SDLPlayer {
                 pattern[i*2 + 1] =  l.sound.wave_pattern[i] & 0b00001111;
             }
             b.sound.pattern = pattern;
+            65536 / (2048 - l.frequency)
         });
 
         refresh_line(&mut self.device_4, &audio_buffer.sound_4, frequency, |b, l| {
             b.sound.pattern = l.sound.pattern;
+            l.frequency
         });
     }
 }
