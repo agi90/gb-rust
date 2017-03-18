@@ -3,23 +3,23 @@ Yet another DMG (Game Boy) emulator.
 
 Written mostly for fun, it's not intended for general use.
 
-###Run###
+### Run
 
 ```
 $ cargo build --release
 $ cargo run --release -- rom.gb
 ```
 
-###Command Line options###
+### Command Line options
 * `-d --debug` Will start the debugger immediately
 * `-m --magnification` Allows changing the magnification of the emulated screen.
 
-###Features###
+### Features
 * MBC0, MBC1, MBC3 support
 * Works on Linux and Windows (didn't test OSX)
 * No sound
 
-###Commands###
+### Commands
 * `F1` breaks execution and enters the debugger
 * `F2` toggle between normal speed and unlimited frame rate
 * Arrow keys control up/left/right/down
@@ -31,7 +31,7 @@ $ cargo run --release -- rom.gb
 
 This project is released under the MIT license.
 
-###Tests###
+### Tests
 
 [Blargg](http://gbdev.gg8.se/files/roms/blargg-gb-tests/) tests:
 
@@ -44,19 +44,19 @@ This project is released under the MIT license.
 ![interrupt_time_failed](https://cloud.githubusercontent.com/assets/4297388/22866865/b1b52cde-f131-11e6-9319-f5c8fa701d25.png)
 ![dmg_sound_failed](https://cloud.githubusercontent.com/assets/4297388/23840717/cf87d060-0764-11e7-8c56-9826f3d5c338.png)
 
-####Todo####
+#### Todo
 
 - oam_bug (crashes)
 
-###Screenshots###
+### Screenshots
 
-####Pokemon Red/Blue####
+#### Pokemon Red/Blue
 
 ![pokemon-title](https://cloud.githubusercontent.com/assets/4297388/22866903/33867e84-f132-11e6-87ce-e0106849af65.png)
 ![pokemon-in-game](https://cloud.githubusercontent.com/assets/4297388/22866902/33843340-f132-11e6-963c-1e2558e3ef4d.png)
 ![pokemon-menu](https://cloud.githubusercontent.com/assets/4297388/22866901/3381729a-f132-11e6-942d-36514e62b36f.png)
 
-####Tetris####
+#### Tetris
 [video](https://www.youtube.com/watch?v=gjSM0qQbSxE)
 
 ![tetris-1](https://cloud.githubusercontent.com/assets/4297388/23596578/c1ba7ca0-01e0-11e7-9aae-caf4faac3649.png)
