@@ -167,7 +167,6 @@ pub struct AudioLine<T> {
     pub on: bool,
     pub counter: i64,
     pub envelope_counter: i64,
-    pub consecutive: bool,
 
     pub sound: T,
 }
@@ -183,7 +182,6 @@ impl<T> AudioLine<T> {
             on: false,
             counter: 0,
             envelope_counter: 0,
-            consecutive: false,
             sound: sound,
         }
     }
@@ -227,6 +225,7 @@ trait LineMapper {
     fn frequency(&self) -> u64;
     fn sweep_period(&self) -> u8;
     fn sweep_direction(&self) -> ToneSweepDirection;
+    fn consecutive(&self) -> bool;
 }
 
 struct Line1Mapper<'a> {
@@ -271,6 +270,9 @@ impl<'a> LineMapper for Line1Mapper<'a> {
     fn sweep_direction(&self) -> ToneSweepDirection {
         self.mapper.sound_1_sweep_direction()
     }
+    fn consecutive(&self) -> bool {
+        self.mapper.sound_1_consecutive() > 0
+    }
 }
 
 impl<'a> LineMapper for Line3Mapper<'a> {
@@ -297,6 +299,9 @@ impl<'a> LineMapper for Line3Mapper<'a> {
         panic!();
     }
     fn sweep_direction(&self) -> ToneSweepDirection {
+        panic!();
+    }
+    fn consecutive(&self) -> bool {
         panic!();
     }
 }
@@ -326,6 +331,9 @@ impl<'a> LineMapper for Line2Mapper<'a> {
     }
     fn sweep_direction(&self) -> ToneSweepDirection {
         panic!();
+    }
+    fn consecutive(&self) -> bool {
+        self.mapper.sound_2_consecutive() > 0
     }
 }
 
@@ -362,10 +370,13 @@ impl<'a> LineMapper for Line4Mapper<'a> {
     fn sweep_direction(&self) -> ToneSweepDirection {
         panic!();
     }
+    fn consecutive(&self) -> bool {
+        self.mapper.sound_4_consecutive() > 0
+    }
 }
 
-fn update_length<T>(sound: &mut AudioLine<T>) {
-    if !sound.consecutive || !sound.on {
+fn update_length<T>(line: &mut LineMapper, sound: &mut AudioLine<T>) {
+    if !line.consecutive() || !sound.on {
         return;
     }
 
@@ -375,7 +386,6 @@ fn update_length<T>(sound: &mut AudioLine<T>) {
     }
 
     if sound.counter == 0 {
-        sound.consecutive = false;
         sound.on = false;
     }
 }
@@ -573,9 +583,15 @@ impl SoundController {
     }
 
     fn update_length(&mut self) {
-        update_length(&mut self.buffer.sound_1);
-        update_length(&mut self.buffer.sound_2);
-        update_length(&mut self.buffer.sound_4);
+        update_length(
+            &mut Line1Mapper{ mapper: &mut self.mapper },
+            &mut self.buffer.sound_1);
+        update_length(
+            &mut Line2Mapper{ mapper: &mut self.mapper },
+            &mut self.buffer.sound_2);
+        update_length(
+            &mut Line4Mapper{ mapper: &mut self.mapper },
+            &mut self.buffer.sound_4);
     }
 
     fn update_volume(&mut self) {
@@ -694,8 +710,7 @@ impl Handler for SoundController {
     fn write(&mut self, address: u16, v: u8) {
         match address {
             0xFF14 => {
-                self.buffer.sound_1.consecutive = v & 0b01000000 > 0;
-                self.mapper.set_sound_1_frequency_high(v & 0b111);
+                self.mapper.write(address, v);
                 if v & 0b10000000 > 0 {
                     self.buffer.sound_1.on = true;
                     trigger_event(
@@ -704,17 +719,16 @@ impl Handler for SoundController {
                 }
             },
             0xFF19 => {
-                self.buffer.sound_2.consecutive = v & 0b01000000 > 0;
+                self.mapper.write(address, v);
                 if v & 0b10000000 > 0 {
                     self.buffer.sound_2.on = true;
                     trigger_event(
                         &mut self.buffer.sound_2,
                         &mut Line2Mapper{ mapper: &mut self.mapper });
                 }
-                self.mapper.set_sound_2_frequency_high(v & 0b111);
             },
             0xFF23 => {
-                self.buffer.sound_4.consecutive = v & 0b01000000 > 0;
+                self.mapper.write(address, v);
                 if v & 0b10000000 > 0 {
                     self.buffer.sound_4.on = true;
                     trigger_event(
@@ -723,9 +737,19 @@ impl Handler for SoundController {
                 }
             },
             0xFF26 => {
-                if self.mapper.master_status() == SoundStatus::SoundOff
-                    && v & 0b10000000 > 0 {
+                self.mapper.set_master_status(if v & 0b10000000 > 0 {
+                    SoundStatus::SoundOn
+                } else {
+                    SoundStatus::SoundOff
+                });
+
+                if self.mapper.master_status() == SoundStatus::SoundOff {
                     self.frame_sequencer.reset();
+                    self.buffer.sound_1.on = false;
+                    self.buffer.sound_2.on = false;
+                    self.buffer.sound_3.on = false;
+                    self.buffer.sound_4.on = false;
+
                     // TODO: If off the APU should not respond to any write.
                 }
             },
