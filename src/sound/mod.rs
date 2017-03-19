@@ -205,7 +205,6 @@ fn refresh_line<T, V, F>(
             old_buffer.deref_mut().set_phase_inc(line_frequency / frequency);
             old_buffer.deref_mut().set_left(line.playing_left);
             old_buffer.deref_mut().set_right(line.playing_right);
-            old_buffer.deref_mut().set_volume(line.volume as f32 * 0.25);
         }
 
         device.resume();
@@ -265,11 +264,13 @@ impl SDLPlayer {
 
         refresh_line(&mut self.device_1, &audio_buffer.sound_1, frequency, |b, l| {
             b.sound.wave_duty = l.sound.wave_duty;
+            b.volume = l.sound.volume as f32 / 16.0 / 4.0;
             131072 / (2048 - l.frequency)
         });
 
         refresh_line(&mut self.device_2, &audio_buffer.sound_2, frequency, |b, l| {
             b.sound.wave_duty = l.sound.wave_duty;
+            b.volume = l.sound.volume as f32 / 16.0 / 4.0;
             131072 / (2048 - l.frequency)
         });
 
@@ -280,11 +281,13 @@ impl SDLPlayer {
                 pattern[i*2 + 1] =  l.sound.wave_pattern[i] & 0b00001111;
             }
             b.sound.pattern = pattern;
+            b.volume = l.sound.volume.to_volume() / 4.0;
             65536 / (2048 - l.frequency)
         });
 
         refresh_line(&mut self.device_4, &audio_buffer.sound_4, frequency, |b, l| {
             b.sound.pattern = l.sound.pattern;
+            b.volume = l.sound.volume as f32 / 16.0 / 4.0;
             l.frequency
         });
     }
