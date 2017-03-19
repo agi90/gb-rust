@@ -98,13 +98,13 @@ impl TimerController {
 memory_mapper!{
     name: TimerMemoryMapper,
     fields: [
-        0xFF04, divider, 0;
-        0xFF05, timer,   0;
-        0xFF06, modulo,  0;
+        0xFF04, 0b00000000, divider, 0;
+        0xFF05, 0b00000000, timer,   0;
+        0xFF06, 0b00000000, modulo,  0;
     ],
     bitfields: {
         getters: [
-            0xFF07, control, 0, [
+            0xFF07, 0b00000111, control, 0, [
                 get_01, clock_select,  ClockSelect;
                 get_2,  timer_enabled, u8
             ]

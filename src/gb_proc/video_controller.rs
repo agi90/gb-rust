@@ -643,16 +643,16 @@ u8_enum!{
 memory_mapper!{
     name: VideoMemoryMapper,
     fields: [
-        0xFF42, scroll_bg_y, 0;
-        0xFF43, scroll_bg_x, 0;
-        0xFF44, lcd_y_coordinate, 0;
-        0xFF45, lyc_coincidence, 0;
-        0xFF4A, window_y, 0;
-        0xFF4B, window_x, 0;
+        0xFF42, 0b00000000, scroll_bg_y, 0;
+        0xFF43, 0b00000000, scroll_bg_x, 0;
+        0xFF44, 0b00000000, lcd_y_coordinate, 0;
+        0xFF45, 0b00000000, lyc_coincidence, 0;
+        0xFF4A, 0b00000000, window_y, 0;
+        0xFF4B, 0b00000000, window_x, 0;
     ],
     bitfields: {
         getters: [
-            0xFF40, lcd_controller, 0x91, [
+            0xFF40, 0b00000000, lcd_controller, 0x91, [
                 get_0, bg_window_on,       u8;
                 get_1, obj_sprite_display, u8;
                 get_2, sprite_size,        SpriteSize;
@@ -662,25 +662,25 @@ memory_mapper!{
                 get_6, window_tile_map,    TileMap;
                 get_7, lcd_on,             u8
             ];
-            0xFF47, bgp, 0xFC, [
+            0xFF47, 0b00000000, bgp, 0xFC, [
                 get_01, bg_color_00, GrayShade;
                 get_23, bg_color_01, GrayShade;
                 get_45, bg_color_10, GrayShade;
                 get_67, bg_color_11, GrayShade
             ];
-            0xFF48, obp0, 0xFF, [
+            0xFF48, 0b00000000, obp0, 0xFF, [
                 get_23, obp0_palette_01, GrayShade;
                 get_45, obp0_palette_10, GrayShade;
                 get_67, obp0_palette_11, GrayShade
             ];
-            0xFF49, obp1, 0xFF, [
+            0xFF49, 0b00000000, obp1, 0xFF, [
                 get_23, obp1_palette_01, GrayShade;
                 get_45, obp1_palette_10, GrayShade;
                 get_67, obp1_palette_11, GrayShade
             ]
         ],
         getter_setters: [
-            0xFF41, stat, 0, [
+            0xFF41, 0b10000000, stat, 0, [
                 get_01, set_01, mode,              set_mode,              LCDMode;
                 get_2,  set_2,  ly_coincidence,    set_ly_coincidence,    u8;
                 get_3,  set_3,  h_blank_interrupt, set_h_blank_interrupt, u8;

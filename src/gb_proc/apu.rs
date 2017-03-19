@@ -677,15 +677,15 @@ impl SoundController {
 impl Handler for SoundController {
     fn read(&self, address: u16) -> u8 {
         match address {
-            0xFF14 => if self.buffer.sound_1.consecutive { 0b01000000 } else { 0 },
-            0xFF19 => if self.buffer.sound_1.consecutive { 0b01000000 } else { 0 },
-            0xFF23 => if self.buffer.sound_4.consecutive { 0b01000000 } else { 0 },
-            0xFF26 =>
-                (if self.mapper.master_status() == SoundStatus::SoundOn { 0b10000000 } else { 0 }) +
+            0xFF26 => {
+                let v = (if self.mapper.master_status() == SoundStatus::SoundOn { 0b10000000 } else { 0 }) +
                 (if self.buffer.sound_1.on { 0b00000001 } else { 0 }) +
                 (if self.buffer.sound_2.on { 0b00000010 } else { 0 }) +
                 (if self.buffer.sound_3.on { 0b00000100 } else { 0 }) +
-                (if self.buffer.sound_4.on { 0b00001000 } else { 0 }),
+                (if self.buffer.sound_4.on { 0b00001000 } else { 0 });
+
+                v | 0b01110000
+            },
             0xFF30 ... 0xFF3F => self.buffer.sound_3.sound.wave_pattern[address as usize - 0xFF30],
             _ => self.mapper.read(address),
         }
@@ -741,88 +741,91 @@ impl Handler for SoundController {
 memory_mapper!{
     name: SoundMemoryMapper,
     fields: [
-        0xFF13, sound_1_frequency_low, 0;
-        0xFF15, sound_unknown_01, 0;
-        0xFF18, sound_2_frequency_low, 0;
-        0xFF1B, sound_3_length, 0;
-        0xFF1D, sound_3_frequency_low, 0;
-        0xFF1F, sound_unknown_02, 0;
-        0xFF27, sound_unknown_03, 0;
-        0xFF28, sound_unknown_04, 0;
-        0xFF29, sound_unknown_05, 0;
-        0xFF2A, sound_unknown_06, 0;
-        0xFF2B, sound_unknown_07, 0;
-        0xFF2C, sound_unknown_08, 0;
-        0xFF2D, sound_unknown_09, 0;
-        0xFF2E, sound_unknown_10, 0;
-        0xFF2F, sound_unknown_11, 0;
+        0xFF13, 0xFF, sound_1_frequency_low, 0;
+        0xFF15, 0xFF, sound_unknown_01, 0;
+        0xFF18, 0xFF, sound_2_frequency_low, 0;
+        0xFF1B, 0xFF, sound_3_length, 0;
+        0xFF1D, 0xFF, sound_3_frequency_low, 0;
+        0xFF1F, 0xFF, sound_unknown_02, 0;
+        0xFF27, 0xFF, sound_unknown_03, 0;
+        0xFF28, 0xFF, sound_unknown_04, 0;
+        0xFF29, 0xFF, sound_unknown_05, 0;
+        0xFF2A, 0xFF, sound_unknown_06, 0;
+        0xFF2B, 0xFF, sound_unknown_07, 0;
+        0xFF2C, 0xFF, sound_unknown_08, 0;
+        0xFF2D, 0xFF, sound_unknown_09, 0;
+        0xFF2E, 0xFF, sound_unknown_10, 0;
+        0xFF2F, 0xFF, sound_unknown_11, 0;
     ],
     bitfields: {
         getters: [
-            0xFF11, sound_1_wave_pattern, 0, [
+            0xFF11, 0b00111111, sound_1_wave_pattern, 0, [
                 get_012345, sound_1_length,  u8;
                 get_67,     sound_1_pattern, WavePattern
             ];
-            0xFF16, sound_2_wave_pattern, 0, [
+            0xFF16, 0b00111111, sound_2_wave_pattern, 0, [
                 get_012345, sound_2_length,  u8;
                 get_67,     sound_2_pattern, WavePattern
             ];
-            0xFF1A, sound_3_register, 0, [
+            0xFF1A, 0b01111111, sound_3_register, 0, [
                 get_7, sound_3_on, SoundStatus
             ];
-            0xFF1C, sound_3_output_level, 0, [
+            0xFF1C, 0b10011111, sound_3_output_level, 0, [
                 get_56, sound_3_output_level, OutputLevel
             ];
-            0xFF1E, sound_3_frequency_hi, 0, [
+            0xFF1E, 0b10111111, sound_3_frequency_hi, 0, [
                 get_012, sound_3_frequency_high, u8
             ];
-            0xFF20, sound_4_length, 0, [
+            0xFF20, 0b11111111, sound_4_length, 0, [
                 get_012345, sound_4_length, u8
             ];
-            0xFF22, sound_4_polynomial, 0, [
+            0xFF22, 0b00000000, sound_4_polynomial, 0, [
                 get_012,  sound_4_ratio,       u8;
                 get_3,    sound_4_step,        NoisePattern;
                 get_4567, sound_4_shift_clock, u8
+            ];
+            0xFF23, 0b10111111, sound_4_consecutive, 0xBF, [
+                get_6, sound_4_consecutive, u8
             ]
         ],
         getter_setters: [
-            0xFF10, sound_1_sweep, 0, [
+            0xFF10, 0b10000000, sound_1_sweep, 0, [
                 get_012, set_012, sound_1_sweep_shift,     set_sound_1_sweep_shift,     u8;
                 get_3,   set_3,   sound_1_sweep_direction, set_sound_1_sweep_direction, ToneSweepDirection;
                 get_456, set_456, sound_1_sweep_period,    set_sound_1_sweep_period,    u8
             ];
-            0xFF12, sound_1_volume, 0, [
+            0xFF12, 0b00000000, sound_1_volume, 0, [
                 get_4567, set_4567, sound_1_volume, set_sound_1_volume, u8;
                 get_3,    set_3,    sound_1_direction, set_sound_1_direction, SweepDirection;
                 get_012,  set_012,  sound_1_envelope_sweep, set_sound_1_envelope_sweep, u8
             ];
-            0xFF14, sound_1_frequency_high, 0, [
+            0xFF14, 0b10111111, sound_1_frequency_high, 0, [
                 get_7,   set_7,   sound_1_restart,        set_sound_1_restart,        u8;
                 get_6,   set_6,   sound_1_consecutive,    set_sound_1_consecutive,    u8;
                 get_012, set_012, sound_1_frequency_high, set_sound_1_frequency_high, u8
             ];
-            0xFF17, sound_2_volume, 0, [
+            0xFF17, 0b00000000, sound_2_volume, 0, [
                 get_4567, set_4567, sound_2_volume, set_sound_2_volume, u8;
                 get_3,    set_3,    sound_2_direction, set_sound_2_direction, SweepDirection;
                 get_012,  set_012,  sound_2_envelope_sweep, set_sound_2_envelope_sweep, u8
             ];
-            0xFF19, sound_2_frequency_high, 0, [
+            0xFF19, 0b10111111, sound_2_frequency_high, 0, [
                 get_7,   set_7,   sound_2_restart,        set_sound_2_restart,        u8;
                 get_6,   set_6,   sound_2_consecutive,    set_sound_2_consecutive,    u8;
                 get_012, set_012, sound_2_frequency_high, set_sound_2_frequency_high, u8
             ];
-            0xFF21, sound_4_volume, 0, [
+            0xFF21, 0b00000000, sound_4_volume, 0, [
                 get_4567, set_4567, sound_4_volume, set_sound_4_volume, u8;
                 get_3,    set_3,    sound_4_direction, set_sound_4_direction, SweepDirection;
                 get_012,  set_012,  sound_4_envelope_sweep, set_sound_4_envelope_sweep, u8
             ];
-            0xFF24, sound_control, 0, [
+            0xFF24, 0b00000000, sound_control, 0, [
                 get_012, set_012, so1_volume,     set_so1_volume,     u8;
                 get_3,   set_3,   so1_vin_status, set_so1_vin_status, SoundStatus;
                 get_456, set_456, so2_volume,     set_so2_volume,     u8;
                 get_7,   set_7,   so2_vin_status, set_so2_vin_status, SoundStatus
             ];
-            0xFF25, selection_sound, 0xF3, [
+            0xFF25, 0b00000000, selection_sound, 0xF3, [
                 get_7, set_7, sound_4_to_so2, set_sound_4_to_so2, SoundStatus;
                 get_6, set_6, sound_3_to_so2, set_sound_3_to_so2, SoundStatus;
                 get_5, set_5, sound_2_to_so2, set_sound_2_to_so2, SoundStatus;
@@ -832,7 +835,7 @@ memory_mapper!{
                 get_1, set_1, sound_2_to_so1, set_sound_2_to_so1, SoundStatus;
                 get_0, set_0, sound_1_to_so1, set_sound_1_to_so1, SoundStatus
             ];
-            0xFF26, sound_status_rw, 0, [
+            0xFF26, 0b01110000, sound_status_rw, 0, [
                 get_7, set_7, master_status, set_master_status, SoundStatus
             ]
         ],

@@ -34,18 +34,18 @@ macro_rules! memory_mapper {
     {
         name: $name: ident,
         fields: [
-            $($hex_f:expr, $field_name_f: ident, $default_f: expr);*;
+            $($hex_f:expr, $mask_f:expr, $field_name_f: ident, $default_f: expr);*;
         ],
         bitfields: {
             getters: [
-                $($hex:expr, $field_name: ident, $default: expr, [
+                $($hex:expr, $mask: expr, $field_name: ident, $default: expr, [
                     $($bitfield_getter: ident,
                     $method_getter: ident,
                     $method_type: ident);*
                 ]);*
             ],
             getter_setters: [
-                $($hex_s:expr, $field_name_s: ident, $default_s: expr, [
+                $($hex_s:expr, $mask_s: expr, $field_name_s: ident, $default_s: expr, [
                     $($bitfield_getter_s: ident,
                     $bitfield_setter_s: ident,
                     $method_getter_s: ident,
@@ -91,9 +91,9 @@ macro_rules! memory_mapper {
         impl Handler for $name {
             fn read(&self, address: u16) -> u8 {
                 match address {
-                    $($hex => self.$field_name.get()),+,
-                    $($hex_f => self.$field_name_f),+
-                    $(,$hex_s => self.$field_name_s.get())*,
+                    $($hex => self.$field_name.get() | $mask),+,
+                    $($hex_f => self.$field_name_f | $mask_f),+
+                    $(,$hex_s => self.$field_name_s.get() | $mask_s)*,
                     _ => panic!("Could not handle read at ${:04X}", address),
                 }
             }

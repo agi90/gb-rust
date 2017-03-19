@@ -141,11 +141,11 @@ impl HandlerHolder for GBHandlerHolder {
 memory_mapper!{
     name: SerialTransferController,
     fields: [
-        0xFF01, transfer_data, 0;
+        0xFF01, 0b00000000, transfer_data, 0;
     ],
     bitfields: {
         getters: [
-            0xFF02, flags, 0, [
+            0xFF02, 0b01111110, flags, 0, [
                 get_0, shift_clock, u8;
                 get_1, fast_clock, u8;
                 get_7, start_transfer, u8
