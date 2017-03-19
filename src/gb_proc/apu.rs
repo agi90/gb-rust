@@ -708,6 +708,13 @@ impl Handler for SoundController {
     }
 
     fn write(&mut self, address: u16, v: u8) {
+        if self.mapper.master_status() == SoundStatus::SoundOff
+                && address != 0xFF26 {
+            // While the APU is off, the cpu can only write to FF26
+            // to turn the APU on.
+            return;
+        }
+
         match address {
             0xFF14 => {
                 self.mapper.write(address, v);
@@ -737,21 +744,27 @@ impl Handler for SoundController {
                 }
             },
             0xFF26 => {
-                self.mapper.set_master_status(if v & 0b10000000 > 0 {
+                let new_master_status = if v & 0b10000000 > 0 {
                     SoundStatus::SoundOn
                 } else {
                     SoundStatus::SoundOff
-                });
+                };
 
-                if self.mapper.master_status() == SoundStatus::SoundOff {
+                if new_master_status == SoundStatus::SoundOff {
                     self.frame_sequencer.reset();
                     self.buffer.sound_1.on = false;
                     self.buffer.sound_2.on = false;
                     self.buffer.sound_3.on = false;
                     self.buffer.sound_4.on = false;
 
-                    // TODO: If off the APU should not respond to any write.
+                    for address in 0xFF10..0xFF30 {
+                        if address != 0xFF26 {
+                            self.write(address, 0x00);
+                        }
+                    }
                 }
+
+                self.mapper.set_master_status(new_master_status);
             },
             0xFF30 ... 0xFF3F => self.buffer.sound_3.sound.wave_pattern[address as usize - 0xFF30] = v,
             _ => {
