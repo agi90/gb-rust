@@ -1,3 +1,5 @@
+/** This file is mostly based on http://gbdev.gg8.se/wiki/articles/Gameboy_sound_hardware */
+
 use std::convert::From;
 use gb_proc::cpu::Handler;
 use bitfield::Bitfield;
@@ -287,6 +289,7 @@ trait LineMapper {
     fn sweep_direction(&self) -> ToneSweepDirection;
     fn consecutive(&self) -> bool;
     fn dac_off(&self) -> bool;
+    fn write(&mut self, address: u16, v: u8);
 }
 
 struct Line1Mapper<'a> {
@@ -332,6 +335,9 @@ impl<'a> LineMapper for Line1Mapper<'a> {
         self.mapper.sound_1_volume() == 0
             && self.mapper.sound_1_direction() == SweepDirection::Down
     }
+    fn write(&mut self, address: u16, v: u8) {
+        self.mapper.write(address, v);
+    }
 }
 
 impl<'a> LineMapper for Line3Mapper<'a> {
@@ -361,6 +367,9 @@ impl<'a> LineMapper for Line3Mapper<'a> {
     fn dac_off(&self) -> bool {
         self.mapper.sound_3_on() == SoundStatus::SoundOff
     }
+    fn write(&mut self, address: u16, v: u8) {
+        self.mapper.write(address, v);
+    }
 }
 
 impl<'a> LineMapper for Line2Mapper<'a> {
@@ -389,6 +398,9 @@ impl<'a> LineMapper for Line2Mapper<'a> {
     fn dac_off(&self) -> bool {
         self.mapper.sound_2_volume() == 0
             && self.mapper.sound_2_direction() == SweepDirection::Down
+    }
+    fn write(&mut self, address: u16, v: u8) {
+        self.mapper.write(address, v);
     }
 }
 
@@ -425,6 +437,9 @@ impl<'a> LineMapper for Line4Mapper<'a> {
     fn dac_off(&self) -> bool {
         self.mapper.sound_4_volume() == 0
             && self.mapper.sound_4_direction() == SweepDirection::Down
+    }
+    fn write(&mut self, address: u16, v: u8) {
+        self.mapper.write(address, v);
     }
 }
 
@@ -476,10 +491,16 @@ fn update_volume<T>(line: &mut LineMapper, sound: &mut AudioLine<T>)
     }
 }
 
-fn trigger_event<T>(sound: &mut AudioLine<T>, line_mapper: &mut LineMapper)
+fn trigger_event<T>(sound: &mut AudioLine<T>, line_mapper: &mut LineMapper,
+                    frame_sequencer: &FrameSequencer)
     where AudioLine<T>: TriggerEvent + VolumeSweep {
     if sound.counter == 0 {
         sound.counter = sound.default_length();
+        if !frame_sequencer.next_step_clocks_length() && line_mapper.consecutive() {
+            // When the next step in the sequencer will not fire a Lenght clock
+            // the counter is actually initialized to MAX_LENGTH - 1
+            sound.counter -= 1;
+        }
     }
 
     sound.set_volume(line_mapper.initial_volume());
@@ -492,6 +513,39 @@ fn trigger_event<T>(sound: &mut AudioLine<T>, line_mapper: &mut LineMapper)
     // is off the sound should stay off.
     if line_mapper.dac_off() {
         sound.on = false;
+    }
+}
+
+fn extra_length_check<T>(sound: &mut AudioLine<T>,
+                      frame_sequencer: &FrameSequencer) {
+    let extra_check = sound.counter > 0
+        && !frame_sequencer.next_step_clocks_length();
+
+    if extra_check {
+        sound.counter -= 1;
+        if sound.counter == 0 {
+            sound.on = false;
+        }
+    }
+}
+
+/** Behavior for writing to the NRx4 register. */
+fn write_nrx4<T>(sound: &mut AudioLine<T>, mapper: &mut LineMapper,
+              frame_sequencer: &FrameSequencer, address: u16, v: u8)
+    where AudioLine<T>: TriggerEvent + VolumeSweep {
+    let turns_length_on = !mapper.consecutive() && v & 0b01000000 > 0;
+
+    mapper.write(address, v);
+
+    if turns_length_on {
+        // If we are turning the length counter on, we might
+        // have to perform an extra length check.
+        extra_length_check(sound, frame_sequencer);
+    }
+
+    if v & 0b10000000 > 0 {
+        sound.on = true;
+        trigger_event(sound, mapper, frame_sequencer);
     }
 }
 
@@ -543,14 +597,8 @@ impl FrameSequencer {
         self.step = 0;
     }
 
-    pub fn add_cycles(&mut self, cycles: usize) -> Option<SequencerEvent> {
-        self.cycles -= cycles as i64;
-
-        if self.cycles > 0 {
-            return None;
-        }
-
-        let event = match self.step {
+    fn next_event(&self) -> Option<SequencerEvent> {
+        match self.step {
             0 => Some(SequencerEvent::Length),
             1 => None,
             2 => Some(SequencerEvent::LengthSweep),
@@ -560,7 +608,27 @@ impl FrameSequencer {
             6 => Some(SequencerEvent::LengthSweep),
             7 => Some(SequencerEvent::Volume),
             _ => panic!("Unexpected frame sequencer step."),
-        };
+        }
+    }
+
+    /** The gb performs an extra length check when the
+     * sequencer's next step will not clock length. */
+    pub fn next_step_clocks_length(&self) -> bool {
+        match self.next_event() {
+            Some(SequencerEvent::Length) => true,
+            Some(SequencerEvent::LengthSweep) => true,
+            _ => false,
+        }
+    }
+
+    pub fn add_cycles(&mut self, cycles: usize) -> Option<SequencerEvent> {
+        self.cycles -= cycles as i64;
+
+        if self.cycles > 0 {
+            return None;
+        }
+
+        let event = self.next_event();
 
         self.cycles += 8192;
         self.step = (self.step + 1) % 8;
@@ -781,40 +849,28 @@ impl Handler for SoundController {
 
         match address {
             0xFF14 => {
-                self.mapper.write(address, v);
-                if v & 0b10000000 > 0 {
-                    self.buffer.sound_1.on = true;
-                    trigger_event(
-                        &mut self.buffer.sound_1,
-                        &mut Line1Mapper{ mapper: &mut self.mapper });
-                }
+                write_nrx4(&mut self.buffer.sound_1,
+                           &mut Line1Mapper{ mapper: &mut self.mapper },
+                           &self.frame_sequencer,
+                           address, v);
             },
             0xFF19 => {
-                self.mapper.write(address, v);
-                if v & 0b10000000 > 0 {
-                    self.buffer.sound_2.on = true;
-                    trigger_event(
-                        &mut self.buffer.sound_2,
-                        &mut Line2Mapper{ mapper: &mut self.mapper });
-                }
+                write_nrx4(&mut self.buffer.sound_2,
+                           &mut Line2Mapper{ mapper: &mut self.mapper },
+                           &self.frame_sequencer,
+                           address, v);
             },
             0xFF1E => {
-                self.mapper.write(address, v);
-                if v & 0b10000000 > 0 {
-                    self.buffer.sound_3.on = true;
-                    trigger_event(
-                        &mut self.buffer.sound_3,
-                        &mut Line3Mapper{ mapper: &mut self.mapper });
-                }
+                write_nrx4(&mut self.buffer.sound_3,
+                           &mut Line3Mapper{ mapper: &mut self.mapper },
+                           &self.frame_sequencer,
+                           address, v);
             },
             0xFF23 => {
-                self.mapper.write(address, v);
-                if v & 0b10000000 > 0 {
-                    self.buffer.sound_4.on = true;
-                    trigger_event(
-                        &mut self.buffer.sound_4,
-                        &mut Line4Mapper{ mapper: &mut self.mapper });
-                }
+                write_nrx4(&mut self.buffer.sound_4,
+                           &mut Line4Mapper{ mapper: &mut self.mapper },
+                           &self.frame_sequencer,
+                           address, v);
             },
             0xFF26 => {
                 let new_master_status = if v & 0b10000000 > 0 {
