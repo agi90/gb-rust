@@ -1006,7 +1006,6 @@ impl Handler for SoundController {
                 };
 
                 if new_master_status == SoundStatus::SoundOff {
-                    self.frame_sequencer.reset();
                     self.buffer.sound_1.turn_off();
                     self.buffer.sound_2.turn_off();
                     self.buffer.sound_3.turn_off();
@@ -1017,6 +1016,9 @@ impl Handler for SoundController {
                             self.write(address, 0x00);
                         }
                     }
+                } else if self.mapper.master_status() == SoundStatus::SoundOff {
+                    // We're turning the APU on so we need to reset the Sequencer
+                    self.frame_sequencer.reset();
                 }
 
                 self.mapper.set_master_status(new_master_status);
