@@ -789,6 +789,10 @@ impl SoundController {
     }
 
     pub fn add_cycles(&mut self, cycles: usize) {
+        if self.mapper.master_status() == SoundStatus::SoundOff {
+            return;
+        }
+
         if let Some(ev) = self.frame_sequencer.add_cycles(cycles) {
             match ev {
                 SequencerEvent::Length => self.update_length(),
@@ -935,6 +939,41 @@ impl SoundController {
             _ => {}
         }
     }
+
+    fn write_nr52(&mut self, v: u8) {
+        let new_master_status = if v & 0b10000000 > 0 {
+            SoundStatus::SoundOn
+        } else {
+            SoundStatus::SoundOff
+        };
+
+        if new_master_status == self.mapper.master_status() {
+            // Status is not changing so we don't need to do anything here.
+            return;
+        }
+
+        if new_master_status == SoundStatus::SoundOff {
+            self.buffer.sound_1.turn_off();
+            self.buffer.sound_2.turn_off();
+            self.buffer.sound_3.turn_off();
+            self.buffer.sound_4.turn_off();
+
+            for address in 0xFF10..0xFF30 {
+                match address {
+                    // NR52 and length are not affected by power in the DMG
+                    0xFF26 | 0xFF1B | 0xFF20 => {},
+                    0xFF11 => *self.mapper.sound_1_wave_pattern &= 0b00111111,
+                    0xFF16 => *self.mapper.sound_2_wave_pattern &= 0b00111111,
+                    _ => self.write(address, 0x00),
+                }
+            }
+        } else {
+            // We're turning the APU on so we need to reset the Sequencer
+            self.frame_sequencer.reset();
+        }
+
+        self.mapper.set_master_status(new_master_status);
+    }
 }
 
 impl Handler for SoundController {
@@ -954,12 +993,21 @@ impl Handler for SoundController {
         }
     }
 
-    fn write(&mut self, address: u16, v: u8) {
+    fn write(&mut self, address: u16, mut v: u8) {
         if self.mapper.master_status() == SoundStatus::SoundOff
                 && address != 0xFF26 {
-            // While the APU is off, the cpu can only write to FF26
-            // to turn the APU on.
-            return;
+            let mask = match address {
+                // Only writes to NR52 and sound registers are allowed in the DMG
+                // while the APU is powered down.
+                0xFF26 => 0b10000000,
+                0xFF11 => 0b00111111,
+                0xFF16 => 0b00111111,
+                0xFF1B => 0b11111111,
+                0xFF20 => 0b11111111,
+                _ => return,
+            };
+
+            v &= mask;
         }
 
         match address {
@@ -998,31 +1046,7 @@ impl Handler for SoundController {
                            &self.frame_sequencer,
                            address, v);
             },
-            0xFF26 => {
-                let new_master_status = if v & 0b10000000 > 0 {
-                    SoundStatus::SoundOn
-                } else {
-                    SoundStatus::SoundOff
-                };
-
-                if new_master_status == SoundStatus::SoundOff {
-                    self.buffer.sound_1.turn_off();
-                    self.buffer.sound_2.turn_off();
-                    self.buffer.sound_3.turn_off();
-                    self.buffer.sound_4.turn_off();
-
-                    for address in 0xFF10..0xFF30 {
-                        if address != 0xFF26 {
-                            self.write(address, 0x00);
-                        }
-                    }
-                } else if self.mapper.master_status() == SoundStatus::SoundOff {
-                    // We're turning the APU on so we need to reset the Sequencer
-                    self.frame_sequencer.reset();
-                }
-
-                self.mapper.set_master_status(new_master_status);
-            },
+            0xFF26 => self.write_nr52(v),
             0xFF30 ... 0xFF3F => self.buffer.sound_3.sound.wave_pattern[address as usize - 0xFF30] = v,
             _ => {
                 self.mapper.write(address, v);

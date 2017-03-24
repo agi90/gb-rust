@@ -42,7 +42,7 @@ This project is released under the MIT license.
 ![screenshot_priority_passed](https://cloud.githubusercontent.com/assets/4297388/22866803/c91ae00e-f130-11e6-97dd-e6c199545481.png)
 ![halt_bug_failed](https://cloud.githubusercontent.com/assets/4297388/22866864/affbd7a8-f131-11e6-86eb-aad2c9fe3cf4.png)
 ![interrupt_time_failed](https://cloud.githubusercontent.com/assets/4297388/22866865/b1b52cde-f131-11e6-9319-f5c8fa701d25.png)
-![dmg_sound_failed_6](https://cloud.githubusercontent.com/assets/4297388/24282275/b687793e-101b-11e7-863d-e0a6ad8ad9fc.png)
+![dmg_sound_failed_7](https://cloud.githubusercontent.com/assets/4297388/24283400/c0101b30-1022-11e7-932e-495780be8ceb.png)
 
 #### Todo
 
