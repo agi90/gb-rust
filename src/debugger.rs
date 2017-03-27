@@ -118,13 +118,13 @@ impl Debugger {
                     print_cpu_status(&cpu);
                 } else {
                     let address = try!(to_address(arg));
-                    println!("${:04X}={:02X}", address, cpu.deref(address));
+                    println!("${:04X}={:02X}", address, cpu.deref_debug(address));
                 }
             },
             "po" => {
                 let address = try!(to_address(arg));
                 println!("${:04X} = {}", address,
-                         OpCode::from_byte(cpu.deref(address), false).to_string());
+                         OpCode::from_byte(cpu.deref_debug(address), false).to_string());
             }
             _ => {
                 return Err(());
@@ -142,7 +142,7 @@ impl Debugger {
                 let v = try!(to_value(arg2));
 
                 println!("Setting ${:04X}={:02X}h", address, v);
-                cpu.set_deref(address, v);
+                cpu.set_deref_debug(address, v);
             },
             _ => {
                 return Err(());
@@ -164,7 +164,7 @@ impl Debugger {
 
     pub fn check_breakpoints(&mut self, cpu: &mut Cpu) {
         let address = cpu.get_PC();
-        let op = cpu.deref_PC();
+        let op = cpu.deref_debug(address);
 
         if !self.address_breakpoints.contains(&address) &&
                 !self.op_breakpoints.contains(&op) &&

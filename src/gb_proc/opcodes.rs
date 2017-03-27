@@ -65,7 +65,6 @@ fn no_op(_: &mut Cpu) {}
 
 /* Get the value (8-bit) pointed by the Program Counter (PC) */
 fn next_value(cpu: &mut Cpu) -> u8 {
-    cpu.add_cycles(4);
     cpu.inc_PC();
     let v = cpu.deref_PC();
     if cpu.get_debug() {
@@ -76,11 +75,9 @@ fn next_value(cpu: &mut Cpu) -> u8 {
 
 /* Get the pointer (16-bit value) pointed  by the Program Counter (PC) */
 fn next_pointer(cpu: &mut Cpu) -> u16 {
-    cpu.add_cycles(4);
     cpu.inc_PC();
     let l = cpu.deref_PC();
 
-    cpu.add_cycles(4);
     cpu.inc_PC();
     let h = cpu.deref_PC();
 
@@ -89,36 +86,6 @@ fn next_pointer(cpu: &mut Cpu) -> u16 {
         println!("nn = ${:04X}", v);
     }
     v
-}
-
-fn deref(cpu: &mut Cpu, address: u16) -> u8 {
-    cpu.add_cycles(4);
-    cpu.deref(address)
-}
-
-fn deref_HL(cpu: &mut Cpu) -> u8 {
-    let hl = cpu.get_HL();
-    deref(cpu, hl)
-}
-
-fn set_deref(cpu: &mut Cpu, address: u16, v: u8) {
-    cpu.add_cycles(4);
-    cpu.set_deref(address, v);
-}
-
-fn set_deref_HL(cpu: &mut Cpu, v: u8) {
-    let hl = cpu.get_HL();
-    set_deref(cpu, hl, v);
-}
-
-fn push_SP(cpu: &mut Cpu, v: u8) {
-    cpu.add_cycles(4);
-    cpu.push_SP(v);
-}
-
-fn pop_SP(cpu: &mut Cpu) -> u8 {
-    cpu.add_cycles(4);
-    cpu.pop_SP()
 }
 
 fn ld_B_n(cpu: &mut Cpu) {
@@ -182,7 +149,7 @@ fn ld_A_L(cpu: &mut Cpu) {
 }
 
 fn ld_A_HL(cpu: &mut Cpu) {
-    let v = deref_HL(cpu);
+    let v = cpu.deref_HL();
     cpu.set_A_reg(v);
 }
 
@@ -217,7 +184,7 @@ fn ld_B_L(cpu: &mut Cpu) {
 }
 
 fn ld_B_HL(cpu: &mut Cpu) {
-    let v = deref_HL(cpu);
+    let v = cpu.deref_HL();
     cpu.set_B_reg(v);
 }
 
@@ -252,7 +219,7 @@ fn ld_C_L(cpu: &mut Cpu) {
 }
 
 fn ld_C_HL(cpu: &mut Cpu) {
-    let v = deref_HL(cpu);
+    let v = cpu.deref_HL();
     cpu.set_C_reg(v);
 }
 
@@ -287,7 +254,7 @@ fn ld_D_L(cpu: &mut Cpu) {
 }
 
 fn ld_D_HL(cpu: &mut Cpu) {
-    let v = deref_HL(cpu);
+    let v = cpu.deref_HL();
     cpu.set_D_reg(v);
 }
 
@@ -322,7 +289,7 @@ fn ld_E_L(cpu: &mut Cpu) {
 }
 
 fn ld_E_HL(cpu: &mut Cpu) {
-    let v = deref_HL(cpu);
+    let v = cpu.deref_HL();
     cpu.set_E_reg(v);
 }
 
@@ -356,7 +323,7 @@ fn ld_H_L(cpu: &mut Cpu) {
 }
 
 fn ld_H_HL(cpu: &mut Cpu) {
-    let v = deref_HL(cpu);
+    let v = cpu.deref_HL();
     cpu.set_H_reg(v);
 }
 
@@ -390,43 +357,43 @@ fn ld_L_H(cpu: &mut Cpu) {
 }
 
 fn ld_L_HL(cpu: &mut Cpu) {
-    let v = deref_HL(cpu);
+    let v = cpu.deref_HL();
     cpu.set_L_reg(v);
 }
 
 fn ld_HL_B(cpu: &mut Cpu) {
     let v = cpu.get_B_reg();
-    set_deref_HL(cpu, v);
+    cpu.set_deref_HL(v);
 }
 
 fn ld_HL_C(cpu: &mut Cpu) {
     let v = cpu.get_C_reg();
-    set_deref_HL(cpu, v);
+    cpu.set_deref_HL(v);
 }
 
 fn ld_HL_D(cpu: &mut Cpu) {
     let v = cpu.get_D_reg();
-    set_deref_HL(cpu, v);
+    cpu.set_deref_HL(v);
 }
 
 fn ld_HL_E(cpu: &mut Cpu) {
     let v = cpu.get_E_reg();
-    set_deref_HL(cpu, v);
+    cpu.set_deref_HL(v);
 }
 
 fn ld_HL_L(cpu: &mut Cpu) {
     let v = cpu.get_L_reg();
-    set_deref_HL(cpu, v);
+    cpu.set_deref_HL(v);
 }
 
 fn ld_HL_H(cpu: &mut Cpu) {
     let v = cpu.get_H_reg();
-    set_deref_HL(cpu, v);
+    cpu.set_deref_HL(v);
 }
 
 fn ld_HL_n(cpu: &mut Cpu) {
     let v = next_value(cpu);
-    set_deref_HL(cpu, v);
+    cpu.set_deref_HL(v);
 }
 
 fn op_A_X(func: fn(x: u8, y: u8, cpu: &mut Cpu) -> u8, y: u8, cpu: &mut Cpu) {
@@ -471,25 +438,23 @@ fn op_A_L(func: fn(x: u8, y: u8, cpu: &mut Cpu) -> u8, cpu: &mut Cpu) {
 }
 
 fn ld_A_BC(cpu: &mut Cpu) {
-    let bc = cpu.get_BC();
-    let y = deref(cpu, bc);
-    cpu.set_A_reg(y);
+    let v = cpu.deref_BC();
+    cpu.set_A_reg(v);
 }
 
 fn ld_A_DE(cpu: &mut Cpu) {
-    let de = cpu.get_DE();
-    let y = deref(cpu, de);
-    cpu.set_A_reg(y);
+    let v = cpu.deref_DE();
+    cpu.set_A_reg(v);
 }
 
 fn op_A_HL(func: fn(x: u8, y: u8, cpu: &mut Cpu) -> u8, cpu: &mut Cpu) {
-    let y = deref_HL(cpu);
+    let y = cpu.deref_HL();
     op_A_X(func, y, cpu);
 }
 
 fn ld_A_nn(cpu: &mut Cpu) {
     let address = next_pointer(cpu);
-    let y = deref(cpu, address);
+    let y = cpu.deref(address);
     cpu.set_A_reg(y);
 }
 
@@ -501,24 +466,24 @@ fn op_A_x(func: fn(x: u8, y: u8, cpu: &mut Cpu) -> u8, cpu: &mut Cpu) {
 fn ld_BC_A(cpu: &mut Cpu) {
     let bc = cpu.get_BC();
     let result = cpu.get_A_reg();
-    set_deref(cpu, bc, result);
+    cpu.set_deref(bc, result);
 }
 
 fn ld_DE_A(cpu: &mut Cpu) {
     let de = cpu.get_DE();
     let result = cpu.get_A_reg();
-    set_deref(cpu, de, result);
+    cpu.set_deref(de, result);
 }
 
 fn ld_HL_A(cpu: &mut Cpu) {
-    let result = cpu.get_A_reg();
-    set_deref_HL(cpu, result);
+    let v = cpu.get_A_reg();
+    cpu.set_deref_HL(v);
 }
 
 fn ld_nn_A(cpu: &mut Cpu) {
     let address = next_pointer(cpu);
     let result = cpu.get_A_reg();
-    set_deref(cpu, address, result);
+    cpu.set_deref(address, result);
 }
 
 fn ld(_: u8, y: u8, _: &mut Cpu) -> u8 { y }
@@ -526,7 +491,7 @@ fn ld(_: u8, y: u8, _: &mut Cpu) -> u8 { y }
 fn ld_A_x(cpu: &mut Cpu)  {  op_A_x(ld, cpu) }
 
 fn ldd(_: u8, y: u8, cpu: &mut Cpu) -> u8 {
-    deref(cpu, 0xFF00 + y as u16)
+    cpu.deref(0xFF00 + y as u16)
 }
 
 fn ld_A_FFC(cpu: &mut Cpu) { op_A_C(ldd, cpu); }
@@ -534,11 +499,11 @@ fn ld_A_FFC(cpu: &mut Cpu) { op_A_C(ldd, cpu); }
 fn ld_FFC_A(cpu: &mut Cpu) {
     let address = 0xFF00 + cpu.get_C_reg() as u16;
     let v = cpu.get_A_reg();
-    set_deref(cpu, address, v);
+    cpu.set_deref(address, v);
 }
 
 fn ldd_A_HL(cpu: &mut Cpu) {
-    let v = deref_HL(cpu);
+    let v = cpu.deref_HL();
     let hl = cpu.get_HL();
     cpu.set_HL(hl - 1);
     cpu.set_A_reg(v);
@@ -547,12 +512,12 @@ fn ldd_A_HL(cpu: &mut Cpu) {
 fn ldd_HL_A(cpu: &mut Cpu) {
     let v = cpu.get_A_reg();
     let hl = cpu.get_HL();
-    set_deref_HL(cpu, v);
+    cpu.set_deref_HL(v);
     cpu.set_HL(hl - 1);
 }
 
 fn ldi_A_HL(cpu: &mut Cpu) {
-    let v = deref_HL(cpu);
+    let v = cpu.deref_HL();
     let hl = cpu.get_HL();
     cpu.set_HL(hl + 1);
     if cpu.get_debug() {
@@ -564,24 +529,18 @@ fn ldi_A_HL(cpu: &mut Cpu) {
 fn ldi_HL_A(cpu: &mut Cpu) {
     let v = cpu.get_A_reg();
     let hl = cpu.get_HL();
-    set_deref_HL(cpu, v);
+    cpu.set_deref_HL(v);
     cpu.set_HL(hl + 1);
 }
 
 fn ldh_n_A(cpu: &mut Cpu) {
     let address = 0xFF00 + next_value(cpu) as u16;
-
-    // Dereferencing memory
     let x = cpu.get_A_reg();
-    cpu.add_cycles(4);
     cpu.set_deref(address, x);
 }
 
 fn ldh_A_n(cpu: &mut Cpu) {
     let address = 0xFF00 + next_value(cpu) as u16;
-
-    // Dereferencing memory
-    cpu.add_cycles(4);
     let x = cpu.deref(address);
     cpu.set_A_reg(x);
 }
@@ -626,79 +585,79 @@ fn ld_nn_SP(cpu: &mut Cpu) {
     let l = (cpu.get_SP() & 0xFF) as u8;
     let h = ((cpu.get_SP() & 0xFF00) >> 8) as u8;
 
-    set_deref(cpu, address,     l);
-    set_deref(cpu, address + 1, h);
+    cpu.set_deref(address,     l);
+    cpu.set_deref(address + 1, h);
 }
 
 fn push_AF(cpu: &mut Cpu) {
     cpu.add_cycles(4);
 
     let a = cpu.get_A_reg();
-    push_SP(cpu, a);
+    cpu.push_SP(a);
 
     let f = cpu.get_F_reg();
-    push_SP(cpu, f);
+    cpu.push_SP(f);
 }
 
 fn push_BC(cpu: &mut Cpu) {
     cpu.add_cycles(4);
 
     let b = cpu.get_B_reg();
-    push_SP(cpu, b);
+    cpu.push_SP(b);
 
     let c = cpu.get_C_reg();
-    push_SP(cpu, c);
+    cpu.push_SP(c);
 }
 
 fn push_DE(cpu: &mut Cpu) {
     cpu.add_cycles(4);
 
     let d = cpu.get_D_reg();
-    push_SP(cpu, d);
+    cpu.push_SP(d);
 
     let e = cpu.get_E_reg();
-    push_SP(cpu, e);
+    cpu.push_SP(e);
 }
 
 fn push_HL(cpu: &mut Cpu) {
     cpu.add_cycles(4);
 
     let h = cpu.get_H_reg();
-    push_SP(cpu, h);
+    cpu.push_SP(h);
 
     let l = cpu.get_L_reg();
-    push_SP(cpu, l);
+    cpu.push_SP(l);
 }
 
 fn pop_AF(cpu: &mut Cpu) {
-    let f = pop_SP(cpu);
+    let f = cpu.pop_SP();
     cpu.set_F_reg(f);
 
-    let a = pop_SP(cpu);
+    let a = cpu.pop_SP();
     cpu.set_A_reg(a);
 }
 
 fn pop_BC(cpu: &mut Cpu) {
-    let c = pop_SP(cpu);
+    let c = cpu.pop_SP();
     cpu.set_C_reg(c);
 
-    let b = pop_SP(cpu);
+    let b = cpu.pop_SP();
     cpu.set_B_reg(b);
 }
 
 fn pop_DE(cpu: &mut Cpu) {
-    let e = pop_SP(cpu);
+    let e = cpu.pop_SP();
     cpu.set_E_reg(e);
 
-    let d = pop_SP(cpu);
+    let d = cpu.pop_SP();
     cpu.set_D_reg(d);
 }
 
 fn pop_HL(cpu: &mut Cpu) {
-    let l = pop_SP(cpu);
+    let l = cpu.pop_SP();
     cpu.set_L_reg(l);
 
-    let h = pop_SP(cpu);
+    let h = cpu.pop_SP();
     cpu.set_H_reg(h);
 }
 
@@ -1015,9 +974,9 @@ fn op_L(func: fn(v: u8, cpu: &mut Cpu) -> u8, cpu: &mut Cpu) {
 }
 
 fn op_HLp(func: fn(v: u8, cpu: &mut Cpu) -> u8, cpu: &mut Cpu) {
-    let v = deref_HL(cpu);
+    let v = cpu.deref_HL();
     let result = func(v, cpu);
-    set_deref_HL(cpu, result);
+    cpu.set_deref_HL(result);
 }
 
 fn inc_A(cpu: &mut Cpu)  {  op_A(inc, cpu); }
@@ -1526,10 +1485,10 @@ fn call_nn(cpu: &mut Cpu) {
     let next = cpu.get_PC();
 
     let h = (next >> 8) as u8;
-    push_SP(cpu, h);
+    cpu.push_SP(h);
 
     let l = ((next << 8) >> 8) as u8;
-    push_SP(cpu, l);
+    cpu.push_SP(l);
 
     // Internal delay
     cpu.add_cycles(4);
@@ -1567,10 +1526,10 @@ fn rst_n(n: u8, cpu: &mut Cpu) {
     let next = cpu.get_PC();
 
     let h = (next >> 8) as u8;
-    push_SP(cpu, h);
+    cpu.push_SP(h);
 
     let l = ((next << 8) >> 8) as u8;
-    push_SP(cpu, l);
+    cpu.push_SP(l);
 
     cpu.add_cycles(4);
     cpu.set_PC(n as u16);
@@ -1586,8 +1545,8 @@ fn rst_30(cpu: &mut Cpu) { rst_n(0x30, cpu); }
 fn rst_38(cpu: &mut Cpu) { rst_n(0x38, cpu); }
 
 fn ret(cpu: &mut Cpu) {
-    let l = pop_SP(cpu);
-    let h = pop_SP(cpu);
+    let l = cpu.pop_SP();
+    let h = cpu.pop_SP();
 
     let next = l as u16 + ((h as u16) << 8);
 
@@ -1836,7 +1795,7 @@ fn op_bit_L(func: fn(b: u8, x: u8, cpu: &mut Cpu), b: u8, cpu: &mut Cpu) {
 }
 
 fn op_bit_HL(func: fn(b: u8, x: u8, cpu: &mut Cpu), b: u8, cpu: &mut Cpu) {
-    let x = deref_HL(cpu);
+    let x = cpu.deref_HL();
     func(b, x, cpu);
 }
 
@@ -1971,9 +1930,9 @@ fn op_set_L(func: fn(b: u8, x: u8, cpu: &mut Cpu) -> u8, b: u8, cpu: &mut Cpu) {
 }
 
 fn op_set_HL(func: fn(b: u8, x: u8, cpu: &mut Cpu) -> u8, b: u8, cpu: &mut Cpu) {
-    let x = deref_HL(cpu);
+    let x = cpu.deref_HL();
     let result = func(b, x, cpu);
-    set_deref_HL(cpu, result);
+    cpu.set_deref_HL(result);
 }
 
 fn set_0_A(cpu: &mut Cpu)  {  op_set_A(set, 0, cpu); }

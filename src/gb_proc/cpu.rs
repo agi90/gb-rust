@@ -134,7 +134,7 @@ impl Cpu {
         value
     }
 
-    pub fn deref(&self, address: u16) -> u8 {
+    pub fn deref_debug(&self, address: u16) -> u8 {
         if self.watch_addresses.contains(&address) {
             *self.address_breakpoint.borrow_mut() = true;
         }
@@ -146,11 +146,38 @@ impl Cpu {
         }
     }
 
+    pub fn deref(&mut self, address: u16) -> u8 {
+        if self.watch_addresses.contains(&address) {
+            *self.address_breakpoint.borrow_mut() = true;
+        }
+
+        self.add_cycles(4);
+        match address {
+            0xFF04 ... 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.read(address),
+            _ => self.handler_holder.get_handler_read(address)
+                     .read(address)
+        }
+    }
+
+    pub fn set_deref_debug(&mut self, address: u16, v: u8) {
+        if self.watch_addresses.contains(&address) {
+            *self.address_breakpoint.borrow_mut() = true;
+        }
+
+        match address {
+            0xFF46 => self.copy_memory_to_vram(v),
+            0xFF04 ... 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.write(address, v),
+            _ => self.handler_holder.get_handler_write(address)
+                     .write(address, v),
+        }
+    }
+
     pub fn set_deref(&mut self, address: u16, v: u8) {
         if self.watch_addresses.contains(&address) {
             *self.address_breakpoint.borrow_mut() = true;
         }
 
+        self.add_cycles(4);
         match address {
             0xFF46 => self.copy_memory_to_vram(v),
             0xFF04 ... 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.write(address, v),
@@ -305,34 +332,29 @@ impl Cpu {
     pub fn get_DE(&self) -> u16 { ((self.D_reg as u16) << 8) + (self.E_reg as u16) }
     pub fn get_HL(&self) -> u16 { ((self.H_reg as u16) << 8) + (self.L_reg as u16) }
 
-    pub fn deref_PC(&self) -> u8 {
-        self.deref(self.get_PC())
+    pub fn deref_PC(&mut self) -> u8 {
+        let pc = self.get_PC();
+        self.deref(pc)
     }
 
-    pub fn deref_BC(&self) -> u8 {
-        self.deref(self.get_BC())
+    pub fn deref_DE(&mut self) -> u8 {
+        let de = self.get_DE();
+        self.deref(de)
     }
 
-    pub fn deref_DE(&self) -> u8 {
-        self.deref(self.get_DE())
+    pub fn deref_HL(&mut self) -> u8 {
+        let hl = self.get_HL();
+        self.deref(hl)
     }
 
-    pub fn deref_HL(&self) -> u8 {
-        self.deref(self.get_HL())
+    pub fn deref_BC(&mut self) -> u8 {
+        let bc = self.get_BC();
+        self.deref(bc)
     }
 
-    pub fn deref_SP(&self) -> u8 {
-        self.deref(self.get_SP())
-    }
-
-    pub fn set_deref_BC(&mut self, v: u8) {
-        let address = self.get_BC();
-        self.set_deref(address, v);
-    }
-
-    pub fn set_deref_DE(&mut self, v: u8) {
-        let address = self.get_DE();
-        self.set_deref(address, v);
+    fn deref_SP(&mut self) -> u8 {
+        let sp = self.get_SP();
+        self.deref(sp)
     }
 
     pub fn set_deref_HL(&mut self, v: u8) {
@@ -340,7 +362,7 @@ impl Cpu {
         self.set_deref(address, v);
     }
 
-    pub fn set_deref_SP(&mut self, v: u8) {
+    fn set_deref_SP(&mut self, v: u8) {
         let address = self.get_SP();
         self.set_deref(address, v);
     }
@@ -364,7 +386,6 @@ impl Cpu {
 
         if hex == 0xCB {
             self.inc_PC();
-            self.add_cycles(4);
             OpCode::from_byte(self.deref_PC(), true)
         } else {
             OpCode::from_byte(hex, false)
@@ -403,9 +424,6 @@ impl Cpu {
 
             op.execute(self);
 
-            // Fetching next instruction
-            self.add_cycles(4);
-
             if !self.did_call_set_PC() {
                 // No jump happened so we need to increase PC
                 self.inc_PC();
@@ -413,7 +431,7 @@ impl Cpu {
                 self.reset_call_set_PC();
             }
         } else {
-            self.add_cycles(4);
+            self.add_cycles(2);
         };
     }
 }
@@ -435,16 +453,16 @@ pub fn print_cpu_status(cpu: &Cpu) {
     println!("L = ${:02X}",   cpu.get_L_reg());
     println!("PC = ${:02X}",  cpu.get_PC());
     println!("SP = ${:02X}",  cpu.get_SP());
-    println!("IF = ${:02X}",  cpu.deref(0xFFFF));
-    println!("IE = ${:02X}",  cpu.deref(0xFF0F));
+    println!("IF = ${:02X}",  cpu.deref_debug(0xFFFF));
+    println!("IE = ${:02X}",  cpu.deref_debug(0xFF0F));
     println!("state = {:?}",  cpu.get_state());
     println!("cycles = {:?}", cpu.get_cycles());
-    println!("$FF05 = {:02X}", cpu.deref(0xFF05));
+    println!("$FF05 = {:02X}", cpu.deref_debug(0xFF05));
     println!("=== STACK ===");
-    println!("${:04X} = {:02X}", cpu.get_SP(),     cpu.deref(cpu.get_SP()));
+    println!("${:04X} = {:02X}", cpu.get_SP(),     cpu.deref_debug(cpu.get_SP()));
 
     if cpu.get_SP() != 0xFFFF && cpu.get_SP() != 0xDFFF {
-        println!("${:04X} = {:02X}", cpu.get_SP() + 1, cpu.deref(cpu.get_SP() + 1));
+        println!("${:04X} = {:02X}", cpu.get_SP() + 1, cpu.deref_debug(cpu.get_SP() + 1));
     }
     println!("");
 }
