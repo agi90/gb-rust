@@ -159,7 +159,7 @@ impl Mbc for Mbc13 {
     fn write(&mut self, address: u16, v: u8) {
         match address {
             0x0000 ... 0x1FFF => {
-                match v {
+                match v & 0x0A {
                     0x00 => self.ram_enabled = false,
                     0x0A => self.ram_enabled = true,
                     _    => panic!("Unrecognized value for RAM enablement."),
