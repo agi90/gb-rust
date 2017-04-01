@@ -143,6 +143,10 @@ impl HandlerHolder for GBHandlerHolder {
         self.cartridge.ram()
     }
 
+    fn rtc(&mut self) -> Option<&mut i64> {
+        self.cartridge.rtc()
+    }
+
     fn reset(&mut self) {
         self.memory_holder = MemoryHolder::new();
         self.ppu = Ppu::new();

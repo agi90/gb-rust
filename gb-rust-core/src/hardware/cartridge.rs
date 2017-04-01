@@ -2,6 +2,8 @@ use std::str;
 
 use hardware::memory_controller::MemoryController;
 use hardware::cpu::Handler;
+use std::fmt::Debug;
+use std::fmt;
 
 #[allow(dead_code)]
 pub struct Cartridge {
@@ -15,6 +17,19 @@ pub struct Cartridge {
     ram_size: usize,
     destination_code_jp: bool,
     mask_rom_version_number: u8,
+}
+
+impl Debug for Cartridge {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "Cartridge {{\n")?;
+        write!(f, "\t game_title: {}\n", self.game_title)?;
+        write!(f, "\t gb_color_game: {}\n", self.gb_color_game)?;
+        write!(f, "\t licence_code: {}\n", self.licence_code)?;
+        write!(f, "\t super_game_boy: {}\n", self.super_game_boy)?;
+        write!(f, "\t rom_size: {}\n", self.rom_size)?;
+        write!(f, "\t ram_size: {}\n", self.ram_size)?;
+        write!(f, "}}\n")
+    }
 }
 
 fn get_rom_size(byte: u8) -> usize {
@@ -75,5 +90,9 @@ impl Cartridge {
 
     pub fn ram(&mut self) -> &mut [u8] {
         self.memory_controller.ram()
+    }
+
+    pub fn rtc(&mut self) -> Option<&mut i64> {
+        self.memory_controller.rtc()
     }
 }

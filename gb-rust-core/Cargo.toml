@@ -6,3 +6,4 @@ authors = ["Giovanni Sferro <agi.novanta@gmail.com>"]
 [dependencies]
 nalgebra = "0.6"
 rand = "0.3.15"
+chrono = "0.3"

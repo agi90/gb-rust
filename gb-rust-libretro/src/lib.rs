@@ -88,6 +88,12 @@ impl libretro_backend::Core for EmulatorWrapper {
     fn memory_data(&mut self, memory_type: MemoryType) -> Option<&mut [u8]> {
         match memory_type {
             MemoryType::SaveRam => Some(self.cpu.handler_holder.ram()),
+            MemoryType::Rtc => self.cpu.handler_holder.rtc().map(
+                |v| unsafe {
+                    std::slice::from_raw_parts_mut(
+                        v as *mut _ as *mut u8,
+                        std::mem::size_of::<i64>())
+                }),
             _ => None,
         }
     }
@@ -115,7 +121,6 @@ impl libretro_backend::Core for EmulatorWrapper {
     }
 
     fn on_unload_game(&mut self) -> GameData {
-        println!("on_unload_game");
         self.emulator = None;
         self.game_data.take().unwrap()
     }

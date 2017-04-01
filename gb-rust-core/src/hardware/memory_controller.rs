@@ -1,9 +1,14 @@
+extern crate chrono;
+
 use std::ops::{Deref, DerefMut};
+use self::chrono::offset::utc::UTC;
+use self::chrono::{DateTime, NaiveDateTime};
 
 pub trait Mbc {
     fn read(&self, address: u16) -> u8;
     fn write(&mut self, address: u16, v: u8);
     fn ram(&mut self) -> &mut [u8];
+    fn rtc(&mut self) -> Option<&mut i64>;
 }
 
 struct Mbc0 {
@@ -37,6 +42,10 @@ impl Mbc for Mbc0 {
     fn ram(&mut self) -> &mut [u8] {
         &mut self.ram
     }
+
+    fn rtc(&mut self) -> Option<&mut i64> {
+        None
+    }
 }
 
 #[allow(dead_code)]
@@ -58,8 +67,12 @@ struct Mbc13 {
     offset: usize,
     ram: [u8; RAM_BANK_SIZE * 4],
 
-    ram_offset: usize,
+    ram_rtc: RamRtc,
     ram_enabled: bool,
+
+    rtc: i64,
+    rtc_register: u8,
+    rtc_latch_status: RtcLatchStatus,
 
     rom_banks: usize,
     mode: MbcMode,
@@ -67,6 +80,18 @@ struct Mbc13 {
 
 const BANK_SIZE: usize = 0x4000;
 const RAM_BANK_SIZE: usize = 0x2000;
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+enum RtcLatchStatus {
+    Initial,
+    Enabling,
+    Enabled,
+}
+
+enum RamRtc {
+    RamBank(usize),
+    RtcRegister(u8),
+}
 
 impl Mbc13 {
     pub fn new(data: Vec<u8>, mode: MbcMode) -> Mbc13 {
@@ -81,29 +106,82 @@ impl Mbc13 {
             offset: 0,
             ram: [0; BANK_SIZE * 2],
 
-            ram_offset: 0,
+            ram_rtc: RamRtc::RamBank(0),
             ram_enabled: false,
+            rtc: 0,
+
+            rtc_register: 0,
+            rtc_latch_status: RtcLatchStatus::Initial,
 
             mode: mode,
         }
     }
 
-    fn write_ram(&mut self, address: u16, v: u8) {
+    fn write_ram(&mut self, offset: usize, address: u16, v: u8) {
         if !self.ram_enabled {
             panic!("MBC3 RAM has not been enabled.");
         }
 
-        let address = (address - 0xA000) as usize + self.ram_offset;
+        let address = (address - 0xA000) as usize + offset;
         self.ram[address] = v;
     }
 
-    fn read_ram(&self, address: u16) -> u8 {
+    fn write_ram_mbc1(&mut self, address: u16, v: u8) {
+        match self.ram_rtc {
+            RamRtc::RamBank(offset) => self.write_ram(offset, address, v),
+            // MBC1 does not support RTC
+            RamRtc::RtcRegister(_) => unreachable!(),
+        }
+    }
+
+    fn write_ram_rtc_mbc3(&mut self, address: u16, v: u8) {
+        match self.ram_rtc {
+            RamRtc::RamBank(offset) => self.write_ram(offset, address, v),
+            RamRtc::RtcRegister(reg) => self.write_rtc(reg, v),
+        }
+    }
+
+    fn read_ram(&self, offset: usize, address: u16) -> u8 {
         if !self.ram_enabled {
             panic!("MBC3 RAM has not been enabled.");
         }
 
-        let address = (address - 0xA000) as usize + self.ram_offset;
+        let address = (address - 0xA000) as usize + offset;
         self.ram[address]
+    }
+
+    fn read_rtc(&self, reg: u8) -> u8 {
+        let rtc = DateTime::<UTC>::from_utc(NaiveDateTime::from_timestamp(self.rtc, 0), UTC);
+
+        let diff = UTC::now().signed_duration_since(rtc);
+        (match reg {
+            0x08 => diff.num_seconds() % 60,
+            0x09 => diff.num_minutes() % 60,
+            0x0A => diff.num_hours() % 24,
+            0x0B => diff.num_days() % 0xFF,
+            0x0C => diff.num_days() >> 8 & 0x01
+                + (if diff.num_days() > 511 { 0b10000000 } else { 0 }),
+            _ => unreachable!(),
+        } as u8)
+    }
+
+    fn write_rtc(&mut self, _: u8, _: u8) {
+        // TODO
+    }
+
+    fn read_ram_mbc1(&self, address: u16) -> u8 {
+        match self.ram_rtc {
+            RamRtc::RamBank(offset) => self.read_ram(offset, address),
+            // MBC1 does not support RTC
+            RamRtc::RtcRegister(_) => unreachable!(),
+        }
+    }
+
+    fn read_ram_rtc_mbc3(&self, address: u16) -> u8 {
+        match self.ram_rtc {
+            RamRtc::RamBank(offset) => self.read_ram(offset, address),
+            RamRtc::RtcRegister(reg) => self.read_rtc(reg),
+        }
     }
 
     fn switch_bank_mbc3(&mut self, v: u8) {
@@ -133,6 +211,33 @@ impl Mbc13 {
 
         self.offset = (bank - 1) * BANK_SIZE;
     }
+
+    fn switch_ram_bank_mbc1(&mut self, v: u8) {
+        // Writing to this area will cause the controller to switch
+        // banks of in-cartridge RAM.
+        // Only the lowest two bits are relevant for this register.
+        self.ram_rtc = RamRtc::RamBank(RAM_BANK_SIZE * (v & 0b11) as usize);
+    }
+
+    fn switch_ram_bank_mbc3(&mut self, v: u8) {
+        if v < 0x04 {
+            self.ram_rtc = RamRtc::RamBank(RAM_BANK_SIZE * (v & 0b11) as usize);
+        } else if v >= 0x08 && v <= 0x0C {
+            self.ram_rtc = RamRtc::RtcRegister(v);
+        } else {
+            // TODO: not sure what happens here ???
+            unimplemented!();
+        }
+    }
+
+    fn latch_clock_data(&mut self, v: u8) {
+        if v == 0x00 {
+            self.rtc_latch_status = RtcLatchStatus::Enabling;
+        } else if v == 0x01 && self.rtc_latch_status == RtcLatchStatus::Enabling {
+            self.rtc_latch_status = RtcLatchStatus::Enabled;
+            // TODO write registers
+        }
+    }
 }
 
 impl Mbc for Mbc13 {
@@ -140,7 +245,12 @@ impl Mbc for Mbc13 {
         match address {
             0x0000 ... 0x3FFF => self.data[address as usize],
             0x4000 ... 0x7FFF => self.data[address as usize + self.offset],
-            0xA000 ... 0xBFFF => self.read_ram(address),
+            0xA000 ... 0xBFFF => {
+                match self.mode {
+                    MbcMode::Mbc1 => self.read_ram_mbc1(address),
+                    MbcMode::Mbc3 => self.read_ram_rtc_mbc3(address),
+                }
+            }
             _ => unimplemented!(),
         }
     }
@@ -151,7 +261,11 @@ impl Mbc for Mbc13 {
                 match v & 0x0A {
                     0x00 => self.ram_enabled = false,
                     0x0A => self.ram_enabled = true,
-                    _    => panic!("Unrecognized value for RAM enablement."),
+                    _    => {
+                        // Not too sure about this, but some games write
+                        // to this area other values which don't seem to
+                        // do anything. TODO: test on real hardware
+                    }
                 }
             },
             0x2000 ... 0x3FFF => {
@@ -161,21 +275,33 @@ impl Mbc for Mbc13 {
                 }
             },
             0x4000 ... 0x5FFF => {
-                // Writing to this area will cause the controller to switch
-                // banks of in-cartridge RAM.
-                // Only the lowest two bits are relevant for this register.
-                self.ram_offset = RAM_BANK_SIZE * (v & 0b11) as usize;
+                match self.mode {
+                    MbcMode::Mbc1 => self.switch_ram_bank_mbc1(v),
+                    MbcMode::Mbc3 => self.switch_ram_bank_mbc3(v),
+                }
             },
             0x6000 ... 0x7FFF => {
-                // TODO
+                match self.mode {
+                    MbcMode::Mbc1 => unimplemented!(),
+                    MbcMode::Mbc3 => self.latch_clock_data(v),
+                }
             },
-            0xA000 ... 0xBFFF => { self.write_ram(address, v); },
+            0xA000 ... 0xBFFF => {
+                match self.mode {
+                    MbcMode::Mbc1 => self.write_ram_mbc1(address, v),
+                    MbcMode::Mbc3 => self.write_ram_rtc_mbc3(address, v),
+                }
+            },
             _ => unimplemented!(),
         }
     }
 
     fn ram(&mut self) -> &mut [u8] {
         &mut self.ram
+    }
+
+    fn rtc(&mut self) -> Option<&mut i64> {
+        Some(&mut self.rtc)
     }
 }
 

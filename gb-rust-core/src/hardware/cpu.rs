@@ -75,6 +75,7 @@ pub trait HandlerHolder {
     fn check_interrupts(&mut self) -> Vec<Interrupt>;
     fn should_refresh(&mut self) -> bool;
     fn ram(&mut self) -> &mut [u8];
+    fn rtc(&mut self) -> Option<&mut i64>;
     fn reset(&mut self);
 }
 
@@ -157,10 +158,6 @@ impl Cpu {
         self.cycles = 0;
 
         self.handler_holder.reset();
-    }
-
-    pub fn ram(&mut self) -> &mut [u8] {
-        self.handler_holder.ram()
     }
 
     pub fn address_breakpoint(&self) -> bool {
