@@ -1,11 +1,13 @@
-use gb_proc::video_controller::{VideoController, ScreenBuffer};
 use gb_proc::apu::{SoundController, AudioBuffer};
+use gb_proc::cartridge::Cartridge;
 use gb_proc::cpu::{Handler, HandlerHolder, Interrupt};
+use gb_proc::video_controller::{VideoController, ScreenBuffer};
+
 use bitfield::Bitfield;
 
 pub struct GBHandlerHolder {
     memory_holder: MemoryHolder,
-    cartridge: Box<Handler + 'static>,
+    cartridge: Cartridge,
     pub video_controller: VideoController,
     joypad_register: JoypadRegister,
     serial_transfer_controller: SerialTransferController,
@@ -13,7 +15,7 @@ pub struct GBHandlerHolder {
 }
 
 impl GBHandlerHolder {
-    pub fn new(cartridge: Box<Handler>) -> GBHandlerHolder {
+    pub fn new(cartridge: Cartridge) -> GBHandlerHolder {
         GBHandlerHolder {
             memory_holder: MemoryHolder::new(),
             cartridge: cartridge,
@@ -92,9 +94,9 @@ impl HandlerHolder for GBHandlerHolder {
 
     fn get_handler_read(&self, address: u16) -> &Handler {
         match address {
-            0x0000 ... 0x7FFF => self.cartridge.as_ref(),
+            0x0000 ... 0x7FFF => &self.cartridge,
             0x8000 ... 0x9FFF => &self.video_controller,
-            0xA000 ... 0xBFFF => self.cartridge.as_ref(),
+            0xA000 ... 0xBFFF => &self.cartridge,
             0xC000 ... 0xDFFF => &self.memory_holder,
             // Accessing this in the real GB will return the internal_ram echoed
             // but it's probably a bug in the emulator, so let's panic
@@ -112,9 +114,9 @@ impl HandlerHolder for GBHandlerHolder {
 
     fn get_handler_write(&mut self, address: u16) -> &mut Handler {
         match address {
-            0x0000 ... 0x7FFF => &mut *self.cartridge,
+            0x0000 ... 0x7FFF => &mut self.cartridge,
             0x8000 ... 0x9FFF => &mut self.video_controller,
-            0xA000 ... 0xBFFF => &mut *self.cartridge,
+            0xA000 ... 0xBFFF => &mut self.cartridge,
             0xC000 ... 0xDFFF => &mut self.memory_holder,
             0xE000 ... 0xFDFF => &mut self.memory_holder,
             0xFE00 ... 0xFE9F => &mut self.video_controller,
@@ -135,6 +137,10 @@ impl HandlerHolder for GBHandlerHolder {
 
     fn check_interrupts(&mut self) -> Vec<Interrupt> {
         self.video_controller.check_interrupts()
+    }
+
+    fn ram(&mut self) -> &mut [u8] {
+        self.cartridge.ram()
     }
 }
 

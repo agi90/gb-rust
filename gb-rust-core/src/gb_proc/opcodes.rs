@@ -16,13 +16,6 @@ macro_rules! op_codes {
         }
 
         impl OpCode {
-            pub fn to_byte(&self) -> u8 {
-                match self {
-                    $(&OpCode::$element => $hex),*,
-                    $(&OpCode::$cb_element => $cb_hex),*,
-                }
-            }
-
             pub fn from_byte(hex: u8, prefixed: bool) -> OpCode {
                 if prefixed {
                     match hex {

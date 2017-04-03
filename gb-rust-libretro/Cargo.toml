@@ -1,0 +1,21 @@
+[package]
+name = "gb-rust-libretro"
+version = "0.1.0"
+authors = ["Agi Sferro <agi.novanta@gmail.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+libretro-backend = { git = "https://github.com/agi90/libretro-backend" }
+
+[dependencies.gb]
+path = "../gb-rust-core"
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1

@@ -1,22 +1,21 @@
-use std::cell::RefCell;
-use std::fs::File;
-use std::io::{Read, Write, Seek, SeekFrom};
+use std::ops::{Deref, DerefMut};
 
-trait Mbc {
+pub trait Mbc {
     fn read(&self, address: u16) -> u8;
     fn write(&mut self, address: u16, v: u8);
+    fn ram(&mut self) -> &mut [u8];
 }
 
 struct Mbc0 {
     data: Vec<u8>,
-    ram: [u8; 8192],
+    ram: [u8; RAM_BANK_SIZE],
 }
 
 impl Mbc0 {
     pub fn new(data: Vec<u8>) -> Mbc0 {
         Mbc0 {
             data: data,
-            ram: [0; 8192],
+            ram: [0; RAM_BANK_SIZE],
         }
     }
 }
@@ -33,6 +32,10 @@ impl Mbc for Mbc0 {
     fn write(&mut self, _: u16, _: u8) {
         // Theoretically not supposed to write to the Mbc0 ROM, but some games do
         // it anyway.
+    }
+
+    fn ram(&mut self) -> &mut [u8] {
+        &mut self.ram
     }
 }
 
@@ -53,7 +56,7 @@ struct Mbc13 {
     selected_bank: usize,
     data: Vec<u8>,
     offset: usize,
-    ram: RefCell<File>,
+    ram: [u8; RAM_BANK_SIZE * 4],
 
     ram_offset: usize,
     ram_enabled: bool,
@@ -66,16 +69,7 @@ const BANK_SIZE: usize = 0x4000;
 const RAM_BANK_SIZE: usize = 0x2000;
 
 impl Mbc13 {
-    pub fn new(data: Vec<u8>, mut disk: File, mode: MbcMode) -> Mbc13 {
-        let mut ram = vec![];
-        disk.read_to_end(&mut ram).unwrap();
-
-        if ram.len() < BANK_SIZE * 2 {
-            println!("Warning: invalid file size, blanking ram.");
-            disk.seek(SeekFrom::Start(0)).unwrap();
-            disk.write_all(&[0; BANK_SIZE * 2]).unwrap();
-        }
-
+    pub fn new(data: Vec<u8>, mode: MbcMode) -> Mbc13 {
         if data.len() % BANK_SIZE != 0 {
             panic!(format!("Invalid rom size (must be an integer multiple of {})", BANK_SIZE));
         }
@@ -85,7 +79,7 @@ impl Mbc13 {
             rom_banks: data.len() / BANK_SIZE,
             data: data,
             offset: 0,
-            ram: RefCell::new(disk),
+            ram: [0; BANK_SIZE * 2],
 
             ram_offset: 0,
             ram_enabled: false,
@@ -100,8 +94,7 @@ impl Mbc13 {
         }
 
         let address = (address - 0xA000) as usize + self.ram_offset;
-        self.ram.borrow_mut().seek(SeekFrom::Start(address as u64)).unwrap();
-        self.ram.borrow_mut().write_all(&[v]).unwrap();
+        self.ram[address] = v;
     }
 
     fn read_ram(&self, address: u16) -> u8 {
@@ -110,11 +103,7 @@ impl Mbc13 {
         }
 
         let address = (address - 0xA000) as usize + self.ram_offset;
-        self.ram.borrow_mut().seek(SeekFrom::Start(address as u64)).unwrap();
-        let mut buffer = [0; 1];
-        self.ram.borrow_mut().read_exact(&mut buffer).unwrap();
-
-        buffer[0]
+        self.ram[address]
     }
 
     fn switch_bank_mbc3(&mut self, v: u8) {
@@ -184,6 +173,10 @@ impl Mbc for Mbc13 {
             _ => unimplemented!(),
         }
     }
+
+    fn ram(&mut self) -> &mut [u8] {
+        &mut self.ram
+    }
 }
 
 pub struct MemoryController {
@@ -191,14 +184,14 @@ pub struct MemoryController {
 }
 
 impl MemoryController {
-    pub fn from_bytes(bytes: Vec<u8>, save_file: File) -> MemoryController {
+    pub fn from_bytes(bytes: Vec<u8>) -> MemoryController {
         let controller = match bytes[0x147] {
             0x00 =>
                 Box::new(Mbc0::new(bytes)) as Box<Mbc>,
             0x01 | 0x02 | 0x03 =>
-                Box::new(Mbc13::new(bytes, save_file, MbcMode::Mbc1)) as Box<Mbc>,
+                Box::new(Mbc13::new(bytes, MbcMode::Mbc1)) as Box<Mbc>,
             0x0F | 0x10 | 0x11 | 0x12 | 0x13 =>
-                Box::new(Mbc13::new(bytes, save_file, MbcMode::Mbc3)) as Box<Mbc>,
+                Box::new(Mbc13::new(bytes, MbcMode::Mbc3)) as Box<Mbc>,
             _ => {
                 println!("Unrecognized type {:02X}", bytes[0x147]);
                 panic!();
@@ -216,5 +209,18 @@ impl MemoryController {
 
     pub fn write(&mut self, address: u16, v: u8) {
         self.controller.write(address, v);
+    }
+}
+
+impl Deref for MemoryController {
+    type Target = Mbc;
+    fn deref(&self) -> &Self::Target {
+        &*self.controller
+    }
+}
+
+impl DerefMut for MemoryController {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut *self.controller
     }
 }

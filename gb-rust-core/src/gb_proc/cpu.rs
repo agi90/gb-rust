@@ -1,4 +1,3 @@
-use controller::Hardware;
 use gb_proc::opcodes::OpCode;
 use gb_proc::handler_holder::Key;
 use gb_proc::apu::AudioBuffer;
@@ -13,6 +12,14 @@ pub enum CpuState {
     Running,
     Halt,
     Stop
+}
+
+pub trait Hardware {
+    fn get_screen_buffer(&self) -> &ScreenBuffer;
+    fn interrupt(&mut self, interrupt: Interrupt);
+    fn key_up(&mut self, key: Key);
+    fn key_down(&mut self, key: Key);
+    fn next(&mut self);
 }
 
 pub struct Cpu {
@@ -67,6 +74,7 @@ pub trait HandlerHolder {
     fn add_cycles(&mut self, cycles: usize);
     fn check_interrupts(&mut self) -> Vec<Interrupt>;
     fn should_refresh(&mut self) -> bool;
+    fn ram(&mut self) -> &mut [u8];
 }
 
 impl Hardware for Cpu {
@@ -125,6 +133,10 @@ impl Cpu {
         };
 
         cpu
+    }
+
+    pub fn ram(&mut self) -> &mut [u8] {
+        self.handler_holder.ram()
     }
 
     pub fn address_breakpoint(&self) -> bool {
@@ -434,37 +446,6 @@ impl Cpu {
             self.add_cycles(2);
         };
     }
-}
-
-pub fn print_cpu_status(cpu: &Cpu) {
-    println!("[Z,N,H,C] = [{},{},{},{}]",
-             cpu.get_Z_flag(),
-             cpu.get_N_flag(),
-             cpu.get_H_flag(),
-             cpu.get_C_flag());
-
-    println!("A = ${:02X}",   cpu.get_A_reg());
-    println!("B = ${:02X}",   cpu.get_B_reg());
-    println!("C = ${:02X}",   cpu.get_C_reg());
-    println!("D = ${:02X}",   cpu.get_D_reg());
-    println!("E = ${:02X}",   cpu.get_E_reg());
-    println!("F = ${:02X}",   cpu.get_F_reg());
-    println!("H = ${:02X}",   cpu.get_H_reg());
-    println!("L = ${:02X}",   cpu.get_L_reg());
-    println!("PC = ${:02X}",  cpu.get_PC());
-    println!("SP = ${:02X}",  cpu.get_SP());
-    println!("IF = ${:02X}",  cpu.deref_debug(0xFFFF));
-    println!("IE = ${:02X}",  cpu.deref_debug(0xFF0F));
-    println!("state = {:?}",  cpu.get_state());
-    println!("cycles = {:?}", cpu.get_cycles());
-    println!("$FF05 = {:02X}", cpu.deref_debug(0xFF05));
-    println!("=== STACK ===");
-    println!("${:04X} = {:02X}", cpu.get_SP(),     cpu.deref_debug(cpu.get_SP()));
-
-    if cpu.get_SP() != 0xFFFF && cpu.get_SP() != 0xDFFF {
-        println!("${:04X} = {:02X}", cpu.get_SP() + 1, cpu.deref_debug(cpu.get_SP() + 1));
-    }
-    println!("");
 }
 
 #[derive(PartialEq, Eq)]
