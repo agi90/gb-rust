@@ -1,14 +1,14 @@
 #[allow(dead_code)]
 mod bitfield;
-mod gb_proc;
+mod hardware;
 mod emulator;
 
 pub use self::emulator::Emulator;
-pub use self::gb_proc::cpu::Interrupt;
-pub use self::gb_proc::video_controller::GrayShade;
-pub use self::gb_proc::cpu::Hardware;
-pub use self::gb_proc::handler_holder::Key;
-pub use self::gb_proc::video_controller::{SCREEN_X, SCREEN_Y};
+pub use self::hardware::cpu::Interrupt;
+pub use self::hardware::video_controller::GrayShade;
+pub use self::hardware::cpu::Hardware;
+pub use self::hardware::handler_holder::Key;
+pub use self::hardware::video_controller::{SCREEN_X, SCREEN_Y};
 
 #[cfg(test)]
 mod tests;

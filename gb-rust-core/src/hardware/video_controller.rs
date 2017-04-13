@@ -1,4 +1,4 @@
-use gb_proc::cpu::{Handler, Interrupt};
+use hardware::cpu::{Handler, Interrupt};
 use bitfield::Bitfield;
 
 /* Represents a shade of gray */

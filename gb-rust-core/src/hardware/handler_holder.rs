@@ -1,7 +1,7 @@
-use gb_proc::apu::{SoundController, AudioBuffer};
-use gb_proc::cartridge::Cartridge;
-use gb_proc::cpu::{Handler, HandlerHolder, Interrupt};
-use gb_proc::video_controller::{VideoController, ScreenBuffer};
+use hardware::apu::{SoundController, AudioBuffer};
+use hardware::cartridge::Cartridge;
+use hardware::cpu::{Handler, HandlerHolder, Interrupt};
+use hardware::video_controller::{VideoController, ScreenBuffer};
 
 use bitfield::Bitfield;
 

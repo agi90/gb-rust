@@ -1,7 +1,7 @@
 /** This file is mostly based on http://gbdev.gg8.se/wiki/articles/Gameboy_sound_hardware */
 
 use std::convert::From;
-use gb_proc::cpu::Handler;
+use hardware::cpu::Handler;
 use bitfield::Bitfield;
 
 u8_enum!{

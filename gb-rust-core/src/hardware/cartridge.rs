@@ -1,7 +1,7 @@
 use std::str;
 
-use gb_proc::memory_controller::MemoryController;
-use gb_proc::cpu::Handler;
+use hardware::memory_controller::MemoryController;
+use hardware::cpu::Handler;
 
 #[allow(dead_code)]
 pub struct Cartridge {

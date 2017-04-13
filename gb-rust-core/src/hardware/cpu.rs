@@ -1,8 +1,8 @@
-use gb_proc::opcodes::OpCode;
-use gb_proc::handler_holder::Key;
-use gb_proc::apu::AudioBuffer;
-use gb_proc::timer_controller::TimerController;
-use gb_proc::video_controller::ScreenBuffer;
+use hardware::opcodes::OpCode;
+use hardware::handler_holder::Key;
+use hardware::apu::AudioBuffer;
+use hardware::timer_controller::TimerController;
+use hardware::video_controller::ScreenBuffer;
 
 use std::collections::HashSet;
 use std::cell::RefCell;

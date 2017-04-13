@@ -1,7 +1,7 @@
-use gb_proc::cpu::{Cpu, Handler, HandlerHolder, Interrupt, print_cpu_status};
-use gb_proc::opcodes::OpCode;
-use gb_proc::video_controller::{ScreenBuffer, GrayShade};
-use gb_proc::apu::{
+use hardware::cpu::{Cpu, Handler, HandlerHolder, Interrupt, print_cpu_status};
+use hardware::opcodes::OpCode;
+use hardware::video_controller::{ScreenBuffer, GrayShade};
+use hardware::apu::{
     AudioBuffer,
     AudioLine,
     WaveDuty,
@@ -10,7 +10,7 @@ use gb_proc::apu::{
     NoisePattern,
 };
 
-use gb_proc::handler_holder::Key;
+use hardware::handler_holder::Key;
 
 use std::num::Wrapping;
 

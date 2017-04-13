@@ -1,4 +1,4 @@
-use gb_proc::cpu::{Cpu, CpuState};
+use hardware::cpu::{Cpu, CpuState};
 
 macro_rules! op_codes {
     // First the unprefixed op codes

@@ -1,7 +1,7 @@
-use gb_proc::cartridge::Cartridge;
-use gb_proc::handler_holder::GBHandlerHolder;
-use gb_proc::apu::NoisePattern;
-use gb_proc::cpu::Cpu;
+use hardware::cartridge::Cartridge;
+use hardware::handler_holder::GBHandlerHolder;
+use hardware::apu::NoisePattern;
+use hardware::cpu::Cpu;
 
 const VOLUME_MAX: i16 = 32000;
 const AUDIO_BUFFER_SIZE: usize = 1470;
