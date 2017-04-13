@@ -1,14 +1,14 @@
 use hardware::apu::{SoundController, AudioBuffer};
 use hardware::cartridge::Cartridge;
 use hardware::cpu::{Handler, HandlerHolder, Interrupt};
-use hardware::video_controller::{VideoController, ScreenBuffer};
+use hardware::ppu::{Ppu, ScreenBuffer};
 
 use bitfield::Bitfield;
 
 pub struct GBHandlerHolder {
     memory_holder: MemoryHolder,
     cartridge: Cartridge,
-    pub video_controller: VideoController,
+    pub ppu: Ppu,
     joypad_register: JoypadRegister,
     serial_transfer_controller: SerialTransferController,
     apu: SoundController,
@@ -19,7 +19,7 @@ impl GBHandlerHolder {
         GBHandlerHolder {
             memory_holder: MemoryHolder::new(),
             cartridge: cartridge,
-            video_controller: VideoController::new(),
+            ppu: Ppu::new(),
             joypad_register: JoypadRegister::new(),
             serial_transfer_controller: SerialTransferController::new(),
             apu: SoundController::new(),
@@ -28,7 +28,7 @@ impl GBHandlerHolder {
 }
 
 // TODO: move this where the memory is actually used
-// e.g. video_ram should be in the VideoController
+// e.g. video_ram should be in the Ppu
 struct MemoryHolder {
     stack: [u8; 256],
     internal_ram: [u8; 8196],
@@ -73,11 +73,11 @@ impl Handler for MemoryHolder {
 
 impl HandlerHolder for GBHandlerHolder {
     fn get_screen_buffer(&self) -> &ScreenBuffer {
-        self.video_controller.get_screen()
+        self.ppu.get_screen()
     }
 
     fn should_refresh(&mut self) -> bool {
-        self.video_controller.should_refresh()
+        self.ppu.should_refresh()
     }
 
     fn get_audio_buffer(&self) -> &AudioBuffer {
@@ -95,18 +95,18 @@ impl HandlerHolder for GBHandlerHolder {
     fn get_handler_read(&self, address: u16) -> &Handler {
         match address {
             0x0000 ... 0x7FFF => &self.cartridge,
-            0x8000 ... 0x9FFF => &self.video_controller,
+            0x8000 ... 0x9FFF => &self.ppu,
             0xA000 ... 0xBFFF => &self.cartridge,
             0xC000 ... 0xDFFF => &self.memory_holder,
             // Accessing this in the real GB will return the internal_ram echoed
             // but it's probably a bug in the emulator, so let's panic
             0xE000 ... 0xFDFF => panic!("Tried to access echo of internal ram"),
-            0xFE00 ... 0xFE9F => &self.video_controller,
+            0xFE00 ... 0xFE9F => &self.ppu,
             0xFEA0 ... 0xFEFF => &self.memory_holder,
             0xFF00            => &self.joypad_register,
             0xFF01 ... 0xFF02 => &self.serial_transfer_controller,
             0xFF09 ... 0xFF3F => &self.apu,
-            0xFF40 ... 0xFF4B => &self.video_controller,
+            0xFF40 ... 0xFF4B => &self.ppu,
             0xFF4C ... 0xFFFE => &self.memory_holder,
             _ => unreachable!(),
         }
@@ -115,28 +115,28 @@ impl HandlerHolder for GBHandlerHolder {
     fn get_handler_write(&mut self, address: u16) -> &mut Handler {
         match address {
             0x0000 ... 0x7FFF => &mut self.cartridge,
-            0x8000 ... 0x9FFF => &mut self.video_controller,
+            0x8000 ... 0x9FFF => &mut self.ppu,
             0xA000 ... 0xBFFF => &mut self.cartridge,
             0xC000 ... 0xDFFF => &mut self.memory_holder,
             0xE000 ... 0xFDFF => &mut self.memory_holder,
-            0xFE00 ... 0xFE9F => &mut self.video_controller,
+            0xFE00 ... 0xFE9F => &mut self.ppu,
             0xFEA0 ... 0xFEFF => &mut self.memory_holder,
             0xFF00            => &mut self.joypad_register,
             0xFF01 ... 0xFF02 => &mut self.serial_transfer_controller,
             0xFF09 ... 0xFF3F => &mut self.apu,
-            0xFF40 ... 0xFF4B => &mut self.video_controller,
+            0xFF40 ... 0xFF4B => &mut self.ppu,
             0xFF4C ... 0xFFFE => &mut self.memory_holder,
             _ => unimplemented!(),
         }
     }
 
     fn add_cycles(&mut self, cycles: usize) {
-        self.video_controller.add_cycles(cycles);
+        self.ppu.add_cycles(cycles);
         self.apu.add_cycles(cycles);
     }
 
     fn check_interrupts(&mut self) -> Vec<Interrupt> {
-        self.video_controller.check_interrupts()
+        self.ppu.check_interrupts()
     }
 
     fn ram(&mut self) -> &mut [u8] {

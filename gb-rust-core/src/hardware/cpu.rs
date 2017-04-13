@@ -2,7 +2,7 @@ use hardware::opcodes::OpCode;
 use hardware::handler_holder::Key;
 use hardware::apu::AudioBuffer;
 use hardware::timer_controller::TimerController;
-use hardware::video_controller::ScreenBuffer;
+use hardware::ppu::ScreenBuffer;
 
 use std::collections::HashSet;
 use std::cell::RefCell;

@@ -1,6 +1,6 @@
 use hardware::cpu::{Cpu, Handler, HandlerHolder, Interrupt, print_cpu_status};
 use hardware::opcodes::OpCode;
-use hardware::video_controller::{ScreenBuffer, GrayShade};
+use hardware::ppu::{ScreenBuffer, GrayShade};
 use hardware::apu::{
     AudioBuffer,
     AudioLine,

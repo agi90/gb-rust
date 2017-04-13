@@ -28,7 +28,7 @@ type Pattern16 = [[GrayShade; 8]; 16];
 
 type Patterns = [Pattern; PATTERNS_SIZE];
 
-pub struct VideoController {
+pub struct Ppu {
     cycles: usize,
     total_cycles: usize,
 
@@ -69,7 +69,7 @@ impl LCDMode {
     }
 }
 
-impl Handler for VideoController {
+impl Handler for Ppu {
     fn read(&self, address: u16) -> u8 {
         match address {
             0x8000 ... 0x9FFF => self.read_ram(address),
@@ -220,9 +220,9 @@ impl Sprite16 {
     }
 }
 
-impl VideoController {
-    pub fn new() -> VideoController {
-        VideoController {
+impl Ppu {
+    pub fn new() -> Ppu {
+        Ppu {
             cycles: 0,
             total_cycles: 0,
 
