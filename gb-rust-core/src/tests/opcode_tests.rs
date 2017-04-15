@@ -1,23 +1,57 @@
-use hardware::cpu::{Cpu, Handler, HandlerHolder, Interrupt, print_cpu_status};
+use hardware::cpu::{Cpu, Handler, HandlerHolder, Interrupt};
 use hardware::opcodes::OpCode;
 use hardware::ppu::{ScreenBuffer, GrayShade};
-use hardware::apu::{
-    AudioBuffer,
-    AudioLine,
-    WaveDuty,
-    Wave,
-    Noise,
-    NoisePattern,
-};
+use hardware::apu::*;
 
 use hardware::handler_holder::Key;
 
 use std::num::Wrapping;
 
+struct MockChannel;
+
+impl VolumeView for MockChannel {
+    fn volume(&self) -> u8 { 0 }
+}
+
+impl OutputLevelView for MockChannel {
+    fn volume(&self) -> OutputLevel { OutputLevel::Mute }
+}
+
+impl WaveDutyView for MockChannel {
+    fn wave_duty(&self) -> f32 { 0.0 }
+}
+
+impl WavePatternView for MockChannel {
+    fn wave_pattern(&self) -> &[u8] { EMPTY_ARRAY }
+}
+
+impl PatternView for MockChannel {
+    fn pattern(&self) -> NoisePattern { NoisePattern::C15 }
+}
+
+impl AudioLineView for MockChannel {
+    fn playing_left(&self) -> bool { false }
+    fn playing_right(&self) -> bool { false }
+    fn frequency(&self) -> u64 { 0 }
+}
+
+const EMPTY_ARRAY : &'static [u8] = &[];
+const MOCK_CHANNEL : &'static MockChannel = &MockChannel {};
+
 struct MockHandlerHolder {
     memory: [u8; 512],
     screen_buffer: ScreenBuffer,
-    audio_buffer: AudioBuffer,
+    audio_buffer: MockAudioBuffer,
+    data: [u8; 1],
+}
+
+struct MockAudioBuffer;
+
+impl AudioBuffer for MockAudioBuffer {
+    fn sound_1(&self) -> &Channel1View { MOCK_CHANNEL }
+    fn sound_2(&self) -> &Channel2View { MOCK_CHANNEL }
+    fn sound_3(&self) -> &Channel3View { MOCK_CHANNEL }
+    fn sound_4(&self) -> &Channel4View { MOCK_CHANNEL }
 }
 
 impl MockHandlerHolder {
@@ -25,20 +59,8 @@ impl MockHandlerHolder {
         MockHandlerHolder {
             memory: [0; 512],
             screen_buffer: [[GrayShade::C00; 160]; 144],
-            audio_buffer: AudioBuffer {
-                sound_1: AudioLine::new(WaveDuty {
-                    wave_duty: 0.5,
-                }),
-                sound_2: AudioLine::new(WaveDuty {
-                    wave_duty: 0.5,
-                }),
-                sound_3: AudioLine::new(Wave {
-                    wave_pattern: [0; 16],
-                }),
-                sound_4: AudioLine::new(Noise {
-                    pattern: NoisePattern::C7,
-                }),
-            }
+            audio_buffer: MockAudioBuffer{},
+            data: [0],
         }
     }
 }
@@ -72,6 +94,8 @@ impl HandlerHolder for MockHandlerHolder {
     fn get_audio_buffer(&self) -> &AudioBuffer {
         &self.audio_buffer
     }
+    fn reset(&mut self) {}
+    fn ram(&mut self) -> &mut [u8] { &mut self.data }
 }
 
 fn reset_all_registers(cpu: &mut Cpu) {
@@ -117,10 +141,8 @@ fn test_jr_n_forward() {
     let mut cpu = Cpu::new(Box::new(handler));
     reset_all_registers(&mut cpu);
 
-    print_cpu_status(&cpu);
     cpu.next_instruction();
 
-    print_cpu_status(&cpu);
     assert_all_reg_0(&cpu);
     assert_eq!(cpu.get_PC(), 0x0005);
 }
@@ -140,10 +162,8 @@ fn test_jr_n_backwards() {
     cpu.set_PC(0x0004);
     cpu.reset_call_set_PC();
 
-    print_cpu_status(&cpu);
     cpu.next_instruction();
 
-    print_cpu_status(&cpu);
     assert_all_reg_0(&cpu);
     assert_eq!(cpu.get_PC(), 0x0000);
 }
@@ -476,9 +496,7 @@ fn test_ld_X_Y() {
 
         println!("Testing {:02X} {:?}", a, OpCode::from_byte(a, false));
 
-        print_cpu_status(&cpu);
         cpu.next_instruction();
-        print_cpu_status(&cpu);
 
         assert_eq!(cpu.get_PC(), 0x0001);
         assert_eq!(cpu.get_SP(), 0x0100);
