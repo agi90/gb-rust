@@ -87,7 +87,7 @@ impl libretro_backend::Core for EmulatorWrapper {
 
     fn memory_data(&mut self, memory_type: MemoryType) -> Option<&mut [u8]> {
         match memory_type {
-            MemoryType::SystemRam => Some(self.cpu.handler_holder.ram()),
+            MemoryType::SaveRam => Some(self.cpu.handler_holder.ram()),
             _ => None,
         }
     }
