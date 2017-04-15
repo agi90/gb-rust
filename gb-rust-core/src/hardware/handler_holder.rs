@@ -142,6 +142,14 @@ impl HandlerHolder for GBHandlerHolder {
     fn ram(&mut self) -> &mut [u8] {
         self.cartridge.ram()
     }
+
+    fn reset(&mut self) {
+        self.memory_holder = MemoryHolder::new();
+        self.ppu = Ppu::new();
+        self.joypad_register = JoypadRegister::new();
+        self.serial_transfer_controller = SerialTransferController::new();
+        self.apu = SoundController::new();
+    }
 }
 
 memory_mapper!{

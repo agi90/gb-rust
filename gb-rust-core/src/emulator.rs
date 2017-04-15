@@ -32,6 +32,10 @@ impl Emulator {
         })
     }
 
+    pub fn reset(&mut self) {
+        self.cpu.reset();
+    }
+
     pub fn generate_sound(&mut self) -> [i16; AUDIO_BUFFER_SIZE] {
         let audio = self.cpu.handler_holder.get_audio_buffer();
 

@@ -92,6 +92,10 @@ impl libretro_backend::Core for EmulatorWrapper {
         }
     }
 
+    fn on_reset(&mut self) {
+        self.reset();
+    }
+
     fn on_load_game(&mut self, game_data: GameData) -> LoadGameResult {
         if game_data.data().is_none() {
             return LoadGameResult::Failed(game_data);
@@ -152,11 +156,6 @@ impl libretro_backend::Core for EmulatorWrapper {
 
         handle.upload_video_frame(&self.frame);
         handle.upload_audio_frame(&self.generate_sound()[..]);
-    }
-
-    fn on_reset(&mut self) {
-        // TODO:
-        println!("on_reset");
     }
 }
 

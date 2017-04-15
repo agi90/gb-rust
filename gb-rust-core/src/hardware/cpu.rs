@@ -75,6 +75,7 @@ pub trait HandlerHolder {
     fn check_interrupts(&mut self) -> Vec<Interrupt>;
     fn should_refresh(&mut self) -> bool;
     fn ram(&mut self) -> &mut [u8];
+    fn reset(&mut self);
 }
 
 impl Hardware for Cpu {
@@ -133,6 +134,29 @@ impl Cpu {
         };
 
         cpu
+    }
+
+    pub fn reset(&mut self) {
+        self.Z_flag = false;
+        self.N_flag = false;
+        self.H_flag = false;
+        self.C_flag = false;
+
+        self.A_reg = 0x01;
+        self.B_reg = 0x00;
+        self.C_reg = 0x13;
+        self.D_reg = 0x00;
+        self.E_reg = 0xD8;
+        self.H_reg = 0x01;
+        self.L_reg = 0x4d;
+        self.SP_reg = 0xFFFE;
+        self.PC_reg = 0x0100;
+
+        self.state = CpuState::Running;
+        self.called_set_PC = false;
+        self.cycles = 0;
+
+        self.handler_holder.reset();
     }
 
     pub fn ram(&mut self) -> &mut [u8] {
