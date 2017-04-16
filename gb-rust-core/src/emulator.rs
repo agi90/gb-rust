@@ -4,7 +4,7 @@ use hardware::apu::NoisePattern;
 use hardware::cpu::Cpu;
 
 const VOLUME_MAX: i16 = 32000;
-const AUDIO_BUFFER_SIZE: usize = 1470;
+pub const AUDIO_BUFFER_SIZE: usize = 1470;
 
 pub struct Emulator {
     pub cpu: Cpu,
@@ -103,9 +103,9 @@ impl Emulator {
 
             out[i] =
                   ((if audio.sound_1().playing_left() { channel_1 } else { 0 }) +
-                (if audio.sound_2().playing_left() { channel_2 } else { 0 }) +
-                (if audio.sound_3().playing_left() { channel_3 } else { 0 }) +
-                (if audio.sound_4().playing_left() { channel_4 } else { 0 })) / 4;
+                   (if audio.sound_2().playing_left() { channel_2 } else { 0 }) +
+                   (if audio.sound_3().playing_left() { channel_3 } else { 0 }) +
+                   (if audio.sound_4().playing_left() { channel_4 } else { 0 })) / 4;
 
             out[i + 1] =
                ((if audio.sound_1().playing_right() { channel_1 } else { 0 }) +

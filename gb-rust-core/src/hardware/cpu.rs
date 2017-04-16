@@ -1,4 +1,4 @@
-use hardware::opcodes::OpCode;
+pub use hardware::opcodes::OpCode;
 use hardware::handler_holder::Key;
 use hardware::apu::AudioBuffer;
 use hardware::timer_controller::TimerController;
