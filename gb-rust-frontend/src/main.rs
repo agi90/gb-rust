@@ -95,7 +95,9 @@ pub fn main() {
         emulator = Emulator::from_data(&rom_bytes, 44100.0).unwrap();
 
         // Load save file in ram
-        bail!(save_file.read_exact(emulator.cpu.handler_holder.ram()));
+        // we don't care if we can't fill the whole buffer, it just
+        // means that we don't have a save file
+        let _ = save_file.read_exact(emulator.cpu.handler_holder.ram());
     }
 
     let mut debugger = Debugger::new();
