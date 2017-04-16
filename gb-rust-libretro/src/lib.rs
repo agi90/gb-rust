@@ -78,6 +78,40 @@ impl DerefMut for EmulatorWrapper {
 }
 
 
+struct Color {
+    a: u8,
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+impl Color {
+    #[inline]
+    pub fn write(&self, out: &mut [u8]) {
+        out[0] = self.b;
+        out[1] = self.g;
+        out[2] = self.r;
+        out[3] = self.a;
+    }
+}
+
+impl From<GrayShade> for Color {
+    fn from(c: GrayShade) -> Self {
+        match c {
+            GrayShade::C00 => PALETTE_00,
+            GrayShade::C01 => PALETTE_01,
+            GrayShade::C10 => PALETTE_10,
+            GrayShade::C11 => PALETTE_11,
+            GrayShade::Transparent => unreachable!(),
+        }
+    }
+}
+
+const PALETTE_11: Color = Color { a: 0xFF, r: 0x0F, g: 0x38, b: 0x0F };
+const PALETTE_10: Color = Color { a: 0xFF, r: 0x30, g: 0x62, b: 0x30 };
+const PALETTE_01: Color = Color { a: 0xFF, r: 0x8C, g: 0xAD, b: 0x0F };
+const PALETTE_00: Color = Color { a: 0xFF, r: 0x9C, g: 0xBD, b: 0x0F };
+
 impl libretro_backend::Core for EmulatorWrapper {
     fn info() -> CoreInfo {
         CoreInfo::new("gb-rust", env!("CARGO_PKG_VERSION"))
@@ -152,10 +186,10 @@ impl libretro_backend::Core for EmulatorWrapper {
 
         for i in 0 .. gb::SCREEN_Y {
             for j in 0 .. gb::SCREEN_X {
-                self.frame[i * gb::SCREEN_X * 4 + j * 4 + 0] = (3 - screen[i][j] as u8) * 85;
-                self.frame[i * gb::SCREEN_X * 4 + j * 4 + 1] = (3 - screen[i][j] as u8) * 85;
-                self.frame[i * gb::SCREEN_X * 4 + j * 4 + 2] = (3 - screen[i][j] as u8) * 85;
-                self.frame[i * gb::SCREEN_X * 4 + j * 4 + 3] = (3 - screen[i][j] as u8) * 85;
+                let color = Color::from(screen[i][j]);
+
+                let index = i * gb::SCREEN_X * 4 + j * 4;
+                color.write(&mut self.frame[index .. index + 4]);
             }
         }
 
