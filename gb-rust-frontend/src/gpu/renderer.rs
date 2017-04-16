@@ -11,7 +11,7 @@ use glium::texture::texture2d::Texture2d;
 use glium::uniforms::{MagnifySamplerFilter, MinifySamplerFilter};
 use glium::backend::glutin_backend::GlutinFacade;
 
-use gb::{ScreenBuffer, GrayShade};
+use gb::ScreenBuffer;
 
 const TEXTURE_WIDTH: u32 = 256;
 const TEXTURE_HEIGHT: u32 = 256;

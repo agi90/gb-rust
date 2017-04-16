@@ -16,14 +16,11 @@ extern crate gb;
 
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write, Seek, SeekFrom};
-use std::thread;
-use std::time::{Duration, Instant};
 
 use gb::Emulator;
 
 use self::controller::{Event, Controller};
 use self::debugger::Debugger;
-use self::gpu::renderer::Renderer;
 
 #[cfg(test)]
 mod tests;
@@ -93,12 +90,12 @@ pub fn main() {
     {
         let mut rom_bytes = vec![];
         let mut rom = bail!(open_rom(&rom_name));
-        rom.read_to_end(&mut rom_bytes).unwrap();
+        bail!(rom.read_to_end(&mut rom_bytes));
 
         emulator = Emulator::from_data(&rom_bytes, 44100.0).unwrap();
 
         // Load save file in ram
-        save_file.read_exact(emulator.cpu.handler_holder.ram());
+        bail!(save_file.read_exact(emulator.cpu.handler_holder.ram()));
     }
 
     let mut debugger = Debugger::new();
@@ -130,6 +127,6 @@ pub fn main() {
         debugger.next_instruction(&mut emulator);
     }
 
-    save_file.seek(SeekFrom::Start(0));
-    save_file.write_all(emulator.cpu.handler_holder.ram());
+    bail!(save_file.seek(SeekFrom::Start(0)));
+    bail!(save_file.write_all(emulator.cpu.handler_holder.ram()));
 }

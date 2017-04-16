@@ -1,6 +1,5 @@
 use gb::{
     AudioBuffer,
-    AudioLineView,
     NoisePattern,
     Channel1View,
     Channel2View,

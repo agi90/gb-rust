@@ -7,11 +7,10 @@ use gb::{
     Hardware,
     Emulator,
     Key,
-    ScreenBuffer,
     Interrupt,
 };
 
-use gpu::renderer::{GLRenderer, Renderer};
+use gpu::renderer::GLRenderer;
 
 use glium;
 use glium::glutin;
