@@ -141,7 +141,7 @@ impl TriggerEvent for AudioLine<SweepWaveDuty> {
         64
     }
     fn turn_off(&mut self) {
-        self.on = false;
+        self.turn_off_base();
         self.sound.sweep.down_computed_since_reset = false;
     }
 }
@@ -183,7 +183,7 @@ impl TriggerEvent for AudioLine<WaveDuty> {
         64
     }
     fn turn_off(&mut self) {
-        self.on = false;
+        self.turn_off_base();
     }
 }
 
@@ -205,7 +205,7 @@ impl TriggerEvent for AudioLine<Noise> {
         64
     }
     fn turn_off(&mut self) {
-        self.on = false;
+        self.turn_off_base();
     }
 }
 
@@ -227,7 +227,7 @@ impl TriggerEvent for AudioLine<Wave> {
         256
     }
     fn turn_off(&mut self) {
-        self.on = false;
+        self.turn_off_base();
     }
 }
 
@@ -269,6 +269,11 @@ impl <T> AudioLine<T>
             envelope_counter: 0,
             sound: sound,
         }
+    }
+    fn turn_off_base(&mut self) {
+        self.on = false;
+        self.playing_left = false;
+        self.playing_right = false;
     }
     fn write_frequency(&mut self, mapper: &mut LineMapper) {
         self.frequency = mapper.frequency();
@@ -974,10 +979,10 @@ impl SoundController {
                 self.buffer.sound_2.playing_right = self.buffer.sound_2.on &&
                     self.mapper.sound_2_to_so2() == SoundStatus::SoundOn;
 
-                self.buffer.sound_3.playing_left =
+                self.buffer.sound_3.playing_left = self.buffer.sound_3.on &&
                     self.mapper.sound_3_on() == SoundStatus::SoundOn &&
                         self.mapper.sound_3_to_so1() == SoundStatus::SoundOn;
-                self.buffer.sound_3.playing_right =
+                self.buffer.sound_3.playing_right = self.buffer.sound_3.on &&
                     self.mapper.sound_3_on() == SoundStatus::SoundOn &&
                         self.mapper.sound_3_to_so2() == SoundStatus::SoundOn;
 
