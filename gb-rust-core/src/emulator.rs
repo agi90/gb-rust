@@ -111,7 +111,7 @@ impl Emulator {
                ((if audio.sound_1().playing_right() { channel_1 } else { 0 }) +
                 (if audio.sound_2().playing_right() { channel_2 } else { 0 }) +
                 (if audio.sound_3().playing_right() { channel_3 } else { 0 }) +
-                (if audio.sound_4().playing_right() { channel_3 } else { 0 })) / 4;
+                (if audio.sound_4().playing_right() { channel_4 } else { 0 })) / 4;
 
             channel_1_phase = (channel_1_phase + channel_1_phase_inc) % 1.0;
             channel_2_phase = (channel_2_phase + channel_2_phase_inc) % 1.0;
