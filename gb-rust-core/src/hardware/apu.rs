@@ -1,7 +1,7 @@
 /** This file is mostly based on http://gbdev.gg8.se/wiki/articles/Gameboy_sound_hardware */
 
 use std::convert::From;
-use gb_proc::cpu::Handler;
+use hardware::cpu::Handler;
 use bitfield::Bitfield;
 
 u8_enum!{
@@ -103,7 +103,7 @@ struct Sweep {
     down_computed_since_reset: bool,
 }
 
-pub struct SweepWaveDuty {
+struct SweepWaveDuty {
     volume: u8,
     wave_duty: f32,
     shadow_frequency: u64,
@@ -170,7 +170,7 @@ impl AudioLine<SweepWaveDuty> {
     }
 }
 
-pub struct WaveDuty {
+struct WaveDuty {
     volume: u8,
     wave_duty: f32,
 }
@@ -192,7 +192,7 @@ impl VolumeSweep for AudioLine<WaveDuty> {
     fn set_volume(&mut self, v: u8) { self.sound.volume = v; }
 }
 
-pub struct Noise {
+struct Noise {
     pattern: NoisePattern,
     volume: u8,
 }
@@ -214,7 +214,7 @@ impl VolumeSweep for AudioLine<Noise> {
     fn set_volume(&mut self, v: u8) { self.sound.volume = v; }
 }
 
-pub struct Wave {
+struct Wave {
     wave_pattern: [u8; 16],
     volume: OutputLevel,
 }
@@ -286,85 +286,138 @@ trait TriggerEvent {
     fn turn_off(&mut self);
 }
 
-pub struct AudioBuffer {
+struct GbAudioBuffer {
     sound_1: AudioLine<SweepWaveDuty>,
     sound_2: AudioLine<WaveDuty>,
     sound_3: AudioLine<Wave>,
     sound_4: AudioLine<Noise>,
 }
 
+pub trait AudioBuffer {
+    fn sound_1(&self) -> &Channel1View;
+    fn sound_2(&self) -> &Channel2View;
+    fn sound_3(&self) -> &Channel3View;
+    fn sound_4(&self) -> &Channel4View;
+}
+
 /** This view is used to expose the sound state
  * to the outside world. */
-pub struct AudioLineView<'a, T: 'a> {
-    source: &'a AudioLine<T>,
+pub trait AudioLineView {
+    fn playing_left(&self) -> bool;
+    fn playing_right(&self) -> bool;
+    fn frequency(&self) -> u64;
 }
 
-impl <'a, T> AudioLineView<'a, T> {
-    pub fn playing_left(&self) -> bool {
-        self.source.playing_left
+impl <T> AudioLineView for AudioLine<T> {
+    fn playing_left(&self) -> bool {
+        self.playing_left
     }
-    pub fn playing_right(&self) -> bool {
-        self.source.playing_right
+    fn playing_right(&self) -> bool {
+        self.playing_right
     }
-    pub fn frequency(&self) -> u64 {
-        self.source.frequency
-    }
-}
-
-impl <'a> AudioLineView<'a, SweepWaveDuty> {
-    pub fn wave_duty(&self) -> f32 {
-        self.source.sound.wave_duty
-    }
-    pub fn volume(&self) -> u8 {
-        self.source.sound.volume
+    fn frequency(&self) -> u64 {
+        self.frequency
     }
 }
 
-impl <'a> AudioLineView<'a, WaveDuty> {
-    pub fn wave_duty(&self) -> f32 {
-        self.source.sound.wave_duty
-    }
-    pub fn volume(&self) -> u8 {
-        self.source.sound.volume
+pub trait VolumeView {
+    fn volume(&self) -> u8;
+}
+
+pub trait OutputLevelView {
+    fn volume(&self) -> OutputLevel;
+}
+
+pub trait WaveDutyView {
+    fn wave_duty(&self) -> f32;
+}
+
+pub trait WavePatternView {
+    fn wave_pattern(&self) -> &[u8];
+}
+
+pub trait PatternView {
+    fn pattern(&self) -> NoisePattern;
+}
+
+pub trait Channel1View : WaveDutyView + VolumeView + AudioLineView {}
+impl<T> Channel1View for T where T: WaveDutyView + VolumeView + AudioLineView {}
+
+pub trait Channel2View : WaveDutyView + VolumeView + AudioLineView {}
+impl<T> Channel2View for T where T: WaveDutyView + VolumeView + AudioLineView {}
+
+pub trait Channel3View : WavePatternView + OutputLevelView + AudioLineView {}
+impl<T> Channel3View for T where T: WavePatternView + OutputLevelView + AudioLineView {}
+
+pub trait Channel4View : PatternView + VolumeView + AudioLineView {}
+impl<T> Channel4View for T where T: PatternView + VolumeView + AudioLineView {}
+
+impl VolumeView for AudioLine<WaveDuty> {
+    fn volume(&self) -> u8 {
+        self.sound.volume
     }
 }
 
-impl <'a> AudioLineView<'a, Wave> {
-    pub fn volume(&self) -> OutputLevel {
-        self.source.sound.volume
-    }
-    pub fn wave_pattern(&self) -> &[u8] {
-        &self.source.sound.wave_pattern
+impl VolumeView for AudioLine<Noise> {
+    fn volume(&self) -> u8 {
+        self.sound.volume
     }
 }
 
-impl <'a> AudioLineView<'a, Noise> {
-    pub fn volume(&self) -> u8 {
-        self.source.sound.volume
-    }
-    pub fn pattern(&self) -> NoisePattern {
-        self.source.sound.pattern
+impl VolumeView for AudioLine<SweepWaveDuty> {
+    fn volume(&self) -> u8 {
+        self.sound.volume
     }
 }
 
-impl AudioBuffer {
-    pub fn sound_1(&self) -> AudioLineView<SweepWaveDuty> {
-        AudioLineView{ source: &self.sound_1 }
+impl OutputLevelView for AudioLine<Wave> {
+    fn volume(&self) -> OutputLevel {
+        self.sound.volume
     }
-    pub fn sound_2(&self) -> AudioLineView<WaveDuty> {
-        AudioLineView{ source: &self.sound_2 }
+}
+
+impl WaveDutyView for AudioLine<WaveDuty> {
+    fn wave_duty(&self) -> f32 {
+        self.sound.wave_duty
     }
-    pub fn sound_3(&self) -> AudioLineView<Wave> {
-        AudioLineView{ source: &self.sound_3 }
+}
+
+impl WaveDutyView for AudioLine<SweepWaveDuty> {
+    fn wave_duty(&self) -> f32 {
+        self.sound.wave_duty
     }
-    pub fn sound_4(&self) -> AudioLineView<Noise> {
-        AudioLineView{ source: &self.sound_4 }
+}
+
+impl WavePatternView for AudioLine<Wave> {
+    fn wave_pattern(&self) -> &[u8] {
+        &self.sound.wave_pattern
+    }
+}
+
+impl PatternView for AudioLine<Noise> {
+    fn pattern(&self) -> NoisePattern {
+        self.sound.pattern
+    }
+}
+
+impl AudioBuffer for GbAudioBuffer {
+    fn sound_1(&self) -> &Channel1View {
+        &self.sound_1
+    }
+    fn sound_2(&self) -> &Channel2View {
+        &self.sound_2
+    }
+    fn sound_3(&self) -> &Channel3View {
+        &self.sound_3
+    }
+    fn sound_4(&self) -> &Channel4View {
+        &self.sound_4
     }
 }
 
 pub struct SoundController {
     mapper: SoundMemoryMapper,
-    buffer: AudioBuffer,
+    buffer: GbAudioBuffer,
     frame_sequencer: FrameSequencer,
 }
 
@@ -756,7 +809,7 @@ impl SoundController {
         SoundController {
             frame_sequencer: FrameSequencer::new(),
             mapper: SoundMemoryMapper::new(),
-            buffer: AudioBuffer {
+            buffer: GbAudioBuffer {
                 sound_1: AudioLine::new(1, SweepWaveDuty {
                     volume: 0,
                     wave_duty: 0.5,

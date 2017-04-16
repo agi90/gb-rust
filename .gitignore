@@ -1,4 +1,8 @@
 target
 Cargo.lock
 *.gb
+*.gbc
 *.sav
+*.state
+rom
+rom-gbc

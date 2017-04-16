@@ -1,6 +1,6 @@
 use std::num::Wrapping;
 use bitfield::Bitfield;
-use gb_proc::cpu::{Handler, Interrupt};
+use hardware::cpu::{Handler, Interrupt};
 
 u8_enum!{
     ClockSelect {

@@ -1,12 +1,16 @@
+use sound::SDLPlayer;
 use glium::backend::glutin_backend::GlutinFacade;
 use glium::DisplayBuild;
 use glium::glutin::{VirtualKeyCode, ElementState};
-use gpu::renderer::{GLRenderer, Renderer};
-use gb_proc::handler_holder::Key;
-use gb_proc::video_controller::ScreenBuffer;
-use gb_proc::apu::AudioBuffer;
-use gb_proc::cpu::Interrupt;
-use sound::SDLPlayer;
+
+use gb::{
+    Hardware,
+    Emulator,
+    Key,
+    Interrupt,
+};
+
+use gpu::renderer::GLRenderer;
 
 use glium;
 use glium::glutin;
@@ -41,11 +45,22 @@ impl Controller {
         }
     }
 
-    pub fn refresh_sound(&mut self, audio_buffer: &AudioBuffer) {
-        self.player.refresh(audio_buffer);
+    pub fn refresh(&mut self, emulator: &mut Emulator) {
+        {
+            let pixels = emulator.cpu.handler_holder.get_screen_buffer();
+
+            let mut frame = self.display.draw();
+            self.renderer.refresh(&mut frame, pixels);
+            frame.finish().unwrap();
+        }
+
+        {
+            let sound_buffer = emulator.cpu.handler_holder.get_audio_buffer();
+            self.player.refresh(sound_buffer);
+        }
     }
 
-    pub fn check_events(&mut self, hardware: &mut Hardware) -> Event {
+    pub fn check_events(&mut self, emulator: &mut Emulator) -> Event {
         for event in self.display.poll_events() {
             match event {
                 glutin::Event::Closed => {
@@ -80,10 +95,10 @@ impl Controller {
 
                     if let Some(k) = key {
                         match state {
-                            ElementState::Pressed => { hardware.key_down(k) },
-                            ElementState::Released => { hardware.key_up(k) },
+                            ElementState::Pressed => { emulator.cpu.key_down(k) },
+                            ElementState::Released => { emulator.cpu.key_up(k) },
                         }
-                        hardware.interrupt(Interrupt::Joypad);
+                        emulator.cpu.interrupt(Interrupt::Joypad);
                     };
                 },
                 _ => {}
@@ -92,20 +107,4 @@ impl Controller {
 
         Event::Continue
     }
-}
-
-impl Renderer for Controller {
-    fn refresh(&mut self, pixels: &ScreenBuffer) {
-        let mut frame = self.display.draw();
-        self.renderer.refresh(&mut frame, pixels);
-        frame.finish().unwrap();
-    }
-}
-
-pub trait Hardware {
-    fn get_screen_buffer(&self) -> &ScreenBuffer;
-    fn interrupt(&mut self, interrupt: Interrupt);
-    fn key_up(&mut self, key: Key);
-    fn key_down(&mut self, key: Key);
-    fn next(&mut self);
 }

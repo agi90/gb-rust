@@ -1,6 +1,8 @@
 extern crate nalgebra;
 
-use gb_proc::video_controller::ScreenBuffer;
+use self::nalgebra::{Mat4, Vec4, Diag};
+
+use glium;
 use glium::{DrawParameters, Surface, VertexBuffer, IndexBuffer};
 use glium::index::PrimitiveType;
 use glium::texture::pixel_buffer::PixelBuffer;
@@ -8,8 +10,8 @@ use glium::texture::{ MipmapsOption, UncompressedFloatFormat };
 use glium::texture::texture2d::Texture2d;
 use glium::uniforms::{MagnifySamplerFilter, MinifySamplerFilter};
 use glium::backend::glutin_backend::GlutinFacade;
-use self::nalgebra::{Mat4, Vec4, Diag};
-use glium;
+
+use gb::ScreenBuffer;
 
 const TEXTURE_WIDTH: u32 = 256;
 const TEXTURE_HEIGHT: u32 = 256;

@@ -139,7 +139,7 @@ pub mod cpu;
 #[allow(non_snake_case)]
 #[allow(non_camel_case_types)]
 pub mod memory_controller;
-pub mod video_controller;
+pub mod ppu;
 pub mod timer_controller;
 pub mod apu;
 
