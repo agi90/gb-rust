@@ -15,7 +15,7 @@ mod debugger;
 extern crate gb;
 
 use std::fs::{File, OpenOptions};
-use std::io::Read;
+use std::io::{Read, Write, Seek, SeekFrom};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -37,7 +37,7 @@ fn open_save_file(rom_name: &str) -> Result<File, String> {
     }
 
     // Replace extension with "sav"
-    v.push("sav");
+    v.push("srm");
 
     let save_name = v.join(".");
 
@@ -79,8 +79,7 @@ pub fn main() {
     ).get_matches();
 
     let rom_name = matches.value_of("ROM").unwrap();
-    let save_file = bail!(open_save_file(&rom_name));
-
+    let mut save_file = bail!(open_save_file(&rom_name));
 
     let mag = value_t!(matches.value_of("mag"), u32).unwrap_or_else(|e| {
         println!("Invalid magnification: {}", e);
@@ -94,23 +93,24 @@ pub fn main() {
     {
         let mut rom_bytes = vec![];
         let mut rom = bail!(open_rom(&rom_name));
-        rom.read_to_end(&mut rom_bytes);
+        rom.read_to_end(&mut rom_bytes).unwrap();
 
         emulator = Emulator::from_data(&rom_bytes, 44100.0).unwrap();
+
+        // Load save file in ram
+        save_file.read_exact(emulator.cpu.handler_holder.ram());
     }
 
-    let mut last_update = Instant::now();
-
-    // let mut debugger = Debugger::new();
+    let mut debugger = Debugger::new();
 
     if matches.occurrences_of("debug") > 0 {
-        // debugger.breakpoint(&mut emulator.cpu);
+        debugger.breakpoint(&mut emulator);
     }
 
     let mut natural_speed = true;
 
     loop {
-        // debugger.check_breakpoints(&mut emulator);
+        debugger.check_breakpoints(&mut emulator);
 
         emulator.cpu.next_instruction();
 
@@ -118,7 +118,7 @@ pub fn main() {
             match controller.check_events(&mut emulator) {
                 Event::Quit => break,
                 Event::Break => {
-                    // debugger.breakpoint(&mut emulator);
+                    debugger.breakpoint(&mut emulator);
                 },
                 Event::ToggleSpeed => { natural_speed = !natural_speed },
                 Event::Continue => {},
@@ -127,6 +127,9 @@ pub fn main() {
             controller.refresh(&mut emulator);
         }
 
-        // debugger.next_instruction(&mut emulator);
+        debugger.next_instruction(&mut emulator);
     }
+
+    save_file.seek(SeekFrom::Start(0));
+    save_file.write_all(emulator.cpu.handler_holder.ram());
 }
