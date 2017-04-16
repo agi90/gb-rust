@@ -54,15 +54,15 @@ impl Emulator {
                                 / 16.0 / 4.0) as i16;
 
         let mut channel_3_phase = self.phase.channel_3;
-        let mut channel_3_pattern = [0; 32];
+        let mut channel_3_pattern = [0.0; 32];
         for i in 0..16 {
-            channel_3_pattern[i * 2]     = (audio.sound_3().wave_pattern()[i] & 0xF0) >> 4;
-            channel_3_pattern[i * 2 + 1] =  audio.sound_3().wave_pattern()[i] & 0x0F;
+            channel_3_pattern[i * 2]     = ((audio.sound_3().wave_pattern()[i] & 0xF0) >> 4) as f32;
+            channel_3_pattern[i * 2 + 1] = (audio.sound_3().wave_pattern()[i] & 0x0F) as f32;
         }
 
         let channel_3_frequency = 65536 / (2048 - audio.sound_3().frequency());
-        let channel_3_volume = (VOLUME_MAX as f64 * audio.sound_3().volume().to_volume() as f64
-                                / 4.0) as i16;
+        let channel_3_volume = VOLUME_MAX as f32
+            * audio.sound_3().volume().to_volume() as f32 / 4.0;
         let channel_3_phase_inc = channel_3_frequency as f64 / self.frequency;
 
         let channel_4_pattern = match audio.sound_4().pattern() {
@@ -90,8 +90,7 @@ impl Emulator {
             };
 
             let channel_3_index = (channel_3_phase * 32.0) as usize;
-            let channel_3 = ((channel_3_pattern[channel_3_index] as f32 - 7.0)
-                            / 8.0 * channel_3_volume as f32) as i16;
+            let channel_3 = ((channel_3_pattern[channel_3_index] - 7.0) / 8.0 * channel_3_volume) as i16;
 
             let channel_4_index = channel_4_phase as usize;
             let channel_4_bit = channel_4_pattern[channel_4_index];
