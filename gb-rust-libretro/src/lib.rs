@@ -134,7 +134,7 @@ impl libretro_backend::Core for EmulatorWrapper {
         self.update_button(handle, JoypadButton::Down, Key::Down);
         self.update_button(handle, JoypadButton::Left, Key::Left);
         self.update_button(handle, JoypadButton::Right, Key::Right);
-		self.cpu.interrupt(Interrupt::Joypad);
+        self.cpu.interrupt(Interrupt::Joypad);
 
         loop {
             self.cpu.next_instruction();
