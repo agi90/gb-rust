@@ -225,8 +225,9 @@ impl Mbc13 {
         } else if v >= 0x08 && v <= 0x0C {
             self.ram_rtc = RamRtc::RtcRegister(v);
         } else {
-            // TODO: not sure what happens here ???
-            unimplemented!();
+            // TODO: Looking at the town map in Pokemon Red/Blue triggers this,
+            // not sure what is supposed to happen but doing nothing seems good
+            // enough for now.
         }
     }
 
