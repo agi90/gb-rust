@@ -27,9 +27,10 @@ mod tests;
 
 fn open_save_file(rom_name: &str) -> Result<File, String> {
     let mut v: Vec<&str> = rom_name.split('.').collect();
-    // If the file does not end with .gb we might be reading garbage,
+    // If the file does not end with .gb or .gbc we might be reading garbage,
     // let's bail.
-    if v.pop() != Some("gb") {
+    let ext = v.pop().unwrap();
+    if ext != "gb" && ext != "gbc" {
         return Err(format!("Invalid ROM name: '{}' filename must end with '.gb'.", rom_name));
     }
 
