@@ -18,34 +18,15 @@ pub const SCREEN_Y: usize = 144;
 const BACKGROUND_X: usize = 256;
 const BACKGROUND_Y: usize = 256;
 
-const PATTERNS_SIZE: usize = 256;
-
 pub type ScreenBuffer = [[GrayShade; SCREEN_X]; SCREEN_Y];
-pub type BackgroundBuffer = [[GrayShade; BACKGROUND_X]; BACKGROUND_Y];
-
-type Pattern = [[GrayShade; 8]; 8];
-type Pattern16 = [[GrayShade; 8]; 16];
-
-type Patterns = [Pattern; PATTERNS_SIZE];
 
 pub struct Ppu {
     cycles: usize,
     total_cycles: usize,
-
     video_ram: [u8; 8196],
     oam_ram: [u8; 160],
-
     screen_buffer: ScreenBuffer,
-    background_buffer: BackgroundBuffer,
-    window_buffer: BackgroundBuffer,
-
-    bg_patterns: Patterns,
-    sprite_patterns: Patterns,
-
-    sprites: Vec<Sprite>,
-
     should_refresh: bool,
-
     mapper: VideoMemoryMapper,
 }
 
@@ -87,137 +68,12 @@ impl Handler for Ppu {
     }
 }
 
-fn flip_tile(tile: Pattern, y_flip: bool, x_flip: bool) -> Pattern {
-    let mut new_tile = tile;
-    if y_flip {
-        for i in 0..8 {
-            new_tile[i] = tile[7 - i];
-        }
-    }
-
-    let mut new_tile2 = new_tile;
-    if x_flip {
-        for i in 0..8 {
-            for j in 0..8 {
-                new_tile2[i][j] = new_tile[i][7 - j];
-            }
-        }
-    }
-
-    new_tile2
-}
-
-enum Sprite {
-    C8by8(Sprite8),
-    C8by16(Sprite16),
-}
-
-impl Sprite {
-    pub fn is_visible(&self, scanline: usize) -> bool {
-        match self {
-            &Sprite::C8by8(ref sp) => {
-                scanline + 16 >= sp.y && scanline + 8 < sp.y
-            },
-            &Sprite::C8by16(ref sp) => {
-                scanline + 16 >= sp.y && scanline < sp.y
-            }
-        }
-    }
-
-    pub fn is_horizontally_visible(&self, x: usize) -> bool {
-        x + 8 >= self.x() && x < self.x()
-    }
-
-    pub fn below_bg(&self) -> bool {
-        match self {
-            &Sprite::C8by8(ref sp) => {
-                sp.below_bg
-            },
-            &Sprite::C8by16(ref sp) => {
-                sp.below_bg
-            }
-        }
-    }
-
-    pub fn get(&self, x: usize, y: usize) -> GrayShade {
-        match self {
-            &Sprite::C8by8(ref sp) => {
-                sp.tile[y][x]
-            },
-            &Sprite::C8by16(ref sp) => {
-                sp.tile[y][x]
-            }
-        }
-    }
-
-    pub fn y(&self) -> usize {
-        match self {
-            &Sprite::C8by8(ref sp) => {
-                sp.y
-            },
-            &Sprite::C8by16(ref sp) => {
-                sp.y
-            }
-        }
-    }
-
-    pub fn x(&self) -> usize {
-        match self {
-            &Sprite::C8by8(ref sp) => {
-                sp.x
-            },
-            &Sprite::C8by16(ref sp) => {
-                sp.x
-            }
-        }
-    }
-}
-
-struct Sprite8 {
+#[derive(Debug, Clone, Copy)]
+struct SpriteFlags {
     below_bg: bool,
-    tile: Pattern,
-    x: usize,
-    y: usize,
-}
-
-impl Sprite8 {
-    pub fn new(x: u8, y: u8, tile: Pattern, below_bg: bool) -> Sprite8 {
-        Sprite8 {
-            below_bg: below_bg,
-            tile: tile,
-            x: x as usize,
-            y: y as usize,
-        }
-    }
-}
-
-struct Sprite16 {
-    below_bg: bool,
-    tile: Pattern16,
-    x: usize,
-    y: usize,
-}
-
-impl Sprite16 {
-    pub fn new(x: u8, y: u8, upper_tile: Pattern, lower_tile: Pattern, below_bg: bool) -> Sprite16 {
-        let mut tile = [[GrayShade::C00; 8]; 16];
-        for x in 0..8 {
-            for y in 0..16 {
-                if y < 8 {
-                    tile[y][x] = upper_tile[y][x];
-                } else {
-                    tile[y][x] = lower_tile[y - 8][x];
-                }
-            }
-        }
-
-        Sprite16 {
-            below_bg: below_bg,
-            tile: tile,
-            x: x as usize,
-            y: y as usize,
-        }
-    }
+    y_flip: bool,
+    x_flip: bool,
+    palette: SpritePalette,
 }
 
 impl Ppu {
@@ -225,119 +81,180 @@ impl Ppu {
         Ppu {
             cycles: 0,
             total_cycles: 0,
-
             video_ram: [0; 8196],
             oam_ram: [0; 160],
-
             screen_buffer: [[GrayShade::C00; SCREEN_X]; SCREEN_Y],
-            background_buffer: [[GrayShade::C00; BACKGROUND_X]; BACKGROUND_Y],
-            window_buffer: [[GrayShade::C00; BACKGROUND_X]; BACKGROUND_Y],
-
-            bg_patterns: [[[GrayShade::C00; 8]; 8]; PATTERNS_SIZE],
-            sprite_patterns: [[[GrayShade::C00; 8]; 8]; PATTERNS_SIZE],
-
-            sprites: vec![],
-
             should_refresh: false,
-
             mapper: VideoMemoryMapper::new(),
         }
     }
 
-    fn read_pattern(&self, offset: u16) -> Pattern {
-        let mut pattern = [[GrayShade::C00; 8]; 8];
+    fn background_value_at(&self, tile_map: TileMap, x: usize, y: usize) -> GrayShade {
+        let offset = if tile_map == TileMap::C9800 {
+            0x1800
+        } else {
+            0x1C00
+        };
 
-        for j in 0..8 {
-            let l = self.video_ram[offset as usize + (j * 2)];
-            let h = self.video_ram[offset as usize + (j * 2) + 1];
+        let raw_tile = self.video_ram[offset + (y / 8 as usize) * 32 + x / 8] as usize;
 
-            pattern[j][7] = GrayShade::from( (0b00000001 & l)       + ((0b00000001 & h) << 1));
-            pattern[j][6] = GrayShade::from(((0b00000010 & l) >> 1) + ((0b00000010 & h)     ));
-            pattern[j][5] = GrayShade::from(((0b00000100 & l) >> 2) + ((0b00000100 & h) >> 1));
-            pattern[j][4] = GrayShade::from(((0b00001000 & l) >> 3) + ((0b00001000 & h) >> 2));
-            pattern[j][3] = GrayShade::from(((0b00010000 & l) >> 4) + ((0b00010000 & h) >> 3));
-            pattern[j][2] = GrayShade::from(((0b00100000 & l) >> 5) + ((0b00100000 & h) >> 4));
-            pattern[j][1] = GrayShade::from(((0b01000000 & l) >> 6) + ((0b01000000 & h) >> 5));
-            pattern[j][0] = GrayShade::from(((0b10000000 & l) >> 7) + ((0b10000000 & h) >> 6));
-        }
+        let tile;
 
-        pattern
-    }
+        let pattern_offset = if self.mapper.bg_tile_data() == BgTileData::C8000 {
+            tile = raw_tile;
 
-    fn read_patterns(&self, offset: u16, inverse: bool) -> Patterns {
-        let mut patterns = [[[GrayShade::C00; 8]; 8]; PATTERNS_SIZE];
-
-        for i in 0..PATTERNS_SIZE {
-            let index = if !inverse { i } else {
-                if i < 0x80 {
-                    i + 0x80
-                } else {
-                    i - 0x80
-                }
+            0x0000
+        } else {
+            tile = if raw_tile < 0x80 {
+                raw_tile + 0x80
+            } else {
+                raw_tile - 0x80
             };
 
-            patterns[index] = self.read_pattern(offset + (i as u16) * 16);
-        }
+            0x0800
+        };
 
-        patterns
-    }
+        let color = self.pattern_value(pattern_offset + tile * 16, x % 8, y % 8);
 
-    fn get_bg_color(&self, data: GrayShade) -> GrayShade {
-        match data {
-            GrayShade::C00 => self.mapper.bg_color_00(),
-            GrayShade::C01 => self.mapper.bg_color_01(),
-            GrayShade::C10 => self.mapper.bg_color_10(),
-            GrayShade::C11 => self.mapper.bg_color_11(),
-            // The background can never be transparent
-            GrayShade::Transparent => panic!(),
+        match color {
+            0b00 => self.mapper.bg_color_00(),
+            0b01 => self.mapper.bg_color_01(),
+            0b10 => self.mapper.bg_color_10(),
+            0b11 => self.mapper.bg_color_11(),
+            _ => panic!(),
         }
     }
 
-    fn read_background(&self, offset: u16, patterns: &Patterns) -> BackgroundBuffer {
-        let mut background = [[GrayShade::C00; BACKGROUND_X]; BACKGROUND_Y];
+    fn sprite_value_at(&self, id: usize, x: usize, y: usize) -> GrayShade {
+        let flags = self.sprite_flags(id);
 
-        for i in 0..32 {
-            for j in 0..32 {
-                let v = self.video_ram[offset as usize + i * 32 + j];
+        let x = if flags.x_flip { 7 - x } else { x };
 
-                for k in 0..8 {
-                    for h in 0..8 {
-                        background[i * 8 + k][j * 8 + h] = self.get_bg_color(patterns[v as usize][k][h]);
-                    }
+        let y = if !flags.y_flip { y } else {
+            match self.mapper.sprite_size() {
+                SpriteSize::C8by8  =>  7 - y,
+                SpriteSize::C8by16 => 15 - y,
+            }
+        };
+
+        let tile_index = match self.mapper.sprite_size() {
+            SpriteSize::C8by8  => self.sprite_tile_index(id),
+            SpriteSize::C8by16 => self.sprite_tile_index(id) & 0xFE,
+        };
+
+        let color = self.pattern_value(tile_index * 16, x, y);
+
+        match &flags.palette {
+            &SpritePalette::C0 => {
+                match color {
+                    0b00 => GrayShade::Transparent,
+                    0b01 => self.mapper.obp0_palette_01(),
+                    0b10 => self.mapper.obp0_palette_10(),
+                    0b11 => self.mapper.obp0_palette_11(),
+                    _ => unreachable!(),
+                }
+            },
+            &SpritePalette::C1 => {
+                match color {
+                    0b00 => GrayShade::Transparent,
+                    0b01 => self.mapper.obp1_palette_01(),
+                    0b10 => self.mapper.obp1_palette_10(),
+                    0b11 => self.mapper.obp1_palette_11(),
+                    _ => unreachable!(),
                 }
             }
         }
+    }
 
-        background
+    #[inline]
+    fn pattern_value(&self, offset: usize, x: usize, y: usize) -> u8 {
+        let l = self.video_ram[offset + (y * 2)];
+        let h = self.video_ram[offset + (y * 2) + 1];
+
+        match x {
+            7 =>  (0b00000001 & l)       + ((0b00000001 & h) << 1),
+            6 => ((0b00000010 & l) >> 1) + ((0b00000010 & h)     ),
+            5 => ((0b00000100 & l) >> 2) + ((0b00000100 & h) >> 1),
+            4 => ((0b00001000 & l) >> 3) + ((0b00001000 & h) >> 2),
+            3 => ((0b00010000 & l) >> 4) + ((0b00010000 & h) >> 3),
+            2 => ((0b00100000 & l) >> 5) + ((0b00100000 & h) >> 4),
+            1 => ((0b01000000 & l) >> 6) + ((0b01000000 & h) >> 5),
+            0 => ((0b10000000 & l) >> 7) + ((0b10000000 & h) >> 6),
+            _ => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn sprite_y(&self, id: usize) -> usize {
+        self.oam_ram[id * 4] as usize
+    }
+
+    #[inline]
+    fn sprite_x(&self, id: usize) -> usize {
+        self.oam_ram[id * 4 + 1] as usize
+    }
+
+    #[inline]
+    fn sprite_tile_index(&self, id: usize) -> usize {
+        self.oam_ram[id * 4 + 2] as usize
+    }
+
+    #[inline]
+    fn sprite_flags(&self, id: usize) -> SpriteFlags {
+        let v = self.oam_ram[id * 4 + 3];
+
+        SpriteFlags {
+            below_bg:    v & (0b10000000) > 0,
+            y_flip:      v & (0b01000000) > 0,
+            x_flip:      v & (0b00100000) > 0,
+            palette:  if v & (0b00010000) > 0 { SpritePalette::C1 } else { SpritePalette::C0 },
+        }
+    }
+
+    fn is_sprite_visible(&self, id: usize, scanline: usize) -> bool {
+        let y = self.sprite_y(id);
+        match self.mapper.sprite_size() {
+            SpriteSize::C8by8 =>  scanline + 16 >= y && scanline + 8 < y,
+            SpriteSize::C8by16 => scanline + 16 >= y && scanline < y,
+        }
+    }
+
+    fn is_sprite_horizontally_visible(&self, id: usize, h: usize) -> bool {
+        let x = self.sprite_x(id);
+        h + 8 >= x && h < x
     }
 
     fn print_sprites(&mut self, scanline: usize) {
-        let mut i = 0;
-
         let mut visible_sprites = vec![];
-        while i < 40 && i < self.sprites.len() && visible_sprites.len() < 10 {
-            let ref sprite = self.sprites[i];
-            i += 1;
+        for i in 0..40 {
+            if visible_sprites.len() >= 10 {
+                break;
+            }
 
-            if !sprite.is_visible(scanline) {
+            if !self.is_sprite_visible(i, scanline) {
                 continue;
             }
 
-            visible_sprites.push(sprite);
+            visible_sprites.push(i);
         }
 
-        visible_sprites.sort_by_key(|sp| sp.x());
+        visible_sprites.sort_by_key(|id| self.sprite_x(*id));
 
         for x in 0..SCREEN_X {
-            for sprite in &visible_sprites {
-                if !sprite.is_horizontally_visible(x) {
+            for id in visible_sprites.clone() {
+                if !self.is_sprite_horizontally_visible(id, x) {
                     continue;
                 }
 
-                let color = sprite.get(x + 8 - sprite.x(), scanline + 16 - sprite.y());
+                let flags = self.sprite_flags(id);
+
+                let color = self.sprite_value_at(
+                        id,
+                        x + 8 - self.sprite_x(id),
+                        scanline + 16 - self.sprite_y(id));
 
                 if color != GrayShade::Transparent {
-                    if !sprite.below_bg()
+                    if !flags.below_bg
                         || (self.screen_buffer[scanline][x] == GrayShade::C00) {
                             if x < SCREEN_X && scanline < SCREEN_Y {
                                 self.screen_buffer[scanline][x] = color;
@@ -349,79 +266,6 @@ impl Ppu {
         }
     }
 
-    fn translate_tile(&self, tile: Pattern, palette: SpritePalette) -> Pattern {
-        let mut translated = [[GrayShade::C00; 8]; 8];
-
-        for i in 0..8 {
-            for j in 0..8 {
-                let color = tile[i][j];
-                translated[i][j] = match &palette {
-                    &SpritePalette::C0 => {
-                        match color {
-                            GrayShade::C00 => GrayShade::Transparent,
-                            GrayShade::C01 => self.mapper.obp0_palette_01(),
-                            GrayShade::C10 => self.mapper.obp0_palette_10(),
-                            GrayShade::C11 => self.mapper.obp0_palette_11(),
-                            GrayShade::Transparent => panic!(),
-                        }
-                    },
-                    &SpritePalette::C1 => {
-                        match color {
-                            GrayShade::C00 => GrayShade::Transparent,
-                            GrayShade::C01 => self.mapper.obp1_palette_01(),
-                            GrayShade::C10 => self.mapper.obp1_palette_10(),
-                            GrayShade::C11 => self.mapper.obp1_palette_11(),
-                            GrayShade::Transparent => panic!(),
-                        }
-                    },
-                };
-            }
-        }
-
-        translated
-    }
-
-    fn read_sprites(&mut self) {
-        let mut sprites = vec![];
-
-        // OAM ram contains information for 40 sprites. For each sprite:
-        for i in 0..40 {
-            // - byte 1 is the Y position
-            let y = self.oam_ram[i * 4];
-
-            // - byte 2 is the X position
-            let x = self.oam_ram[i * 4 + 1];
-
-            // - byte 3 contains the tile number (or the tile numbers for 16x8 sprites)
-            let tile_index = self.oam_ram[i * 4 + 2];
-
-            // - byte 4 contains some flags about the sprite
-            let flags = self.oam_ram[i * 4 + 3];
-
-            let below_bg =     flags & (0b10000000) > 0;
-            let y_flip   =     flags & (0b01000000) > 0;
-            let x_flip   =     flags & (0b00100000) > 0;
-            let palette  =  if flags & (0b00010000) > 0 { SpritePalette::C1 } else { SpritePalette::C0 };
-
-            match self.mapper.sprite_size() {
-                SpriteSize::C8by8 => {
-                    let tile = self.sprite_patterns[tile_index as usize];
-                    let translated_tile = flip_tile(self.translate_tile(tile, palette), y_flip, x_flip);
-                    sprites.push(Sprite::C8by8(Sprite8::new(x, y, translated_tile, below_bg)));
-                },
-                SpriteSize::C8by16 => {
-                    let tile1 = self.sprite_patterns[(tile_index & 0xFE) as usize];
-                    let tile2 = self.sprite_patterns[(tile_index | 0x01) as usize];
-                    let translated_tile1 = flip_tile(self.translate_tile(tile1, palette), y_flip, x_flip);
-                    let translated_tile2 = flip_tile(self.translate_tile(tile2, palette), y_flip, x_flip);
-                    sprites.push(Sprite::C8by16(Sprite16::new(x, y, translated_tile1, translated_tile2, below_bg)));
-                }
-            }
-        }
-
-        self.sprites = sprites;
-    }
-
     pub fn get_screen(&self) -> &ScreenBuffer {
         &self.screen_buffer
     }
@@ -430,33 +274,6 @@ impl Ppu {
         let result = self.should_refresh;
         self.should_refresh = false;
         result
-    }
-
-    fn refresh(&mut self) {
-        self.sprite_patterns = self.read_patterns(0x0000, false);
-        self.bg_patterns = self.read_patterns(0x0800, true);
-
-        {
-            let patterns = if self.mapper.bg_tile_data() == BgTileData::C8000 {
-                &self.sprite_patterns
-            } else {
-                &self.bg_patterns
-            };
-
-            self.background_buffer = if self.mapper.bg_tile_map() == TileMap::C9800 {
-                self.read_background(0x1800, patterns)
-            } else {
-                self.read_background(0x1C00, patterns)
-            };
-
-            self.window_buffer = if self.mapper.window_tile_map() == TileMap::C9800 {
-                self.read_background(0x1800, patterns)
-            } else {
-                self.read_background(0x1C00, patterns)
-            };
-        }
-
-        self.read_sprites();
     }
 
     fn write_scanline(&mut self, i: usize) {
@@ -471,7 +288,7 @@ impl Ppu {
                 let x = (j + (self.mapper.scroll_bg_x as usize)) % BACKGROUND_X;
                 let y = (i + (self.mapper.scroll_bg_y as usize)) % BACKGROUND_Y;
 
-                let pixel = self.background_buffer[y][x];
+                let pixel = self.background_value_at(self.mapper.bg_tile_map(), x, y);
                 if pixel != GrayShade::C00 {
                     self.write_pixel(j as usize, i as usize, pixel);
                 }
@@ -489,7 +306,7 @@ impl Ppu {
                     let x = j - ((self.mapper.window_x as usize) - 7);
                     let y = i - (self.mapper.window_y as usize);
 
-                    let pixel = self.window_buffer[y][x];
+                    let pixel = self.background_value_at(self.mapper.window_tile_map(), x, y);
                     self.write_pixel(j as usize, i as usize, pixel);
                 }
             }
@@ -582,10 +399,8 @@ impl Ppu {
                 LCDMode::VBlank => {
                     if self.mapper.lcd_y_coordinate == 153 {
                         self.switch_to(LCDMode::SearchingOAM, &mut interrupts);
-                        self.refresh();
                         self.should_refresh = true;
                     }
-
                     self.mapper.lcd_y_coordinate += 1;
                 }
             }
