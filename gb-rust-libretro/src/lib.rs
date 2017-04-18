@@ -22,7 +22,6 @@ use libretro_backend::{
     Region,
     JoypadButton,
     CoreInfo,
-    MemoryType
 };
 
 const FREQUENCY: f64 = 44100.0; // Hz
@@ -119,17 +118,17 @@ impl libretro_backend::Core for EmulatorWrapper {
             .supports_roms_with_extension("gbc")
     }
 
-    fn memory_data(&mut self, memory_type: MemoryType) -> Option<&mut [u8]> {
-        match memory_type {
-            MemoryType::SaveRam => Some(self.cpu.handler_holder.ram()),
-            MemoryType::Rtc => self.cpu.handler_holder.rtc().map(
-                |v| unsafe {
-                    std::slice::from_raw_parts_mut(
-                        v as *mut _ as *mut u8,
-                        std::mem::size_of::<i64>())
-                }),
-            _ => None,
-        }
+    fn save_memory(&mut self) -> Option<&mut [u8]> {
+        Some(self.cpu.handler_holder.ram())
+    }
+
+    fn rtc_memory(&mut self) -> Option<&mut [u8]> {
+        self.cpu.handler_holder.rtc().map(
+            |v| unsafe {
+                std::slice::from_raw_parts_mut(
+                    v as *mut _ as *mut u8,
+                    std::mem::size_of::<i64>())
+            })
     }
 
     fn on_reset(&mut self) {

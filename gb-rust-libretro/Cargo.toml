@@ -7,7 +7,7 @@ authors = ["Agi Sferro <agi.novanta@gmail.com>"]
 crate-type = ["cdylib"]
 
 [dependencies]
-libretro-backend = { git = "https://github.com/agi90/libretro-backend" }
+libretro-backend = "0.2.0"
 
 [dependencies.gb]
 path = "../gb-rust-core"
