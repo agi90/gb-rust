@@ -4,8 +4,10 @@ use hardware::apu::AudioBuffer;
 use hardware::timer_controller::TimerController;
 use hardware::ppu::ScreenBuffer;
 
-use std::collections::HashSet;
 use std::cell::RefCell;
+
+#[cfg(feature = "debugger")]
+use std::collections::HashSet;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CpuState {
@@ -50,6 +52,11 @@ pub struct Cpu {
 
     pub handler_holder: Box<HandlerHolder>,
 
+    // The watch_addresses feature is very expensive
+    // so we only enabled it for platform where we might
+    // run a debugger (e.g. desktop) but not on mobile
+    // devices.
+    #[cfg(feature = "debugger")]
     watch_addresses: HashSet<u16>,
     address_breakpoint: RefCell<bool>,
 }
@@ -130,6 +137,7 @@ impl Cpu {
 
             debug: false,
 
+            #[cfg(feature = "debugger")]
             watch_addresses: HashSet::new(),
             address_breakpoint: RefCell::new(false),
         };
@@ -168,8 +176,11 @@ impl Cpu {
     }
 
     pub fn deref_debug(&self, address: u16) -> u8 {
-        if self.watch_addresses.contains(&address) {
-            *self.address_breakpoint.borrow_mut() = true;
+        #[cfg(feature = "debugger")]
+        {
+            if self.watch_addresses.contains(&address) {
+                *self.address_breakpoint.borrow_mut() = true;
+            }
         }
 
         match address {
@@ -180,8 +191,11 @@ impl Cpu {
     }
 
     pub fn deref(&mut self, address: u16) -> u8 {
-        if self.watch_addresses.contains(&address) {
-            *self.address_breakpoint.borrow_mut() = true;
+        #[cfg(feature = "debugger")]
+        {
+            if self.watch_addresses.contains(&address) {
+                *self.address_breakpoint.borrow_mut() = true;
+            }
         }
 
         self.add_cycles(4);
@@ -193,8 +207,11 @@ impl Cpu {
     }
 
     pub fn set_deref_debug(&mut self, address: u16, v: u8) {
-        if self.watch_addresses.contains(&address) {
-            *self.address_breakpoint.borrow_mut() = true;
+        #[cfg(feature = "debugger")]
+        {
+            if self.watch_addresses.contains(&address) {
+                *self.address_breakpoint.borrow_mut() = true;
+            }
         }
 
         match address {
@@ -206,8 +223,11 @@ impl Cpu {
     }
 
     pub fn set_deref(&mut self, address: u16, v: u8) {
-        if self.watch_addresses.contains(&address) {
-            *self.address_breakpoint.borrow_mut() = true;
+        #[cfg(feature = "debugger")]
+        {
+            if self.watch_addresses.contains(&address) {
+                *self.address_breakpoint.borrow_mut() = true;
+            }
         }
 
         self.add_cycles(4);
@@ -226,10 +246,12 @@ impl Cpu {
         }
     }
 
+    #[cfg(feature = "debugger")]
     pub fn watch(&mut self, address: u16) {
         self.watch_addresses.insert(address);
     }
 
+    #[cfg(feature = "debugger")]
     pub fn clear_watch(&mut self) {
         self.watch_addresses.clear();
     }
