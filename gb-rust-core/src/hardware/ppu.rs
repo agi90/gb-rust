@@ -243,9 +243,14 @@ impl Ppu {
     }
 
     fn print_sprites(&mut self, scanline: usize) {
-        let mut visible_sprites = vec![];
+        // Normally visible_sprites would be an array
+        // but this code path is very hot so we need to
+        // be cautios about performance.
+        let mut visible_sprites = [0; 10];
+        let mut visible_sprites_len = 0;
+
         for i in 0..40 {
-            if visible_sprites.len() >= 10 {
+            if visible_sprites_len >= 10 {
                 break;
             }
 
@@ -253,13 +258,16 @@ impl Ppu {
                 continue;
             }
 
-            visible_sprites.push(i);
+            visible_sprites[visible_sprites_len] = i;
+            visible_sprites_len += 1;
         }
 
-        visible_sprites.sort_by_key(|id| self.sprite_x(*id));
+        &visible_sprites[0..visible_sprites_len]
+            .sort_by_key(|&id| self.sprite_x(id));
 
         for x in 0..SCREEN_X {
-            for &id in &visible_sprites {
+            for i in 0..visible_sprites_len {
+                let id = visible_sprites[i];
                 if !self.is_sprite_horizontally_visible(id, x) {
                     continue;
                 }
