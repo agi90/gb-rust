@@ -28,6 +28,7 @@ pub struct Ppu {
     screen_buffer: ScreenBuffer,
     should_refresh: bool,
     mapper: VideoMemoryMapper,
+    mode: LCDMode,
 }
 
 u8_enum!{
@@ -65,6 +66,8 @@ impl Handler for Ppu {
             0xFE00 ... 0xFE9F => self.oam_ram[address as usize - 0xFE00] = v,
             _ => self.mapper.write(address, v),
         }
+
+        self.write_callback(address);
     }
 }
 
@@ -86,6 +89,21 @@ impl Ppu {
             screen_buffer: [[GrayShade::C00; SCREEN_X]; SCREEN_Y],
             should_refresh: false,
             mapper: VideoMemoryMapper::new(),
+            mode: LCDMode::HBlank,
+        }
+    }
+
+    fn set_mode(&mut self, mode: LCDMode) {
+        self.mode = mode;
+        self.mapper.set_mode(mode);
+    }
+
+    fn write_callback(&mut self, address: u16) {
+        match address {
+            0xFF41 => {
+                self.mode = self.mapper.mode();
+            },
+            _ => {},
         }
     }
 
@@ -325,7 +343,7 @@ impl Ppu {
     }
 
     pub fn read_ram(&self, address: u16) -> u8 {
-        if self.mapper.mode() == LCDMode::LCDTransfer {
+        if self.mode == LCDMode::LCDTransfer {
             0xFF
         } else {
             self.video_ram[(address - 0x8000) as usize]
@@ -333,7 +351,7 @@ impl Ppu {
     }
 
     pub fn write_ram(&mut self, address: u16, v: u8) {
-        if self.mapper.mode() == LCDMode::LCDTransfer {
+        if self.mode == LCDMode::LCDTransfer {
             // In theory the gb should not be allowed to write to RAM
             // when in this state TODO: double check. In practice I suspect
             // there are some timing bugs that make this miss some video ram
@@ -346,7 +364,7 @@ impl Ppu {
     pub fn add_cycles(&mut self, cycles: usize) {
         if self.mapper.lcd_on() == 0 {
             self.cycles = 0;
-            self.mapper.set_mode(LCDMode::SearchingOAM);
+            self.set_mode(LCDMode::SearchingOAM);
             self.mapper.lcd_y_coordinate = 0;
 
             return;
@@ -356,7 +374,8 @@ impl Ppu {
         self.total_cycles += cycles;
     }
 
-    fn switch_to(&mut self, mode: LCDMode, interrupts: &mut Vec<Interrupt>) {
+    #[must_use]
+    fn switch_to(&mut self, mode: LCDMode) -> Option<Interrupt> {
         let enabled = match mode {
             LCDMode::SearchingOAM => self.mapper.oam_interrupt() == 1,
             LCDMode::HBlank       => self.mapper.h_blank_interrupt() == 1,
@@ -364,32 +383,35 @@ impl Ppu {
             LCDMode::LCDTransfer  => false,
         };
 
-        self.mapper.set_mode(mode);
+        self.set_mode(mode);
 
         if enabled {
-            interrupts.push(Interrupt::Stat);
+            Some(Interrupt::Stat)
+        } else {
+            None
         }
     }
 
-    pub fn check_interrupts(&mut self) -> Vec<Interrupt> {
-        let mut interrupts = vec![];
+    pub fn check_interrupts(&mut self) -> Option<Interrupt> {
+        let mut interrupt = None;
 
-        if self.cycles > self.mapper.mode().duration() {
-            self.cycles -= self.mapper.mode().duration();
+        if self.cycles > self.mode.duration() {
+            self.cycles -= self.mode.duration();
 
-            match self.mapper.mode() {
+            match self.mode {
                 LCDMode::SearchingOAM => {
-                    self.switch_to(LCDMode::LCDTransfer, &mut interrupts);
+                    interrupt = interrupt.or(self.switch_to(LCDMode::LCDTransfer));
                 },
                 LCDMode::LCDTransfer => {
-                    self.switch_to(LCDMode::HBlank, &mut interrupts);
+                    interrupt = interrupt.or(self.switch_to(LCDMode::HBlank));
                 },
                 LCDMode::HBlank => {
                     if self.mapper.lcd_y_coordinate < SCREEN_Y as u8 - 1 {
-                        self.switch_to(LCDMode::SearchingOAM, &mut interrupts);
+                        interrupt = interrupt.or(self.switch_to(LCDMode::SearchingOAM));
                     } else {
-                        interrupts.push(Interrupt::VBlank);
-                        self.switch_to(LCDMode::VBlank, &mut interrupts);
+                        let _ = self.switch_to(LCDMode::VBlank);
+                        // VBlank takes precedence over Stat
+                        interrupt = Some(Interrupt::VBlank);
                     }
 
                     let scanline = self.mapper.lcd_y_coordinate as usize;
@@ -398,7 +420,7 @@ impl Ppu {
                 },
                 LCDMode::VBlank => {
                     if self.mapper.lcd_y_coordinate == 153 {
-                        self.switch_to(LCDMode::SearchingOAM, &mut interrupts);
+                        interrupt = interrupt.or(self.switch_to(LCDMode::SearchingOAM));
                         self.should_refresh = true;
                     }
                     self.mapper.lcd_y_coordinate += 1;
@@ -410,14 +432,14 @@ impl Ppu {
             if self.mapper.lcd_y_coordinate == self.mapper.lyc_coincidence {
                 self.mapper.set_ly_coincidence(1);
                 if self.mapper.lyc_ly_coincidence_interrupt() == 1 {
-                    interrupts.push(Interrupt::Stat);
+                    interrupt = interrupt.or(Some(Interrupt::Stat));
                 }
             } else {
                 self.mapper.set_ly_coincidence(0);
             }
         }
 
-        interrupts
+        interrupt
     }
 }
 

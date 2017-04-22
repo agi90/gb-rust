@@ -72,7 +72,7 @@ pub trait HandlerHolder {
     fn get_handler_read(&self, address: u16) -> &Handler;
     fn get_handler_write(&mut self, address: u16) -> &mut Handler;
     fn add_cycles(&mut self, cycles: usize);
-    fn check_interrupts(&mut self) -> Vec<Interrupt>;
+    fn check_interrupts(&mut self) -> Option<Interrupt>;
     fn should_refresh(&mut self) -> bool;
     fn ram(&mut self) -> &mut [u8];
     fn rtc(&mut self) -> Option<&mut i64>;
@@ -426,12 +426,12 @@ impl Cpu {
     }
 
     pub fn request_interrupt(&mut self, interrupt: Interrupt) {
-        self.interrupt_handler.add_interrupts(vec![interrupt]);
+        self.interrupt_handler.add_interrupt(interrupt);
     }
 
     pub fn next_instruction(&mut self) {
-        self.interrupt_handler.add_interrupts(
-            self.handler_holder.check_interrupts());
+        self.handler_holder.check_interrupts()
+            .map(|i| self.interrupt_handler.add_interrupt(i));
 
         if self.interrupt_handler.has_interrupts() {
             self.state = CpuState::Running;
@@ -499,14 +499,12 @@ impl InterruptHandler {
         }
     }
 
-    pub fn add_interrupts(&mut self, interrupts: Vec<Interrupt>) {
-        for int in interrupts {
-            match int {
-                Interrupt::VBlank => self.register.v_blank = true,
-                Interrupt::Timer => self.register.timer = true,
-                Interrupt::Joypad => self.register.joypad = true,
-                Interrupt::Stat => self.register.stat = true,
-            }
+    pub fn add_interrupt(&mut self, interrupt: Interrupt) {
+        match interrupt {
+            Interrupt::VBlank => self.register.v_blank = true,
+            Interrupt::Timer => self.register.timer = true,
+            Interrupt::Joypad => self.register.joypad = true,
+            Interrupt::Stat => self.register.stat = true,
         }
     }
 
@@ -535,8 +533,8 @@ impl InterruptHandler {
     }
 
     pub fn add_cycles(&mut self, cycles: usize) {
-        let interrupts = self.timer_controller.add_cycles(cycles);
-        self.add_interrupts(interrupts);
+        self.timer_controller.add_cycles(cycles)
+            .map(|i| self.add_interrupt(i));
     }
 
     /// Checks weather an interrupt is queued up (even if it could be disabled)

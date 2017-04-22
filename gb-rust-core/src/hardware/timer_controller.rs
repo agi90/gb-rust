@@ -31,12 +31,11 @@ impl TimerController {
         }
     }
 
-    pub fn add_cycles(&mut self, cycles: usize) -> Vec<Interrupt> {
-        // println!("add_cycles cycles={} last_clock={}", cycles, self.last_clock);
+    pub fn add_cycles(&mut self, cycles: usize) -> Option<Interrupt> {
         self.last_clock += cycles;
         self.last_divider += cycles;
 
-        let mut interrupts = vec![];
+        let mut interrupt = None;
         while self.last_clock >= 16 {
             self.last_clock -= 16;
 
@@ -46,15 +45,15 @@ impl TimerController {
             let divider = self.inc_divider();
 
             if clock || divider {
-                interrupts.push(Interrupt::Timer);
+                interrupt = Some(Interrupt::Timer);
             }
         }
 
         if self.mapper.timer_enabled() == 0 {
-            return vec![];
+            return None;
         }
 
-        interrupts
+        interrupt
     }
 
     fn inc_clock(&mut self) -> bool {
