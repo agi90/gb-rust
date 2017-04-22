@@ -3,6 +3,18 @@ extern crate gb;
 #[macro_use]
 extern crate libretro_backend;
 
+#[cfg(feature = "profiler")]
+extern crate cpuprofiler;
+
+#[cfg(feature = "profiler")]
+extern crate uuid;
+
+#[cfg(feature = "profiler")]
+use cpuprofiler::PROFILER;
+
+#[cfg(feature = "profiler")]
+use self::uuid::Uuid;
+
 use std::ops::{Deref, DerefMut};
 
 use gb::{
@@ -136,6 +148,10 @@ impl libretro_backend::Core for EmulatorWrapper {
     }
 
     fn on_load_game(&mut self, game_data: GameData) -> LoadGameResult {
+        #[cfg(feature = "profiler")]
+        PROFILER.lock().unwrap().start(
+            format!("./gb-rust-{}.profile", Uuid::new_v4())).unwrap();
+
         if game_data.data().is_none() {
             return LoadGameResult::Failed(game_data);
         }
@@ -154,6 +170,9 @@ impl libretro_backend::Core for EmulatorWrapper {
     }
 
     fn on_unload_game(&mut self) -> GameData {
+        #[cfg(feature = "profiler")]
+        PROFILER.lock().unwrap().stop().unwrap();
+
         self.emulator = None;
         self.game_data.take().unwrap()
     }

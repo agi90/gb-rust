@@ -8,6 +8,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 libretro-backend = "0.2.0"
+cpuprofiler = { version = "0.0.3", optional = true }
+uuid = { version = "0.4", features = ["v4"], optional = true }
 
 [dependencies.gb]
 path = "../gb-rust-core"
@@ -19,3 +21,6 @@ rpath = false
 lto = true
 debug-assertions = false
 codegen-units = 1
+
+[features]
+profiler = ["cpuprofiler", "uuid"]
