@@ -241,7 +241,7 @@ impl Ppu {
         visible_sprites.sort_by_key(|id| self.sprite_x(*id));
 
         for x in 0..SCREEN_X {
-            for id in visible_sprites.clone() {
+            for &id in &visible_sprites {
                 if !self.is_sprite_horizontally_visible(id, x) {
                     continue;
                 }
