@@ -34,6 +34,7 @@ use libretro_backend::{
     Region,
     JoypadButton,
     CoreInfo,
+    Variables,
 };
 
 const FREQUENCY: f64 = 44100.0; // Hz
@@ -42,6 +43,8 @@ struct EmulatorWrapper {
     emulator: Option<Emulator>,
     game_data: Option<GameData>,
     frame: [u8; gb::SCREEN_X * gb::SCREEN_Y * 4],
+    palette: Palette,
+    init_variables: bool,
 }
 
 impl Default for EmulatorWrapper {
@@ -56,6 +59,8 @@ impl EmulatorWrapper {
             emulator: None,
             game_data: None,
             frame: [0xFF; gb::SCREEN_X * gb::SCREEN_Y * 4],
+            palette: GB_POCKET_PALETTE,
+            init_variables: false,
         }
     }
 
@@ -72,6 +77,18 @@ impl EmulatorWrapper {
             self.cpu.key_up(gb_button);
         }
     }
+
+    pub fn update_variables(&mut self, handle: &mut RuntimeHandle) {
+        if let Some(palette) = handle.get_variable("palette") {
+            self.palette = match palette.as_str() {
+                "dmg" => DMG_PALETTE,
+                "gb_pocket" => GB_POCKET_PALETTE,
+                _ => GB_POCKET_PALETTE,
+            };
+        }
+
+        self.init_variables = true;
+    }
 }
 
 impl Deref for EmulatorWrapper {
@@ -87,7 +104,6 @@ impl DerefMut for EmulatorWrapper {
         self.emulator.as_mut().unwrap()
     }
 }
-
 
 struct Color {
     a: u8,
@@ -106,28 +122,52 @@ impl Color {
     }
 }
 
-impl From<GrayShade> for Color {
-    fn from(c: GrayShade) -> Self {
+struct Palette {
+    c01: Color,
+    c10: Color,
+    c11: Color,
+    c00: Color,
+}
+
+impl Palette {
+    #[inline]
+    fn color(&self, c: GrayShade) -> &Color {
         match c {
-            GrayShade::C00 => PALETTE_00,
-            GrayShade::C01 => PALETTE_01,
-            GrayShade::C10 => PALETTE_10,
-            GrayShade::C11 => PALETTE_11,
+            GrayShade::C00 => &self.c00,
+            GrayShade::C01 => &self.c01,
+            GrayShade::C10 => &self.c10,
+            GrayShade::C11 => &self.c11,
             GrayShade::Transparent => unreachable!(),
         }
     }
 }
 
-const PALETTE_11: Color = Color { a: 0xFF, r: 0x0F, g: 0x38, b: 0x0F };
-const PALETTE_10: Color = Color { a: 0xFF, r: 0x30, g: 0x62, b: 0x30 };
-const PALETTE_01: Color = Color { a: 0xFF, r: 0x8C, g: 0xAD, b: 0x0F };
-const PALETTE_00: Color = Color { a: 0xFF, r: 0x9C, g: 0xBD, b: 0x0F };
+const GB_POCKET_PALETTE: Palette = Palette {
+    c11: Color { a: 0xFF, r: 0x6C, g: 0x6C, b: 0x4E },
+    c10: Color { a: 0xFF, r: 0x8E, g: 0x8B, b: 0x61 },
+    c01: Color { a: 0xFF, r: 0xC3, g: 0xC4, b: 0xA5 },
+    c00: Color { a: 0xFF, r: 0xE3, g: 0xE6, b: 0xC9 },
+};
+
+const DMG_PALETTE: Palette = Palette {
+    c11: Color { a: 0xFF, r: 0x2A, g: 0x45, b: 0x3B },
+    c10: Color { a: 0xFF, r: 0x36, g: 0x5D, b: 0x48 },
+    c01: Color { a: 0xFF, r: 0x57, g: 0x7C, b: 0x45 },
+    c00: Color { a: 0xFF, r: 0x7F, g: 0x86, b: 0x0F },
+};
 
 impl libretro_backend::Core for EmulatorWrapper {
     fn info() -> CoreInfo {
         CoreInfo::new("gb-rust", env!("CARGO_PKG_VERSION"))
             .supports_roms_with_extension("gb")
             .supports_roms_with_extension("gbc")
+    }
+
+    fn variables() -> Variables {
+        Variables::new()
+            .variable("palette",
+                      &["dmg", "gb_pocket"],
+                      "Palette")
     }
 
     fn save_memory(&mut self) -> Option<&mut [u8]> {
@@ -196,6 +236,10 @@ impl libretro_backend::Core for EmulatorWrapper {
             }
         }
 
+        if !self.init_variables || handle.did_variables_update() {
+            self.update_variables(handle);
+        }
+
         let mut screen = [[GrayShade::C00; gb::SCREEN_X]; gb::SCREEN_Y];
         {
             let buffer = self.cpu.handler_holder.get_screen_buffer();
@@ -204,7 +248,7 @@ impl libretro_backend::Core for EmulatorWrapper {
 
         for i in 0 .. gb::SCREEN_Y {
             for j in 0 .. gb::SCREEN_X {
-                let color = Color::from(screen[i][j]);
+                let color = self.palette.color(screen[i][j]);
 
                 let index = i * gb::SCREEN_X * 4 + j * 4;
                 color.write(&mut self.frame[index .. index + 4]);
