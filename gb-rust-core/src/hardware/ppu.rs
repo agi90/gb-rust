@@ -107,7 +107,7 @@ impl Ppu {
         }
     }
 
-    fn background_value_at(&self, tile_map: TileMap, x: usize, y: usize) -> GrayShade {
+    fn raw_background_at(&self, tile_map: TileMap, x: usize, y: usize) -> u8 {
         let offset = if tile_map == TileMap::C9800 {
             0x1800
         } else {
@@ -132,15 +132,22 @@ impl Ppu {
             0x0800
         };
 
-        let color = self.pattern_value(pattern_offset + tile * 16, x % 8, y % 8);
+        self.pattern_value(pattern_offset + tile * 16, x % 8, y % 8)
+    }
 
-        match color {
+    fn background_color_from_raw(&self, raw: u8) -> GrayShade {
+        match raw {
             0b00 => self.mapper.bg_color_00(),
             0b01 => self.mapper.bg_color_01(),
             0b10 => self.mapper.bg_color_10(),
             0b11 => self.mapper.bg_color_11(),
             _ => panic!(),
         }
+    }
+
+    fn background_value_at(&self, tile_map: TileMap, x: usize, y: usize) -> GrayShade {
+        let raw = self.raw_background_at(tile_map, x, y);
+        self.background_color_from_raw(raw)
     }
 
     fn sprite_value_at(&self, id: usize, x: usize, y: usize) -> GrayShade {
@@ -242,7 +249,7 @@ impl Ppu {
         h + 8 >= x && h < x
     }
 
-    fn print_sprites(&mut self, scanline: usize) {
+    fn print_sprites(&mut self, scanline: usize, background: &[u8]) {
         // Normally visible_sprites would be an array
         // but this code path is very hot so we need to
         // be cautios about performance.
@@ -280,8 +287,7 @@ impl Ppu {
                         scanline + 16 - self.sprite_y(id));
 
                 if color != GrayShade::Transparent {
-                    if !flags.below_bg
-                        || (self.screen_buffer[scanline][x] == GrayShade::C00) {
+                    if !flags.below_bg || background[x] == 0 {
                             if x < SCREEN_X && scanline < SCREEN_Y {
                                 self.screen_buffer[scanline][x] = color;
                             }
@@ -308,16 +314,19 @@ impl Ppu {
             self.write_pixel(j as usize, i as usize, GrayShade::C00);
         }
 
+        let mut background = [0; SCREEN_X];
+
         // Step 1: paint background
         if self.mapper.bg_window_on() == 1 {
+            let y = (i + (self.mapper.scroll_bg_y as usize)) % BACKGROUND_Y;
             for j in 0..SCREEN_X {
                 let x = (j + (self.mapper.scroll_bg_x as usize)) % BACKGROUND_X;
-                let y = (i + (self.mapper.scroll_bg_y as usize)) % BACKGROUND_Y;
+                background[j] = self.raw_background_at(self.mapper.bg_tile_map(), x, y);
+            }
 
-                let pixel = self.background_value_at(self.mapper.bg_tile_map(), x, y);
-                if pixel != GrayShade::C00 {
-                    self.write_pixel(j as usize, i as usize, pixel);
-                }
+            for j in 0..SCREEN_X {
+                let color = self.background_color_from_raw(background[j]);
+                self.write_pixel(j as usize, i, color);
             }
         }
 
@@ -339,7 +348,7 @@ impl Ppu {
         }
 
         // Step 3: paint sprites
-        self.print_sprites(i);
+        self.print_sprites(i, &background);
     }
 
     fn write_pixel(&mut self, x: usize, y: usize, color: GrayShade) {
