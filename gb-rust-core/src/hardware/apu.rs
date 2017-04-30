@@ -29,6 +29,47 @@ u8_enum!{
     }
 }
 
+macro_rules! channel_1 {
+    { $self: ident, $name: path } => {
+        $name(
+            &mut Line1Mapper{ mapper: &mut $self.mapper },
+            &mut $self.buffer.sound_1);
+    }
+}
+
+macro_rules! channel_2 {
+    { $self: ident, $name: path } => {
+        $name(
+            &mut Line2Mapper{ mapper: &mut $self.mapper },
+            &mut $self.buffer.sound_2);
+    }
+}
+
+macro_rules! channel_3 {
+    { $self: ident, $name: path } => {
+        $name(
+            &mut Line3Mapper{ mapper: &mut $self.mapper },
+            &mut $self.buffer.sound_3);
+    }
+}
+
+macro_rules! channel_4 {
+    { $self: ident, $name: path } => {
+        $name(
+            &mut Line4Mapper{ mapper: &mut $self.mapper },
+            &mut $self.buffer.sound_4);
+    }
+}
+
+macro_rules! all_channels {
+    { $self: ident, $name: path } => {
+        channel_1!($self, $name);
+        channel_2!($self, $name);
+        channel_3!($self, $name);
+        channel_4!($self, $name);
+    }
+}
+
 impl OutputLevel {
     pub fn to_volume(&self) -> f32 {
         match self {
@@ -274,14 +315,6 @@ impl <T> AudioLine<T>
         self.on = false;
         self.playing_left = false;
         self.playing_right = false;
-    }
-    fn write_frequency(&mut self, mapper: &mut LineMapper) {
-        self.frequency = mapper.frequency();
-    }
-    fn update_dac(&mut self, mapper: &mut LineMapper) {
-        if mapper.dac_off() {
-            self.turn_off();
-        }
     }
 }
 
@@ -645,6 +678,17 @@ fn update_playing<T>(line: &mut LineMapper, sound: &mut AudioLine<T>) {
     sound.playing_right = sound.on && line.playing_right();
 }
 
+fn update_frequency<T>(mapper: &mut LineMapper, sound: &mut AudioLine<T>) {
+    sound.frequency = mapper.frequency();
+}
+
+fn update_dac<T>(line: &mut LineMapper, sound: &mut AudioLine<T>)
+        where AudioLine<T>: TriggerEvent {
+    if line.dac_off() {
+        sound.turn_off();
+    }
+}
+
 fn update_length<T>(line: &mut LineMapper, sound: &mut AudioLine<T>)
     where AudioLine<T> : TriggerEvent {
     if !line.consecutive() {
@@ -924,46 +968,14 @@ impl SoundController {
         }
     }
 
-    fn update_playing(&mut self) {
-        update_playing(
-            &mut Line1Mapper{ mapper: &mut self.mapper },
-            &mut self.buffer.sound_1);
-        update_playing(
-            &mut Line2Mapper{ mapper: &mut self.mapper },
-            &mut self.buffer.sound_2);
-        update_playing(
-            &mut Line3Mapper{ mapper: &mut self.mapper },
-            &mut self.buffer.sound_3);
-        update_playing(
-            &mut Line4Mapper{ mapper: &mut self.mapper },
-            &mut self.buffer.sound_4);
-    }
-
     fn update_length(&mut self) {
-        update_length(
-            &mut Line1Mapper{ mapper: &mut self.mapper },
-            &mut self.buffer.sound_1);
-        update_length(
-            &mut Line2Mapper{ mapper: &mut self.mapper },
-            &mut self.buffer.sound_2);
-        update_length(
-            &mut Line3Mapper{ mapper: &mut self.mapper },
-            &mut self.buffer.sound_3);
-        update_length(
-            &mut Line4Mapper{ mapper: &mut self.mapper },
-            &mut self.buffer.sound_4);
+        all_channels!(self, update_length);
     }
 
     fn update_volume(&mut self) {
-        update_volume(
-            &mut Line1Mapper{ mapper: &mut self.mapper },
-            &mut self.buffer.sound_1);
-        update_volume(
-            &mut Line2Mapper{ mapper: &mut self.mapper },
-            &mut self.buffer.sound_2);
-        update_volume(
-            &mut Line4Mapper{ mapper: &mut self.mapper },
-            &mut self.buffer.sound_4);
+        channel_1!(self, update_volume);
+        channel_2!(self, update_volume);
+        channel_4!(self, update_volume);
     }
 
     fn write_callback(&mut self, address: u16) {
@@ -978,10 +990,10 @@ impl SoundController {
                 self.buffer.sound_1.counter = 64 - self.mapper.sound_1_length() as i64;
             },
             0xFF12 => {
-                self.buffer.sound_1.update_dac(&mut Line1Mapper{ mapper: &mut self.mapper });
+                channel_1!(self, update_dac);
             },
             0xFF13 | 0xFF14 => {
-                self.buffer.sound_1.write_frequency(&mut Line1Mapper{ mapper: &mut self.mapper });
+                channel_1!(self, update_frequency);
             },
             0xFF16 => {
                 self.buffer.sound_2.sound.wave_duty =
@@ -989,13 +1001,13 @@ impl SoundController {
                 self.buffer.sound_2.counter = 64 - self.mapper.sound_2_length() as i64;
             },
             0xFF17 => {
-                self.buffer.sound_2.update_dac(&mut Line2Mapper{ mapper: &mut self.mapper });
+                channel_2!(self, update_dac);
             },
             0xFF18 | 0xFF19 => {
-                self.buffer.sound_2.write_frequency(&mut Line2Mapper{ mapper: &mut self.mapper });
+                channel_2!(self, update_frequency);
             },
             0xFF1A => {
-                self.buffer.sound_3.update_dac(&mut Line3Mapper{ mapper: &mut self.mapper });
+                channel_3!(self, update_dac);
             }
             0xFF1B => {
                 self.buffer.sound_3.counter = 256 - self.mapper.sound_3_length as i64;
@@ -1004,20 +1016,20 @@ impl SoundController {
                 self.buffer.sound_3.sound.volume = self.mapper.sound_3_output_level();
             },
             0xFF1D | 0xFF1E => {
-                self.buffer.sound_3.write_frequency(&mut Line3Mapper{ mapper: &mut self.mapper });
+                channel_3!(self, update_frequency);
             }
             0xFF20 => {
                 self.buffer.sound_4.counter = 64 - self.mapper.sound_4_length() as i64;
             },
             0xFF21 => {
-                self.buffer.sound_4.update_dac(&mut Line4Mapper{ mapper: &mut self.mapper });
+                channel_4!(self, update_dac);
             },
             0xFF22 => {
-                self.buffer.sound_4.write_frequency(&mut Line4Mapper{ mapper: &mut self.mapper });
+                channel_4!(self, update_frequency);
                 self.buffer.sound_4.sound.pattern = self.mapper.sound_4_step();
             },
             0xFF25 => {
-                self.update_playing();
+                all_channels!(self, update_playing);
             },
             0xFF24 => {
                 // TODO: handle all channels
