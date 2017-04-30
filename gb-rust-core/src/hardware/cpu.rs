@@ -455,13 +455,10 @@ impl Cpu {
         self.handler_holder.check_interrupts()
             .map(|i| self.interrupt_handler.add_interrupt(i));
 
-        if self.interrupt_handler.has_interrupts() {
-            self.state = CpuState::Running;
-        }
-
         let interrupt = self.interrupt_handler.get_interrupt();
 
         if let Some(int) = interrupt {
+            self.state = CpuState::Running;
             self.interrupt(int);
             return;
         }
@@ -557,14 +554,6 @@ impl InterruptHandler {
     pub fn add_cycles(&mut self, cycles: usize) {
         self.timer_controller.add_cycles(cycles)
             .map(|i| self.add_interrupt(i));
-    }
-
-    /// Checks weather an interrupt is queued up (even if it could be disabled)
-    pub fn has_interrupts(&self) -> bool {
-        self.register.v_blank
-            || self.register.stat
-            || self.register.timer
-            || self.register.joypad
     }
 
     pub fn get_interrupt(&mut self) -> Option<Interrupt> {
