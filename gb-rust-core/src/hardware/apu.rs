@@ -448,6 +448,8 @@ trait LineMapper {
     fn consecutive(&self) -> bool;
     fn dac_off(&self) -> bool;
     fn write(&mut self, address: u16, v: u8);
+    fn playing_left(&self) -> bool;
+    fn playing_right(&self) -> bool;
 }
 
 struct Line1Mapper<'a> {
@@ -500,6 +502,12 @@ impl<'a> LineMapper for Line1Mapper<'a> {
     fn write(&mut self, address: u16, v: u8) {
         self.mapper.write(address, v);
     }
+    fn playing_left(&self) -> bool {
+        self.mapper.sound_1_to_so1() == SoundStatus::SoundOn
+    }
+    fn playing_right(&self) -> bool {
+        self.mapper.sound_1_to_so2() == SoundStatus::SoundOn
+    }
 }
 
 impl<'a> LineMapper for Line3Mapper<'a> {
@@ -535,6 +543,12 @@ impl<'a> LineMapper for Line3Mapper<'a> {
     fn write(&mut self, address: u16, v: u8) {
         self.mapper.write(address, v);
     }
+    fn playing_left(&self) -> bool {
+        self.mapper.sound_3_to_so1() == SoundStatus::SoundOn
+    }
+    fn playing_right(&self) -> bool {
+        self.mapper.sound_3_to_so2() == SoundStatus::SoundOn
+    }
 }
 
 impl<'a> LineMapper for Line2Mapper<'a> {
@@ -569,6 +583,12 @@ impl<'a> LineMapper for Line2Mapper<'a> {
     }
     fn write(&mut self, address: u16, v: u8) {
         self.mapper.write(address, v);
+    }
+    fn playing_left(&self) -> bool {
+        self.mapper.sound_2_to_so1() == SoundStatus::SoundOn
+    }
+    fn playing_right(&self) -> bool {
+        self.mapper.sound_2_to_so2() == SoundStatus::SoundOn
     }
 }
 
@@ -612,6 +632,17 @@ impl<'a> LineMapper for Line4Mapper<'a> {
     fn write(&mut self, address: u16, v: u8) {
         self.mapper.write(address, v);
     }
+    fn playing_left(&self) -> bool {
+        self.mapper.sound_4_to_so1() == SoundStatus::SoundOn
+    }
+    fn playing_right(&self) -> bool {
+        self.mapper.sound_4_to_so2() == SoundStatus::SoundOn
+    }
+}
+
+fn update_playing<T>(line: &mut LineMapper, sound: &mut AudioLine<T>) {
+    sound.playing_left  = sound.on && line.playing_left();
+    sound.playing_right = sound.on && line.playing_right();
 }
 
 fn update_length<T>(line: &mut LineMapper, sound: &mut AudioLine<T>)
@@ -666,6 +697,9 @@ fn update_volume<T>(line: &mut LineMapper, sound: &mut AudioLine<T>)
 fn trigger_event<T>(sound: &mut AudioLine<T>, line_mapper: &mut LineMapper,
                     frame_sequencer: &FrameSequencer)
     where AudioLine<T>: TriggerEvent + VolumeSweep {
+    sound.on = true;
+    update_playing(line_mapper, sound);
+
     if sound.counter == 0 {
         sound.counter = sound.default_length();
         if !frame_sequencer.next_step_clocks_length() && line_mapper.consecutive() {
@@ -716,7 +750,6 @@ fn write_nrx4<T>(sound: &mut AudioLine<T>, mapper: &mut LineMapper,
     }
 
     if v & 0b10000000 > 0 {
-        sound.on = true;
         trigger_event(sound, mapper, frame_sequencer);
     }
 }
@@ -891,6 +924,21 @@ impl SoundController {
         }
     }
 
+    fn update_playing(&mut self) {
+        update_playing(
+            &mut Line1Mapper{ mapper: &mut self.mapper },
+            &mut self.buffer.sound_1);
+        update_playing(
+            &mut Line2Mapper{ mapper: &mut self.mapper },
+            &mut self.buffer.sound_2);
+        update_playing(
+            &mut Line3Mapper{ mapper: &mut self.mapper },
+            &mut self.buffer.sound_3);
+        update_playing(
+            &mut Line4Mapper{ mapper: &mut self.mapper },
+            &mut self.buffer.sound_4);
+    }
+
     fn update_length(&mut self) {
         update_length(
             &mut Line1Mapper{ mapper: &mut self.mapper },
@@ -969,27 +1017,7 @@ impl SoundController {
                 self.buffer.sound_4.sound.pattern = self.mapper.sound_4_step();
             },
             0xFF25 => {
-                self.buffer.sound_1.playing_left = self.buffer.sound_1.on &&
-                    self.mapper.sound_1_to_so1() == SoundStatus::SoundOn;
-                self.buffer.sound_1.playing_right = self.buffer.sound_1.on &&
-                    self.mapper.sound_1_to_so2() == SoundStatus::SoundOn;
-
-                self.buffer.sound_2.playing_left = self.buffer.sound_2.on &&
-                    self.mapper.sound_2_to_so1() == SoundStatus::SoundOn;
-                self.buffer.sound_2.playing_right = self.buffer.sound_2.on &&
-                    self.mapper.sound_2_to_so2() == SoundStatus::SoundOn;
-
-                self.buffer.sound_3.playing_left = self.buffer.sound_3.on &&
-                    self.mapper.sound_3_on() == SoundStatus::SoundOn &&
-                        self.mapper.sound_3_to_so1() == SoundStatus::SoundOn;
-                self.buffer.sound_3.playing_right = self.buffer.sound_3.on &&
-                    self.mapper.sound_3_on() == SoundStatus::SoundOn &&
-                        self.mapper.sound_3_to_so2() == SoundStatus::SoundOn;
-
-                self.buffer.sound_4.playing_left = self.buffer.sound_4.on &&
-                    self.mapper.sound_4_to_so1() == SoundStatus::SoundOn;
-                self.buffer.sound_4.playing_right = self.buffer.sound_4.on &&
-                    self.mapper.sound_4_to_so2() == SoundStatus::SoundOn;
+                self.update_playing();
             },
             0xFF24 => {
                 // TODO: handle all channels
