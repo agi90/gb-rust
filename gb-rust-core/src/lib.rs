@@ -1,3 +1,5 @@
+#![feature(struct_field_attributes)]
+
 #[allow(dead_code)]
 mod bitfield;
 mod hardware;

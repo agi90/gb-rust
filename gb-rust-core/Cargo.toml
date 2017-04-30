@@ -7,3 +7,6 @@ authors = ["Giovanni Sferro <agi.novanta@gmail.com>"]
 nalgebra = "0.6"
 rand = "0.3.15"
 chrono = "0.3"
+
+[features]
+debugger = []

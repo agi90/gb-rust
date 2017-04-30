@@ -135,7 +135,7 @@ impl HandlerHolder for GBHandlerHolder {
         self.apu.add_cycles(cycles);
     }
 
-    fn check_interrupts(&mut self) -> Vec<Interrupt> {
+    fn check_interrupts(&mut self) -> Option<Interrupt> {
         self.ppu.check_interrupts()
     }
 

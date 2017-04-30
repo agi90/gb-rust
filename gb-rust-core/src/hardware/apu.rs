@@ -454,6 +454,7 @@ impl AudioBuffer for GbAudioBuffer {
 }
 
 pub struct SoundController {
+    master_status: bool,
     mapper: SoundMemoryMapper,
     buffer: GbAudioBuffer,
     frame_sequencer: FrameSequencer,
@@ -870,6 +871,7 @@ impl FrameSequencer {
         }
     }
 
+    #[inline]
     pub fn add_cycles(&mut self, cycles: usize) -> Option<SequencerEvent> {
         self.cycles -= cycles as i64;
 
@@ -889,6 +891,7 @@ impl FrameSequencer {
 impl SoundController {
     pub fn new() -> SoundController {
         SoundController {
+            master_status: false,
             frame_sequencer: FrameSequencer::new(),
             mapper: SoundMemoryMapper::new(),
             buffer: GbAudioBuffer {
@@ -924,7 +927,7 @@ impl SoundController {
     }
 
     pub fn add_cycles(&mut self, cycles: usize) {
-        if self.mapper.master_status() == SoundStatus::SoundOff {
+        if !self.master_status {
             return;
         }
 
@@ -1028,14 +1031,22 @@ impl SoundController {
                 channel_4!(self, update_frequency);
                 self.buffer.sound_4.sound.pattern = self.mapper.sound_4_step();
             },
-            0xFF25 => {
-                all_channels!(self, update_playing);
-            },
             0xFF24 => {
                 // TODO: handle all channels
             },
+            0xFF25 => {
+                all_channels!(self, update_playing);
+            },
+            0xFF26 => {
+                self.master_status = self.mapper.master_status() == SoundStatus::SoundOn;
+            },
             _ => {}
         }
+    }
+
+    fn set_master_status(&mut self, master_status: SoundStatus) {
+        self.master_status = master_status == SoundStatus::SoundOn;
+        self.mapper.set_master_status(master_status);
     }
 
     fn write_nr52(&mut self, v: u8) {
@@ -1045,7 +1056,7 @@ impl SoundController {
             SoundStatus::SoundOff
         };
 
-        if new_master_status == self.mapper.master_status() {
+        if (new_master_status == SoundStatus::SoundOn) == self.master_status {
             // Status is not changing so we don't need to do anything here.
             return;
         }
@@ -1070,7 +1081,7 @@ impl SoundController {
             self.frame_sequencer.reset();
         }
 
-        self.mapper.set_master_status(new_master_status);
+        self.set_master_status(new_master_status);
     }
 }
 
@@ -1078,7 +1089,7 @@ impl Handler for SoundController {
     fn read(&self, address: u16) -> u8 {
         match address {
             0xFF26 => {
-                let v = (if self.mapper.master_status() == SoundStatus::SoundOn { 0b10000000 } else { 0 }) +
+                let v = (if self.master_status { 0b10000000 } else { 0 }) +
                 (if self.buffer.sound_1.on { 0b00000001 } else { 0 }) +
                 (if self.buffer.sound_2.on { 0b00000010 } else { 0 }) +
                 (if self.buffer.sound_3.on { 0b00000100 } else { 0 }) +
@@ -1092,8 +1103,7 @@ impl Handler for SoundController {
     }
 
     fn write(&mut self, address: u16, mut v: u8) {
-        if self.mapper.master_status() == SoundStatus::SoundOff
-                && address != 0xFF26 {
+        if !self.master_status && address != 0xFF26 {
             let mask = match address {
                 // Only writes to NR52 and sound registers are allowed in the DMG
                 // while the APU is powered down.
