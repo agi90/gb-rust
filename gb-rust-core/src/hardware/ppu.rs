@@ -29,6 +29,7 @@ pub struct Ppu {
     should_refresh: bool,
     mapper: VideoMemoryMapper,
     mode: LCDMode,
+    scanline_reader: ScanlineReader,
 }
 
 u8_enum!{
@@ -79,6 +80,195 @@ struct SpriteFlags {
     palette: SpritePalette,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ScanlineStep {
+    LatchingOffset,
+    ReadingPixel(usize),
+}
+
+#[derive(Debug, Clone, Copy)]
+enum BackgroundSubStep {
+    BackgroundTile,
+    Tile0,
+    Tile1,
+}
+
+struct ScanlineReader {
+    offset: usize,
+    scanline_step: ScanlineStep,
+    sub_step: BackgroundSubStep,
+    cycles: i64,
+    current_tile: u8,
+    tile0_value: u8,
+    tile1_value: u8,
+    scanline: usize,
+}
+
+impl ScanlineReader {
+    pub fn for_scanline(scanline: usize) -> ScanlineReader {
+        ScanlineReader {
+            offset: 0,
+            scanline_step: ScanlineStep::LatchingOffset,
+            sub_step: BackgroundSubStep::BackgroundTile,
+            cycles: 0,
+            current_tile: 0,
+            tile0_value: 0,
+            tile1_value: 0,
+            scanline: scanline,
+        }
+    }
+
+    pub fn add_cycles(&mut self, cycles: usize,
+                      mapper: &VideoMemoryMapper, video_ram: &[u8],
+                      screen_buffer: &mut ScreenBuffer) {
+        self.cycles += cycles as i64;
+        while self.cycles >= 2 && self.current_x() < SCREEN_X {
+            self.cycles -= 2;
+
+            match self.sub_step {
+                BackgroundSubStep::BackgroundTile => {
+                    self.background_substep(mapper, video_ram);
+                    self.sub_step = BackgroundSubStep::Tile0;
+                },
+                BackgroundSubStep::Tile0 => {
+                    self.tile0_substep(mapper, video_ram);
+                    self.sub_step = BackgroundSubStep::Tile1;
+                },
+                BackgroundSubStep::Tile1 => {
+                    self.tile1_substep(mapper, video_ram);
+                    self.sub_step = BackgroundSubStep::BackgroundTile;
+                    self.write_pixel(mapper, screen_buffer);
+                    self.next_step();
+                },
+            }
+        }
+    }
+
+    fn current_x(&self) -> usize {
+        match self.scanline_step {
+            ScanlineStep::LatchingOffset => 0,
+            ScanlineStep::ReadingPixel(x) => x,
+        }
+    }
+
+    fn background_color_from_raw(&self, mapper: &VideoMemoryMapper,
+                                 raw: u8) -> GrayShade {
+        match raw {
+            0b00 => mapper.bg_color_00(),
+            0b01 => mapper.bg_color_01(),
+            0b10 => mapper.bg_color_10(),
+            0b11 => mapper.bg_color_11(),
+            _ => panic!(),
+        }
+    }
+
+    fn write_pixel(&self, mapper: &VideoMemoryMapper,
+                   screen_buffer: &mut ScreenBuffer) {
+        if self.scanline_step == ScanlineStep::LatchingOffset {
+            // During this step we just discard the value
+            return;
+        }
+
+        let mut x = self.current_x();
+        let bg_x = (BACKGROUND_X + x - mapper.scroll_bg_x as usize)
+            % BACKGROUND_X;
+
+        let l = self.tile0_value;
+        let h = self.tile1_value;
+
+        for i in bg_x .. bg_x + 8 {
+            let pixel = match i % 8 {
+                7 =>  (0b00000001 & l)       + ((0b00000001 & h) << 1),
+                6 => ((0b00000010 & l) >> 1) + ((0b00000010 & h)     ),
+                5 => ((0b00000100 & l) >> 2) + ((0b00000100 & h) >> 1),
+                4 => ((0b00001000 & l) >> 3) + ((0b00001000 & h) >> 2),
+                3 => ((0b00010000 & l) >> 4) + ((0b00010000 & h) >> 3),
+                2 => ((0b00100000 & l) >> 5) + ((0b00100000 & h) >> 4),
+                1 => ((0b01000000 & l) >> 6) + ((0b01000000 & h) >> 5),
+                0 => ((0b10000000 & l) >> 7) + ((0b10000000 & h) >> 6),
+                _ => unreachable!(),
+            };
+
+            let color = self.background_color_from_raw(mapper, pixel);
+            screen_buffer[self.scanline][x] = color;
+            x = (x + 1) % SCREEN_X;
+        }
+    }
+
+    fn tile_address(&self, tile_value: u8,
+                    mapper: &VideoMemoryMapper) -> usize {
+        match mapper.bg_tile_data() {
+            BgTileData::C8000 => {
+                tile_value as usize * 16 + self.scanline % 8 * 2
+            },
+            BgTileData::C8800 => {
+                let tile = if tile_value < 0x80 {
+                    tile_value + 0x80
+                } else {
+                    tile_value - 0x80
+                };
+
+                0x0800 + tile as usize * 16 + self.scanline % 8 * 2
+            },
+        }
+    }
+
+    fn tile0_substep(&mut self, mapper: &VideoMemoryMapper,
+                     video_ram: &[u8]) {
+        self.tile0_value = video_ram[
+            self.tile_address(self.current_tile, mapper)];
+    }
+
+    fn tile1_substep(&mut self, mapper: &VideoMemoryMapper,
+                     video_ram: &[u8]) {
+        self.tile1_value = video_ram[
+            self.tile_address(self.current_tile, mapper) + 1];
+    }
+
+    fn background_substep(&mut self, mapper: &VideoMemoryMapper,
+                          video_ram: &[u8]) {
+        let x;
+
+        match self.scanline_step {
+            ScanlineStep::LatchingOffset => {
+                self.latch_offset(mapper);
+                x = 0;
+            },
+            ScanlineStep::ReadingPixel(pixel) => {
+                x = pixel;
+            },
+        }
+
+        let bg_x = (BACKGROUND_X + x - mapper.scroll_bg_x as usize)
+            % BACKGROUND_X;
+        self.current_tile = video_ram[self.offset + bg_x / 8];
+    }
+
+    fn latch_offset(&mut self, mapper: &VideoMemoryMapper) {
+        let tile_offset = if mapper.bg_tile_map() == TileMap::C9800 {
+            0x1800
+        } else {
+            0x1C00
+        };
+
+        let bg_scanline = (BACKGROUND_Y
+            + self.scanline - mapper.scroll_bg_y as usize) % BACKGROUND_Y;
+
+        self.offset = tile_offset + (bg_scanline / 8 as usize) * 32;
+    }
+
+    fn next_step(&mut self) {
+        match self.scanline_step {
+            ScanlineStep::LatchingOffset => {
+                self.scanline_step = ScanlineStep::ReadingPixel(0);
+            },
+            ScanlineStep::ReadingPixel(x) => {
+                self.scanline_step = ScanlineStep::ReadingPixel(x + 8);
+            }
+        }
+    }
+}
+
 impl Ppu {
     pub fn new() -> Ppu {
         Ppu {
@@ -90,12 +280,18 @@ impl Ppu {
             should_refresh: false,
             mapper: VideoMemoryMapper::new(),
             mode: LCDMode::HBlank,
+            scanline_reader: ScanlineReader::for_scanline(0),
         }
     }
 
     fn set_mode(&mut self, mode: LCDMode) {
         self.mode = mode;
         self.mapper.set_mode(mode);
+
+        if mode == LCDMode::LCDTransfer {
+            self.scanline_reader = ScanlineReader::for_scanline(
+                self.mapper.lcd_y_coordinate as usize);
+        }
     }
 
     fn write_callback(&mut self, address: u16) {
@@ -309,15 +505,10 @@ impl Ppu {
     }
 
     fn write_scanline(&mut self, i: usize) {
-        // Step 0: Blank screen
-        for j in 0..SCREEN_X {
-            self.write_pixel(j as usize, i as usize, GrayShade::C00);
-        }
-
         let mut background = [0; SCREEN_X];
 
         // Step 1: paint background
-        if self.mapper.bg_window_on() == 1 {
+        /* if self.mapper.bg_window_on() == 1 {
             let y = (i + (self.mapper.scroll_bg_y as usize)) % BACKGROUND_Y;
             for j in 0..SCREEN_X {
                 let x = (j + (self.mapper.scroll_bg_x as usize)) % BACKGROUND_X;
@@ -328,7 +519,7 @@ impl Ppu {
                 let color = self.background_color_from_raw(background[j]);
                 self.write_pixel(j as usize, i, color);
             }
-        }
+        } */
 
         // Step 2: paint the window
         if self.mapper.window_on() == 1
@@ -389,6 +580,11 @@ impl Ppu {
 
         self.cycles += cycles;
         self.total_cycles += cycles;
+
+        if self.mode == LCDMode::LCDTransfer {
+            self.scanline_reader.add_cycles(cycles,
+                &self.mapper, &self.video_ram, &mut self.screen_buffer);
+        }
     }
 
     #[must_use]
@@ -410,50 +606,61 @@ impl Ppu {
     }
 
     pub fn check_interrupts(&mut self) -> Option<Interrupt> {
+        let done = if self.mode == LCDMode::LCDTransfer {
+            self.scanline_reader.current_x() >= SCREEN_X
+        } else {
+            if self.cycles > self.mode.duration() {
+                self.cycles -= self.mode.duration();
+                true
+            } else {
+                false
+            }
+        };
+
+        if !done {
+            return None;
+        }
+
         let mut interrupt = None;
 
-        if self.cycles > self.mode.duration() {
-            self.cycles -= self.mode.duration();
-
-            match self.mode {
-                LCDMode::SearchingOAM => {
-                    interrupt = interrupt.or(self.switch_to(LCDMode::LCDTransfer));
-                },
-                LCDMode::LCDTransfer => {
-                    interrupt = interrupt.or(self.switch_to(LCDMode::HBlank));
-                },
-                LCDMode::HBlank => {
-                    if self.mapper.lcd_y_coordinate < SCREEN_Y as u8 - 1 {
-                        interrupt = interrupt.or(self.switch_to(LCDMode::SearchingOAM));
-                    } else {
-                        let _ = self.switch_to(LCDMode::VBlank);
-                        // VBlank takes precedence over Stat
-                        interrupt = Some(Interrupt::VBlank);
-                    }
-
-                    let scanline = self.mapper.lcd_y_coordinate as usize;
-                    self.write_scanline(scanline);
-                    self.mapper.lcd_y_coordinate += 1;
-                },
-                LCDMode::VBlank => {
-                    if self.mapper.lcd_y_coordinate == 153 {
-                        interrupt = interrupt.or(self.switch_to(LCDMode::SearchingOAM));
-                        self.should_refresh = true;
-                    }
-                    self.mapper.lcd_y_coordinate += 1;
+        match self.mode {
+            LCDMode::SearchingOAM => {
+                interrupt = interrupt.or(self.switch_to(LCDMode::LCDTransfer));
+            },
+            LCDMode::LCDTransfer => {
+                interrupt = interrupt.or(self.switch_to(LCDMode::HBlank));
+            },
+            LCDMode::HBlank => {
+                if self.mapper.lcd_y_coordinate < SCREEN_Y as u8 - 1 {
+                    interrupt = interrupt.or(self.switch_to(LCDMode::SearchingOAM));
+                } else {
+                    let _ = self.switch_to(LCDMode::VBlank);
+                    // VBlank takes precedence over Stat
+                    interrupt = Some(Interrupt::VBlank);
                 }
-            }
 
-            self.mapper.lcd_y_coordinate %= 154;
-
-            if self.mapper.lcd_y_coordinate == self.mapper.lyc_coincidence {
-                self.mapper.set_ly_coincidence(1);
-                if self.mapper.lyc_ly_coincidence_interrupt() == 1 {
-                    interrupt = interrupt.or(Some(Interrupt::Stat));
+                let scanline = self.mapper.lcd_y_coordinate as usize;
+                self.write_scanline(scanline);
+                self.mapper.lcd_y_coordinate += 1;
+            },
+            LCDMode::VBlank => {
+                if self.mapper.lcd_y_coordinate == 153 {
+                    interrupt = interrupt.or(self.switch_to(LCDMode::SearchingOAM));
+                    self.should_refresh = true;
                 }
-            } else {
-                self.mapper.set_ly_coincidence(0);
+                self.mapper.lcd_y_coordinate += 1;
             }
+        }
+
+        self.mapper.lcd_y_coordinate %= 154;
+
+        if self.mapper.lcd_y_coordinate == self.mapper.lyc_coincidence {
+            self.mapper.set_ly_coincidence(1);
+            if self.mapper.lyc_ly_coincidence_interrupt() == 1 {
+                interrupt = interrupt.or(Some(Interrupt::Stat));
+            }
+        } else {
+            self.mapper.set_ly_coincidence(0);
         }
 
         interrupt
