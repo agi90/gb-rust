@@ -1,7 +1,3 @@
-extern crate nalgebra;
-
-use self::nalgebra::{Mat4, Vec4, Diag};
-
 use glium;
 use glium::{DrawParameters, Surface, VertexBuffer, IndexBuffer};
 use glium::index::PrimitiveType;
@@ -28,8 +24,8 @@ pub struct GLRenderer {
     vertex_buffer: VertexBuffer<Vertex>,
     index_buffer: IndexBuffer<u16>,
     program: glium::Program,
-    matrix: Mat4<f32>,
-    palette: Mat4<f32>,
+    matrix: [[f32; 4]; 4],
+    palette: [[f32; 4]; 4],
 }
 
 #[derive(Copy, Clone)]
@@ -97,12 +93,21 @@ impl GLRenderer {
                                                    MipmapsOption::NoMipmap,
                                                    TEXTURE_WIDTH, TEXTURE_HEIGHT).unwrap();
 
-        let matrix = Mat4::from_diag(&Vec4::new(1.0, 1.0, 1.0, 1.0));
+        let matrix = [[1.0, 0.0, 0.0, 0.0],
+                      [0.0, 1.0, 0.0, 0.0],
+                      [0.0, 0.0, 1.0, 0.0],
+                      [0.0, 0.0, 0.0, 1.0]];
 
-        let palette = Mat4::new(255.0, 181.0, 107.0, 33.0,
-                                247.0, 174.0, 105.0, 32.0,
-                                123.0, 74.0,  49.0,  16.0,
-                                1.0,   1.0,   1.0,   1.0) / 255.0;
+        let mut palette = [[255.0, 247.0, 123.0, 1.0],
+                           [181.0, 174.0, 74.0,  1.0],
+                           [107.0, 105.0, 49.0,  1.0],
+                           [33.0,  32.0,  16.0,  1.0 ]];
+
+        for i in 0..4 {
+            for j in 0..4 {
+                palette[i][j] /= 256.0;
+            }
+        }
 
         GLRenderer {
             buffer: pixel_buffer,
@@ -136,8 +141,8 @@ impl GLRenderer {
         self.update_pixels();
 
         let uniforms = uniform! {
-            matrix: self.matrix.as_ref().clone(),
-            palette: self.palette.as_ref().clone(),
+            matrix: self.matrix,
+            palette: self.palette,
             tex: self.texture.sampled()
                 .minify_filter(MinifySamplerFilter::Nearest)
                 .magnify_filter(MagnifySamplerFilter::Nearest)

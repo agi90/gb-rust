@@ -4,8 +4,7 @@ version = "0.1.0"
 authors = ["Giovanni Sferro <agi.novanta@gmail.com>"]
 
 [dependencies]
-glium = "0.14.0"
-nalgebra = "0.6"
+glium = "0.16"
 clap = "2.20.3"
 sdl2 = "0.28.0"
 gb = { path = "../gb-rust-core", features = ["debugger"] }
