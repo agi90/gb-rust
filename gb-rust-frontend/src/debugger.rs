@@ -13,9 +13,10 @@ pub struct Debugger {
     address_breakpoints: HashSet<u16>,
     op_breakpoints: HashSet<u8>,
     last_command: String,
+    watches: HashSet<u16>,
 }
 
-pub fn print_cpu_status(emulator: &Emulator) {
+fn print_cpu_status(emulator: &Emulator, watches: &HashSet<u16>) {
     let cpu = &emulator.cpu;
 
     println!("[Z,N,H,C] = [{},{},{},{}]",
@@ -39,6 +40,13 @@ pub fn print_cpu_status(emulator: &Emulator) {
     println!("state = {:?}",  cpu.get_state());
     println!("cycles = {:?}", cpu.get_cycles());
     println!("$FF05 = {:02X}", cpu.deref_debug(0xFF05));
+    if watches.len() > 0 {
+        println!("=== WATCH ===");
+    }
+    for w in watches {
+        println!("${:04X} = {:02X}", w, cpu.deref_debug(*w));
+    }
+
     println!("=== STACK ===");
     println!("${:04X} = {:02X}", cpu.get_SP(),     cpu.deref_debug(cpu.get_SP()));
 
@@ -55,6 +63,7 @@ fn print_help() {
     println!("bo [u8]          -- breakpoint for opcode [u8]");
     println!("ba [u16]         -- breakpoint for address [u16]");
     println!("bm [u16]         -- breaks whenever the memory at [u16] is accessed");
+    println!("[w]atch [u16]    -- prints address [u16] everytime the debugger breaks");
     println!("p cpu            -- display cpu information and registers");
     println!("[p]rint [u16]    -- print memory at [u16]");
     println!("po [u16]         -- print opcode at [u16]");
@@ -81,6 +90,7 @@ impl Debugger {
             address_breakpoints: HashSet::new(),
             op_breakpoints: HashSet::new(),
             last_command: "s".to_string(),
+            watches: HashSet::new(),
         }
     }
 
@@ -150,7 +160,7 @@ impl Debugger {
             },
             "p" | "print" => {
                 if arg == "cpu" {
-                    print_cpu_status(emulator);
+                    print_cpu_status(emulator, &self.watches);
                 } else {
                     let address = try!(to_address(arg));
                     println!("${:04X}={:02X}", address, emulator.cpu.deref_debug(address));
@@ -160,7 +170,12 @@ impl Debugger {
                 let address = try!(to_address(arg));
                 println!("${:04X} = {}", address,
                          OpCode::from_byte(emulator.cpu.deref_debug(address), false).to_string());
-            }
+            },
+            "w" | "watch" => {
+                let address = try!(to_address(arg));
+                println!("Adding {:04X} to the watch list.", address);
+                self.watches.insert(address);
+            },
             _ => {
                 return Err(());
             },
@@ -217,7 +232,7 @@ impl Debugger {
             return;
         }
 
-        print_cpu_status(emulator);
+        print_cpu_status(emulator, &self.watches);
         loop {
             let mut input = String::new();
             print!(">");
@@ -253,6 +268,6 @@ impl Debugger {
     pub fn breakpoint(&mut self, emulator: &mut Emulator) {
         self.stepping = true;
         emulator.cpu.set_debug(true);
-        print_cpu_status(emulator);
+        print_cpu_status(emulator, &self.watches);
     }
 }
