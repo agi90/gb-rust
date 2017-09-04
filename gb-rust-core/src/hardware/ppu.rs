@@ -391,7 +391,6 @@ impl Ppu {
         self.total_cycles += cycles;
     }
 
-    #[must_use]
     fn switch_to(&mut self, mode: LCDMode) -> Option<Interrupt> {
         let enabled = match mode {
             LCDMode::SearchingOAM => self.mapper.oam_interrupt() == 1,
