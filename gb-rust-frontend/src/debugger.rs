@@ -248,11 +248,9 @@ impl Debugger {
                 println!("{}", input);
             }
 
-            let commands: Vec<&str> = input.split(' ').collect();
-
-            match self.handle(commands, emulator) {
-                Err(()) => {
-                    println!("Command not understood {:?}", input);
+            match self.exec_private(&input, emulator) {
+                Err(error_string) => {
+                    println!("Error: {}", error_string);
                     print_help();
                 },
                 Ok(true) => {
@@ -263,6 +261,19 @@ impl Debugger {
                 },
             }
         }
+    }
+
+    // We don't want to expose the result value to the external world since it's part of the
+    // debugger internals.
+    pub fn exec(&mut self, command: &str, emulator: &mut Emulator) -> Result<(), String> {
+        self.exec_private(command, emulator)
+            .map(|_| ())
+    }
+
+    fn exec_private(&mut self, command: &str, emulator: &mut Emulator) -> Result<bool, String> {
+        let pieces: Vec<&str> = command.split(' ').collect();
+        self.handle(pieces, emulator)
+            .map_err(|_| format!("Command not understood {:?}", command))
     }
 
     pub fn breakpoint(&mut self, emulator: &mut Emulator) {

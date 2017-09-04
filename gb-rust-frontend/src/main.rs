@@ -56,12 +56,13 @@ fn open_rom(rom_name: &str) -> Result<File, String> {
 macro_rules! bail {
     ($expr : expr) => {
         {
-            if $expr.is_err() {
+            let result = $expr;
+            if result.is_err() {
                 println!("{}", $expr.unwrap_err());
                 return;
             }
 
-            $expr.unwrap()
+            result.unwrap()
         }
     }
 }
@@ -74,6 +75,8 @@ pub fn main() {
         (@arg ROM: +required "Selects the ROM to run.")
         (@arg mag: -m --magnification +takes_value "Number of times the screen should be magnified. Default is '3'.") 
         (@arg debug: -d --debug "Starts in debug mode.")
+        (@arg commands: -C --commands +takes_value
+            "Semicolon separated commands to run after debugger starts. Assumes --debug.")
     ).get_matches();
 
     let rom_name = matches.value_of("ROM").unwrap();
@@ -102,8 +105,15 @@ pub fn main() {
     }
 
     let mut debugger = Debugger::new();
+    let commands: Vec<&str> = matches.value_of("commands")
+        .map(|cc| cc.split(';').map(|c| c.trim()).collect())
+        .unwrap_or(vec![]);
 
-    if matches.occurrences_of("debug") > 0 {
+    for c in &commands {
+        bail!(debugger.exec(c, &mut emulator));
+    }
+
+    if matches.occurrences_of("debug") > 0 || commands.len() > 0 {
         debugger.breakpoint(&mut emulator);
     }
 
