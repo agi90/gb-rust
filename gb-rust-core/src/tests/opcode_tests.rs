@@ -84,7 +84,7 @@ impl HandlerHolder for MockHandlerHolder {
         self as &mut Handler
     }
     fn add_cycles(&mut self, _: usize) {}
-    fn check_interrupts(&mut self) -> Vec<Interrupt> { vec![] }
+    fn check_interrupts(&mut self) -> Option<Interrupt> { None }
     fn key_down(&mut self, _: Key) {}
     fn key_up(&mut self, _: Key) {}
     fn get_screen_buffer(&self) -> &ScreenBuffer {
@@ -96,6 +96,7 @@ impl HandlerHolder for MockHandlerHolder {
     }
     fn reset(&mut self) {}
     fn ram(&mut self) -> &mut [u8] { &mut self.data }
+    fn rtc(&mut self) -> Option<&mut i64> { None }
 }
 
 fn reset_all_registers(cpu: &mut Cpu) {
