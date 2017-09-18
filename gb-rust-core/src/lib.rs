@@ -20,6 +20,7 @@ pub use self::hardware::cpu::{
     Interrupt,
     Hardware,
     OpCode,
+    Cpu,
 };
 pub use self::hardware::handler_holder::Key;
 pub use self::hardware::ppu::{

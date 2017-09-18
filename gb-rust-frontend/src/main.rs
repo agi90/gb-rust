@@ -17,13 +17,10 @@ extern crate gb;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write, Seek, SeekFrom};
 
-use gb::Emulator;
+use gb::{Emulator, Cpu};
 
 use self::controller::{Event, Controller};
 use self::debugger::Debugger;
-
-#[cfg(test)]
-mod tests;
 
 fn open_save_file(rom_name: &str) -> Result<File, String> {
     let mut v: Vec<&str> = rom_name.split('.').collect();
@@ -67,6 +64,19 @@ macro_rules! bail {
     }
 }
 
+fn parse_string_at(mut address: u16, cpu: &mut Cpu) -> String {
+    let mut result = String::from("");
+    let mut c = 0xFF;
+    while c != 0 {
+        c = cpu.deref(address);
+        address += 1;
+        if c != 0 {
+            result.push(c as char);
+        }
+    }
+    result
+}
+
 pub fn main() {
     let matches = clap_app!(gbrust =>
         (version: "0.1b")
@@ -75,6 +85,10 @@ pub fn main() {
         (@arg ROM: +required "Selects the ROM to run.")
         (@arg mag: -m --magnification +takes_value "Number of times the screen should be magnified. Default is '3'.") 
         (@arg debug: -d --debug "Starts in debug mode.")
+        (@arg headless: -H --headless "Run in headless mode. For integration tests.")
+        (@arg timeout: -t --timeout +takes_value "Timeout when running headless, in millions of cycles. Default 100")
+        (@arg string_addr: -s --result +takes_value
+            "The emulator will print a null-terminated string preset at this address. For integration tests.")
         (@arg commands: -C --commands +takes_value
             "Semicolon separated commands to run after debugger starts. Assumes --debug.")
     ).get_matches();
@@ -82,13 +96,20 @@ pub fn main() {
     let rom_name = matches.value_of("ROM").unwrap();
     let mut save_file = bail!(open_save_file(&rom_name));
 
-    let mag = value_t!(matches.value_of("mag"), u32).unwrap_or_else(|e| {
-        println!("Invalid magnification: {}", e);
-        3
-    });
+    let headless = matches.occurrences_of("headless") > 0;
+    let timeout = matches.value_of("timeout")
+        .map(|t| t.parse::<usize>())
+        .unwrap_or(Ok(100))
+        .unwrap();
+    let mag = value_t!(matches.value_of("mag"), u32)
+        .unwrap_or(3);
 
-    let mut controller = Controller::new(gb::SCREEN_X as u32 * mag,
-                                         gb::SCREEN_Y as u32 * mag);
+    let mut controller = if !headless {
+        Some(Controller::new(gb::SCREEN_X as u32 * mag,
+                             gb::SCREEN_Y as u32 * mag))
+    } else {
+        None
+    };
 
     let mut emulator;
     {
@@ -118,26 +139,38 @@ pub fn main() {
     }
 
     let mut natural_speed = true;
+    let mut counter = timeout * 1000000;
 
-    loop {
+    while !headless || counter > 0 {
         debugger.check_breakpoints(&mut emulator);
 
         emulator.cpu.next_instruction();
 
-        if emulator.cpu.handler_holder.should_refresh() {
-            match controller.check_events(&mut emulator) {
-                Event::Quit => break,
-                Event::Break => {
-                    debugger.breakpoint(&mut emulator);
-                },
-                Event::ToggleSpeed => { natural_speed = !natural_speed },
-                Event::Continue => {},
-            }
+        if let Some(ref mut c) = controller {
+            if emulator.cpu.handler_holder.should_refresh() {
+                match c.check_events(&mut emulator) {
+                    Event::Quit => break,
+                    Event::Break => {
+                        debugger.breakpoint(&mut emulator);
+                    },
+                    Event::ToggleSpeed => { natural_speed = !natural_speed },
+                    Event::Continue => {},
+                }
 
-            controller.refresh(&mut emulator);
+                c.refresh(&mut emulator);
+            }
         }
 
         debugger.next_instruction(&mut emulator);
+
+        counter -= 1;
+    }
+
+    if let Some(string_address) = matches.value_of("string_addr") {
+        let address = bail!(u16::from_str_radix(string_address, 16)
+            .map_err(|_| format!("Could not parse address '{}'. \
+Please use format XXXX, where X is 0-F.", string_address)));
+        print!("{}", parse_string_at(address, &mut emulator.cpu));
     }
 
     bail!(save_file.seek(SeekFrom::Start(0)));

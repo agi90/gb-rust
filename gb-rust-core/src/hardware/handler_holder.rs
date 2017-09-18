@@ -10,7 +10,7 @@ pub struct GBHandlerHolder {
     cartridge: Cartridge,
     pub ppu: Ppu,
     joypad_register: JoypadRegister,
-    serial_transfer_controller: SerialTransferController,
+    serial_transfer_controller: SerialTransfer,
     apu: SoundController,
 }
 
@@ -21,7 +21,7 @@ impl GBHandlerHolder {
             cartridge: cartridge,
             ppu: Ppu::new(),
             joypad_register: JoypadRegister::new(),
-            serial_transfer_controller: SerialTransferController::new(),
+            serial_transfer_controller: SerialTransfer::new(),
             apu: SoundController::new(),
         }
     }
@@ -151,7 +151,7 @@ impl HandlerHolder for GBHandlerHolder {
         self.memory_holder = MemoryHolder::new();
         self.ppu = Ppu::new();
         self.joypad_register = JoypadRegister::new();
-        self.serial_transfer_controller = SerialTransferController::new();
+        self.serial_transfer_controller = SerialTransfer::new();
         self.apu = SoundController::new();
     }
 }
@@ -173,6 +173,36 @@ memory_mapper!{
         ],
     },
 }
+
+struct SerialTransfer {
+    debug_data: Vec<u8>,
+    mapper: SerialTransferController,
+}
+
+impl SerialTransfer {
+    pub fn new() -> SerialTransfer {
+        SerialTransfer {
+            debug_data: vec![],
+            mapper: SerialTransferController::new(),
+        }
+    }
+}
+
+impl Handler for SerialTransfer {
+    fn read(&self, address: u16) -> u8 {
+        self.mapper.read(address)
+    }
+
+    fn write(&mut self, address: u16, v: u8) {
+        if address == 0xFF01 {
+            print!("{}", v as char);
+            // Blargg's test roms use this address to print debug information
+            self.debug_data.push(v);
+        }
+        self.mapper.write(address, v);
+    }
+}
+
 
 #[derive(Debug)]
 pub enum Key {
