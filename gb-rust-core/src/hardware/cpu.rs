@@ -354,7 +354,7 @@ impl Cpu {
         self.handler_holder.add_cycles(cycles);
     }
 
-    pub fn get_cycles(&self) -> usize { self.cycles.clone() }
+    pub fn get_cycles(&self) -> usize { self.cycles }
 
     fn interrupt(&mut self, interrupt: Interrupt) {
         self.interrupt_handler.disable();
