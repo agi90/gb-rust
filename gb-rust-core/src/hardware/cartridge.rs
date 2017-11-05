@@ -1,5 +1,3 @@
-use std::str;
-
 use hardware::memory_controller::MemoryController;
 use hardware::cpu::Handler;
 use std::fmt::Debug;
