@@ -76,6 +76,11 @@ impl Bitfield {
         self.data = (self.data & 0b10001111) + (v << 4);
     }
 
+    pub fn set_3456(&mut self, v: u8) {
+        assert!(v <= 0b1111);
+        self.data = (self.data & 0b10000111) + (v << 3);
+    }
+
     pub fn get_4567(&self) -> u8 { (self.data & 0b11110000) >> 4 }
     pub fn set_4567(&mut self, v: u8) {
         assert!(v <= 0b1111);

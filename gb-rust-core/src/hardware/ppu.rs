@@ -18,6 +18,13 @@ pub const SCREEN_Y: usize = 144;
 const BACKGROUND_X: usize = 256;
 const BACKGROUND_Y: usize = 256;
 
+const SCANLINE_CYCLES: usize = 456;
+
+// Includes invisible lines
+const VERTICAL_LINES: usize = 154;
+
+const SCREEN_CYCLES: usize = SCANLINE_CYCLES * VERTICAL_LINES;
+
 pub type ScreenBuffer = [[GrayShade; SCREEN_X]; SCREEN_Y];
 
 pub struct Ppu {
@@ -39,17 +46,6 @@ u8_enum!{
     }
 }
 
-impl LCDMode {
-    pub fn duration(&self) -> usize {
-        match self {
-            &LCDMode::HBlank => 200,
-            &LCDMode::VBlank => 456,
-            &LCDMode::SearchingOAM => 84,
-            &LCDMode::LCDTransfer=> 172,
-        }
-    }
-}
-
 impl Handler for Ppu {
     fn read(&self, address: u16) -> u8 {
         match address {
@@ -63,6 +59,7 @@ impl Handler for Ppu {
         match address {
             0x8000 ... 0x9FFF => self.write_ram(address, v),
             0xFE00 ... 0xFE9F => self.oam_ram[address as usize - 0xFE00] = v,
+            0xFF41 => self.write_stat(v),
             _ => self.mapper.write(address, v),
         }
 
@@ -96,10 +93,19 @@ impl Ppu {
         self.mapper.set_mode(mode);
     }
 
+    fn write_stat(&mut self, v: u8) {
+        // Only bit 3456 are writable
+        self.mapper.stat.set_3456((v >> 3) & 0b1111);
+    }
+
     fn write_callback(&mut self, address: u16) {
         match address {
-            0xFF41 => {
-                self.mode = self.mapper.mode();
+            0xFF40 => {
+                if self.mapper.lcd_on() == 0 {
+                    self.cycles = 0;
+                    self.set_mode(LCDMode::HBlank);
+                    self.mapper.lcd_y_coordinate = 0;
+                }
             },
             _ => {},
         }
@@ -377,15 +383,13 @@ impl Ppu {
     }
 
     pub fn add_cycles(&mut self, cycles: usize) {
-        if self.mapper.lcd_on() == 0 {
-            self.cycles = 0;
-            self.set_mode(LCDMode::SearchingOAM);
-            self.mapper.lcd_y_coordinate = 0;
+        assert!(cycles == 2);
 
+        if self.mapper.lcd_on() == 0 {
             return;
         }
 
-        self.cycles += cycles;
+        self.cycles = (self.cycles + cycles) % SCREEN_CYCLES;
     }
 
     fn switch_to(&mut self, mode: LCDMode) -> Option<Interrupt> {
@@ -405,51 +409,100 @@ impl Ppu {
         }
     }
 
+    fn update_scanline(&mut self) {
+        assert!(self.mapper.lcd_y_coordinate == 153 ||
+            self.mapper.lcd_y_coordinate + 1 == (self.cycles / SCANLINE_CYCLES) as u8);
+
+        // Beginning of the scanline, we need to update LY
+        self.mapper.lcd_y_coordinate = (self.cycles / SCANLINE_CYCLES) as u8;
+
+        // In this cycle, ly_coincidence is 0 no matter what
+        self.mapper.set_ly_coincidence(0);
+    }
+
+    fn update_ly_lyc_coincidence(&mut self) -> Option<Interrupt> {
+        if self.mapper.lcd_y_coordinate == self.mapper.lyc_coincidence {
+            self.mapper.set_ly_coincidence(1);
+            if self.mapper.lyc_ly_coincidence_interrupt() == 1 {
+                return Some(Interrupt::Stat);
+            }
+        }
+
+        None
+    }
+
+    fn check_interrupts_vblank(&mut self) -> Option<Interrupt> {
+        match self.cycles % SCANLINE_CYCLES {
+            0 => self.update_scanline(),
+            4 => {
+                let mut interrupt = self.update_ly_lyc_coincidence();
+
+                if self.mapper.lcd_y_coordinate == 0 {
+                    // End of VBlank
+                    interrupt = interrupt.or(self.switch_to(LCDMode::SearchingOAM));
+                }
+
+                return interrupt;
+            },
+            8 ... 452 => {
+                // VBlank running, nothing to do
+            },
+            _ => unreachable!(),
+        }
+
+        None
+    }
+
     pub fn check_interrupts(&mut self) -> Option<Interrupt> {
+        if self.mapper.lcd_on() == 0 {
+            return None;
+        }
+
         let mut interrupt = None;
 
-        if self.cycles > self.mode.duration() {
-            self.cycles -= self.mode.duration();
+        if self.cycles % 4 != 0 {
+            // We only care about M-cycles
+            return None;
+        }
 
-            match self.mode {
-                LCDMode::SearchingOAM => {
-                    interrupt = interrupt.or(self.switch_to(LCDMode::LCDTransfer));
-                },
-                LCDMode::LCDTransfer => {
-                    interrupt = interrupt.or(self.switch_to(LCDMode::HBlank));
-                },
-                LCDMode::HBlank => {
-                    if self.mapper.lcd_y_coordinate < SCREEN_Y as u8 - 1 {
-                        interrupt = interrupt.or(self.switch_to(LCDMode::SearchingOAM));
-                    } else {
-                        let _ = self.switch_to(LCDMode::VBlank);
-                        // VBlank takes precedence over Stat
-                        interrupt = Some(Interrupt::VBlank);
-                    }
+        if self.mode == LCDMode::VBlank {
+            return self.check_interrupts_vblank();
+        }
 
-                    let scanline = self.mapper.lcd_y_coordinate as usize;
-                    self.write_scanline(scanline);
-                    self.mapper.lcd_y_coordinate += 1;
-                },
-                LCDMode::VBlank => {
-                    if self.mapper.lcd_y_coordinate == 153 {
-                        interrupt = interrupt.or(self.switch_to(LCDMode::SearchingOAM));
-                        self.should_refresh = true;
-                    }
-                    self.mapper.lcd_y_coordinate += 1;
+        // If we're not in VBlank we must have a coordinate inside the screen
+        assert!(self.mapper.lcd_y_coordinate as usize <= SCREEN_Y);
+
+        match self.cycles % SCANLINE_CYCLES {
+            0 => self.update_scanline(),
+            4 => {
+                interrupt = interrupt.or(self.update_ly_lyc_coincidence());
+
+                if self.mapper.lcd_y_coordinate == SCREEN_Y as u8 {
+                    // Let's notify the front-end that we're ready to refresh the screen
+                    self.should_refresh = true;
+
+                    // VBlank interrupt takes precedence over STAT
+                    let _ = self.switch_to(LCDMode::VBlank);
+                    return Some(Interrupt::VBlank);
                 }
-            }
 
-            self.mapper.lcd_y_coordinate %= 154;
+                interrupt = interrupt.or(self.switch_to(LCDMode::SearchingOAM));
+            },
+            8 ... 80 | 88 ... 252 | 260 ... 452 => {
+                // The ppu is running one of the modes, do nothing
+            },
+            84 => {
+                interrupt = interrupt.or(self.switch_to(LCDMode::LCDTransfer));
+            },
+            256 => {
+                interrupt = interrupt.or(self.switch_to(LCDMode::HBlank));
 
-            if self.mapper.lcd_y_coordinate == self.mapper.lyc_coincidence {
-                self.mapper.set_ly_coincidence(1);
-                if self.mapper.lyc_ly_coincidence_interrupt() == 1 {
-                    interrupt = interrupt.or(Some(Interrupt::Stat));
-                }
-            } else {
-                self.mapper.set_ly_coincidence(0);
-            }
+                // let's make the borrow checker happy
+                let lcd_y_coordinate = self.mapper.lcd_y_coordinate as usize;
+
+                self.write_scanline(lcd_y_coordinate);
+            },
+            _ => unreachable!(),
         }
 
         interrupt
