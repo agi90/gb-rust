@@ -35,6 +35,7 @@ pub struct Ppu {
     should_refresh: bool,
     mapper: VideoMemoryMapper,
     mode: LCDMode,
+    background: [u8; SCREEN_X],
 }
 
 u8_enum!{
@@ -85,6 +86,7 @@ impl Ppu {
             should_refresh: false,
             mapper: VideoMemoryMapper::new(),
             mode: LCDMode::HBlank,
+            background: [0; SCREEN_X],
         }
     }
 
@@ -253,7 +255,7 @@ impl Ppu {
         h + 8 >= x && h < x
     }
 
-    fn print_sprites(&mut self, scanline: usize, background: &[u8]) {
+    fn print_sprites(&mut self, scanline: usize) {
         // Normally visible_sprites would be an array
         // but this code path is very hot so we need to
         // be cautios about performance.
@@ -291,7 +293,7 @@ impl Ppu {
                         scanline + 16 - self.sprite_y(id));
 
                 if color != GrayShade::Transparent {
-                    if !flags.below_bg || background[x] == 0 {
+                    if !flags.below_bg || self.background[x] == 0 {
                             if x < SCREEN_X && scanline < SCREEN_Y {
                                 self.screen_buffer[scanline][x] = color;
                             }
@@ -312,50 +314,41 @@ impl Ppu {
         result
     }
 
-    fn write_scanline(&mut self, i: usize) {
-        // Step 0: Blank screen
-        for j in 0..SCREEN_X {
-            self.write_pixel(j as usize, i as usize, GrayShade::C00);
-        }
+    fn write_pixel(&mut self, i: usize, j: usize) {
+        assert!(i < SCREEN_Y);
+        assert!(j < SCREEN_X);
 
-        let mut background = [0; SCREEN_X];
+        // Step 0: Blank screen
+        self.write_raw_pixel(j as usize, i as usize, GrayShade::C00);
+        self.background[j] = 0;
 
         // Step 1: paint background
         if self.mapper.bg_window_on() == 1 {
             let y = (i + (self.mapper.scroll_bg_y as usize)) % BACKGROUND_Y;
-            for j in 0..SCREEN_X {
-                let x = (j + (self.mapper.scroll_bg_x as usize)) % BACKGROUND_X;
-                background[j] = self.raw_background_at(self.mapper.bg_tile_map(), x, y);
-            }
+            let x = (j + (self.mapper.scroll_bg_x as usize)) % BACKGROUND_X;
+            self.background[j] = self.raw_background_at(self.mapper.bg_tile_map(), x, y);
 
-            for j in 0..SCREEN_X {
-                let color = self.background_color_from_raw(background[j]);
-                self.write_pixel(j as usize, i, color);
-            }
+            let color = self.background_color_from_raw(self.background[j]);
+            self.write_raw_pixel(j, i, color);
         }
 
         // Step 2: paint the window
         if self.mapper.window_on() == 1
                 && self.mapper.bg_window_on() == 1 {
-            for j in 0..SCREEN_X {
-                if i >= self.mapper.window_y as usize
-                        && j + 7 >= self.mapper.window_x as usize
-                        && j < BACKGROUND_X - 7 + self.mapper.window_x as usize
-                        && i < BACKGROUND_Y + self.mapper.window_y as usize {
-                    let x = j - ((self.mapper.window_x as usize) - 7);
-                    let y = i - (self.mapper.window_y as usize);
+            if i >= self.mapper.window_y as usize
+                    && j + 7 >= self.mapper.window_x as usize
+                    && j < BACKGROUND_X - 7 + self.mapper.window_x as usize
+                    && i < BACKGROUND_Y + self.mapper.window_y as usize {
+                let x = j - ((self.mapper.window_x as usize) - 7);
+                let y = i - (self.mapper.window_y as usize);
 
-                    let pixel = self.background_value_at(self.mapper.window_tile_map(), x, y);
-                    self.write_pixel(j as usize, i as usize, pixel);
-                }
+                let pixel = self.background_value_at(self.mapper.window_tile_map(), x, y);
+                self.write_raw_pixel(j as usize, i as usize, pixel);
             }
         }
-
-        // Step 3: paint sprites
-        self.print_sprites(i, &background);
     }
 
-    fn write_pixel(&mut self, x: usize, y: usize, color: GrayShade) {
+    fn write_raw_pixel(&mut self, x: usize, y: usize, color: GrayShade) {
         if x >= SCREEN_X || y >= SCREEN_Y {
             return;
         }
@@ -407,9 +400,13 @@ impl Ppu {
         }
     }
 
+    fn scanline(&self) -> u8 {
+        self.mapper.lcd_y_coordinate
+    }
+
     fn update_scanline(&mut self) {
-        assert!(self.mapper.lcd_y_coordinate == 153 ||
-            self.mapper.lcd_y_coordinate + 1 == (self.cycles / SCANLINE_CYCLES) as u8);
+        assert!(self.scanline() == 153 ||
+            self.scanline() + 1 == (self.cycles / SCANLINE_CYCLES) as u8);
 
         // Beginning of the scanline, we need to update LY
         self.mapper.lcd_y_coordinate = (self.cycles / SCANLINE_CYCLES) as u8;
@@ -419,7 +416,7 @@ impl Ppu {
     }
 
     fn update_ly_lyc_coincidence(&mut self) -> Option<cpu::Interrupt> {
-        if self.mapper.lcd_y_coordinate == self.mapper.lyc_coincidence {
+        if self.scanline() == self.mapper.lyc_coincidence {
             self.mapper.set_ly_coincidence(1);
             if self.mapper.lyc_ly_coincidence_interrupt() == 1 {
                 return Some(cpu::Interrupt::Stat);
@@ -435,7 +432,7 @@ impl Ppu {
             4 => {
                 let mut interrupt = self.update_ly_lyc_coincidence();
 
-                if self.mapper.lcd_y_coordinate == 0 {
+                if self.scanline() == 0 {
                     // End of VBlank
                     interrupt = interrupt.or(self.switch_to(LCDMode::SearchingOAM));
                 }
@@ -468,14 +465,16 @@ impl Ppu {
         }
 
         // If we're not in VBlank we must have a coordinate inside the screen
-        assert!(self.mapper.lcd_y_coordinate as usize <= SCREEN_Y);
+        assert!(self.scanline() as usize <= SCREEN_Y);
 
-        match self.cycles % SCANLINE_CYCLES {
+        let scanline_cycle = self.cycles % SCANLINE_CYCLES;
+
+        match scanline_cycle {
             0 => self.update_scanline(),
             4 => {
                 interrupt = interrupt.or(self.update_ly_lyc_coincidence());
 
-                if self.mapper.lcd_y_coordinate == SCREEN_Y as u8 {
+                if self.scanline() == SCREEN_Y as u8 {
                     // Let's notify the front-end that we're ready to refresh the screen
                     self.should_refresh = true;
 
@@ -486,19 +485,25 @@ impl Ppu {
 
                 interrupt = interrupt.or(self.switch_to(LCDMode::SearchingOAM));
             },
-            8 ... 80 | 88 ... 252 | 260 ... 452 => {
+            8 ... 80 | 88 | 252 | 260 ... 452 => {
                 // The ppu is running one of the modes, do nothing
             },
             84 => {
                 interrupt = interrupt.or(self.switch_to(LCDMode::LCDTransfer));
             },
+            92 ... 248 => {
+                for i in 0..4 {
+                    // This is only an approximation of what actually happens.
+                    // More information is available at:
+                    // http://blog.kevtris.org/blogfiles/Nitty%20Gritty%20Gameboy%20VRAM%20Timing.txt
+                    let scanline = self.scanline() as usize;
+                    self.write_pixel(scanline, scanline_cycle - 92 + i);
+                }
+            },
             256 => {
                 interrupt = interrupt.or(self.switch_to(LCDMode::HBlank));
-
-                // let's make the borrow checker happy
-                let lcd_y_coordinate = self.mapper.lcd_y_coordinate as usize;
-
-                self.write_scanline(lcd_y_coordinate);
+                let scanline = self.scanline() as usize;
+                self.print_sprites(scanline);
             },
             _ => unreachable!(),
         }
