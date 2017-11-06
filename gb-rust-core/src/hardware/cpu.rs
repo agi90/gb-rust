@@ -348,10 +348,16 @@ impl Cpu {
         self.called_set_PC = true;
     }
 
-    pub fn add_cycles(&mut self, cycles: usize) {
+    pub fn add_cycles(&mut self, mut cycles: usize) {
+        assert!(cycles % 2 == 0);
+
         self.cycles += cycles;
-        self.interrupt_handler.add_cycles(cycles);
-        self.handler_holder.add_cycles(cycles);
+        while cycles > 0 {
+            cycles -= 2;
+            // TODO: rename this cpu_step and remove the cycles param
+            self.interrupt_handler.add_cycles(2);
+            self.handler_holder.add_cycles(2);
+        }
     }
 
     pub fn get_cycles(&self) -> usize { self.cycles }
