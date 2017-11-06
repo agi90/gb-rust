@@ -357,6 +357,9 @@ impl Cpu {
             // TODO: rename this cpu_step and remove the cycles param
             self.interrupt_handler.add_cycles(2);
             self.handler_holder.add_cycles(2);
+
+            self.handler_holder.check_interrupts()
+                .map(|i| self.interrupt_handler.add_interrupt(i));
         }
     }
 
@@ -458,9 +461,6 @@ impl Cpu {
     }
 
     pub fn next_instruction(&mut self) {
-        self.handler_holder.check_interrupts()
-            .map(|i| self.interrupt_handler.add_interrupt(i));
-
         if self.interrupt_handler.has_interrupts() {
             self.state = CpuState::Running;
         }
