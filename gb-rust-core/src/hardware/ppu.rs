@@ -1,4 +1,4 @@
-use hardware::cpu::{Handler, Interrupt};
+use hardware::cpu;
 use bitfield::Bitfield;
 
 /* Represents a shade of gray */
@@ -46,7 +46,7 @@ u8_enum!{
     }
 }
 
-impl Handler for Ppu {
+impl cpu::Handler for Ppu {
     fn read(&self, address: u16) -> u8 {
         match address {
             0x8000 ... 0x9FFF => self.read_ram(address),
@@ -382,17 +382,15 @@ impl Ppu {
         self.video_ram[(address - 0x8000) as usize] = v;
     }
 
-    pub fn add_cycles(&mut self, cycles: usize) {
-        assert!(cycles == 2);
-
+    pub fn cpu_step(&mut self) {
         if self.mapper.lcd_on() == 0 {
             return;
         }
 
-        self.cycles = (self.cycles + cycles) % SCREEN_CYCLES;
+        self.cycles = (self.cycles + cpu::CYCLES_PER_STEP) % SCREEN_CYCLES;
     }
 
-    fn switch_to(&mut self, mode: LCDMode) -> Option<Interrupt> {
+    fn switch_to(&mut self, mode: LCDMode) -> Option<cpu::Interrupt> {
         let enabled = match mode {
             LCDMode::SearchingOAM => self.mapper.oam_interrupt() == 1,
             LCDMode::HBlank       => self.mapper.h_blank_interrupt() == 1,
@@ -403,7 +401,7 @@ impl Ppu {
         self.set_mode(mode);
 
         if enabled {
-            Some(Interrupt::Stat)
+            Some(cpu::Interrupt::Stat)
         } else {
             None
         }
@@ -420,18 +418,18 @@ impl Ppu {
         self.mapper.set_ly_coincidence(0);
     }
 
-    fn update_ly_lyc_coincidence(&mut self) -> Option<Interrupt> {
+    fn update_ly_lyc_coincidence(&mut self) -> Option<cpu::Interrupt> {
         if self.mapper.lcd_y_coordinate == self.mapper.lyc_coincidence {
             self.mapper.set_ly_coincidence(1);
             if self.mapper.lyc_ly_coincidence_interrupt() == 1 {
-                return Some(Interrupt::Stat);
+                return Some(cpu::Interrupt::Stat);
             }
         }
 
         None
     }
 
-    fn check_interrupts_vblank(&mut self) -> Option<Interrupt> {
+    fn check_interrupts_vblank(&mut self) -> Option<cpu::Interrupt> {
         match self.cycles % SCANLINE_CYCLES {
             0 => self.update_scanline(),
             4 => {
@@ -453,7 +451,7 @@ impl Ppu {
         None
     }
 
-    pub fn check_interrupts(&mut self) -> Option<Interrupt> {
+    pub fn check_interrupts(&mut self) -> Option<cpu::Interrupt> {
         if self.mapper.lcd_on() == 0 {
             return None;
         }
@@ -483,7 +481,7 @@ impl Ppu {
 
                     // VBlank interrupt takes precedence over STAT
                     let _ = self.switch_to(LCDMode::VBlank);
-                    return Some(Interrupt::VBlank);
+                    return Some(cpu::Interrupt::VBlank);
                 }
 
                 interrupt = interrupt.or(self.switch_to(LCDMode::SearchingOAM));

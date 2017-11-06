@@ -88,7 +88,7 @@ macro_rules! memory_mapper {
             )*)*
         }
 
-        impl Handler for $name {
+        impl cpu::Handler for $name {
             fn read(&self, address: u16) -> u8 {
                 match address {
                     $($hex => self.$field_name.get() | $mask),+,
@@ -118,7 +118,7 @@ macro_rules! memory_handler {
         mapper: $mapper: ident,
         callback: $callback: ident,
     } => {
-        impl Handler for $parent {
+        impl cpu::Handler for $parent {
             fn read(&self, address: u16) -> u8 {
                 self.$mapper.read(address)
             }

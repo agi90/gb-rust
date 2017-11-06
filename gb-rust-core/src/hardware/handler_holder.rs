@@ -1,6 +1,6 @@
 use hardware::apu::{SoundController, AudioBuffer};
 use hardware::cartridge::Cartridge;
-use hardware::cpu::{Handler, HandlerHolder, Interrupt};
+use hardware::cpu;
 use hardware::ppu::{Ppu, ScreenBuffer};
 
 use bitfield::Bitfield;
@@ -43,7 +43,7 @@ impl MemoryHolder {
     }
 }
 
-impl Handler for MemoryHolder {
+impl cpu::Handler for MemoryHolder {
     fn read(&self, address: u16) -> u8 {
         match address {
             0xFEA0 ... 0xFEFF | 0xFF4C ... 0xFF7F => {
@@ -71,7 +71,7 @@ impl Handler for MemoryHolder {
     }
 }
 
-impl HandlerHolder for GBHandlerHolder {
+impl cpu::HandlerHolder for GBHandlerHolder {
     fn get_screen_buffer(&self) -> &ScreenBuffer {
         self.ppu.get_screen()
     }
@@ -92,7 +92,7 @@ impl HandlerHolder for GBHandlerHolder {
         self.joypad_register.key_down(key);
     }
 
-    fn get_handler_read(&self, address: u16) -> &Handler {
+    fn get_handler_read(&self, address: u16) -> &cpu::Handler {
         match address {
             0x0000 ... 0x7FFF => &self.cartridge,
             0x8000 ... 0x9FFF => &self.ppu,
@@ -112,7 +112,7 @@ impl HandlerHolder for GBHandlerHolder {
         }
     }
 
-    fn get_handler_write(&mut self, address: u16) -> &mut Handler {
+    fn get_handler_write(&mut self, address: u16) -> &mut cpu::Handler {
         match address {
             0x0000 ... 0x7FFF => &mut self.cartridge,
             0x8000 ... 0x9FFF => &mut self.ppu,
@@ -130,12 +130,12 @@ impl HandlerHolder for GBHandlerHolder {
         }
     }
 
-    fn add_cycles(&mut self, cycles: usize) {
-        self.ppu.add_cycles(cycles);
-        self.apu.add_cycles(cycles);
+    fn cpu_step(&mut self) {
+        self.ppu.cpu_step();
+        self.apu.cpu_step();
     }
 
-    fn check_interrupts(&mut self) -> Option<Interrupt> {
+    fn check_interrupts(&mut self) -> Option<cpu::Interrupt> {
         self.ppu.check_interrupts()
     }
 
@@ -188,7 +188,7 @@ impl SerialTransfer {
     }
 }
 
-impl Handler for SerialTransfer {
+impl cpu::Handler for SerialTransfer {
     fn read(&self, address: u16) -> u8 {
         self.mapper.read(address)
     }
@@ -274,7 +274,7 @@ impl JoypadRegister {
     }
 }
 
-impl Handler for JoypadRegister {
+impl cpu::Handler for JoypadRegister {
     fn read(&self, address: u16) -> u8 {
         if address != 0xFF00 {
             unimplemented!();

@@ -1,8 +1,9 @@
 /** This file is mostly based on http://gbdev.gg8.se/wiki/articles/Gameboy_sound_hardware */
 
-use std::convert::From;
-use hardware::cpu::Handler;
 use bitfield::Bitfield;
+use hardware::cpu;
+use hardware::cpu::Handler;
+use std::convert::From;
 
 u8_enum!{
     SoundStatus {
@@ -872,10 +873,10 @@ impl FrameSequencer {
     }
 
     #[inline]
-    pub fn add_cycles(&mut self, cycles: usize) -> Option<SequencerEvent> {
-        self.cycles -= cycles as i64;
+    pub fn cpu_step(&mut self) -> Option<SequencerEvent> {
+        self.cycles -= cpu::CYCLES_PER_STEP as i64;
 
-        if self.cycles > 0 {
+        if self.cycles != 0 {
             return None;
         }
 
@@ -926,12 +927,12 @@ impl SoundController {
         &self.buffer
     }
 
-    pub fn add_cycles(&mut self, cycles: usize) {
+    pub fn cpu_step(&mut self) {
         if !self.master_status {
             return;
         }
 
-        if let Some(ev) = self.frame_sequencer.add_cycles(cycles) {
+        if let Some(ev) = self.frame_sequencer.cpu_step() {
             match ev {
                 SequencerEvent::Length => self.update_length(),
                 SequencerEvent::LengthSweep => {

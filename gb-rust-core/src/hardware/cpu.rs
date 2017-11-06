@@ -9,6 +9,8 @@ use std::cell::RefCell;
 #[cfg(feature = "debugger")]
 use std::collections::HashSet;
 
+pub const CYCLES_PER_STEP: usize = 2;
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum CpuState {
     Running,
@@ -78,7 +80,7 @@ pub trait HandlerHolder {
     fn get_audio_buffer(&self) -> &AudioBuffer;
     fn get_handler_read(&self, address: u16) -> &Handler;
     fn get_handler_write(&mut self, address: u16) -> &mut Handler;
-    fn add_cycles(&mut self, cycles: usize);
+    fn cpu_step(&mut self);
     fn check_interrupts(&mut self) -> Option<Interrupt>;
     fn should_refresh(&mut self) -> bool;
     fn ram(&mut self) -> &mut [u8];
@@ -348,18 +350,23 @@ impl Cpu {
         self.called_set_PC = true;
     }
 
+    pub fn cpu_step(&mut self) {
+        self.cycles += CYCLES_PER_STEP;
+
+        self.interrupt_handler.cpu_step();
+        self.handler_holder.cpu_step();
+
+        self.handler_holder.check_interrupts()
+            .map(|i| self.interrupt_handler.add_interrupt(i));
+    }
+
     pub fn add_cycles(&mut self, mut cycles: usize) {
         assert!(cycles % 2 == 0);
 
         self.cycles += cycles;
         while cycles > 0 {
             cycles -= 2;
-            // TODO: rename this cpu_step and remove the cycles param
-            self.interrupt_handler.add_cycles(2);
-            self.handler_holder.add_cycles(2);
-
-            self.handler_holder.check_interrupts()
-                .map(|i| self.interrupt_handler.add_interrupt(i));
+            self.cpu_step();
         }
     }
 
@@ -492,7 +499,7 @@ impl Cpu {
                 self.reset_call_set_PC();
             }
         } else {
-            self.add_cycles(2);
+            self.cpu_step();
         };
     }
 }
@@ -560,8 +567,8 @@ impl InterruptHandler {
         }
     }
 
-    pub fn add_cycles(&mut self, cycles: usize) {
-        self.timer_controller.add_cycles(cycles)
+    pub fn cpu_step(&mut self) {
+        self.timer_controller.cpu_step()
             .map(|i| self.add_interrupt(i));
     }
 

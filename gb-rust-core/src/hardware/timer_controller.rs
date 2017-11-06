@@ -1,6 +1,6 @@
 use std::num::Wrapping;
 use bitfield::Bitfield;
-use hardware::cpu::{Handler, Interrupt};
+use hardware::cpu;
 
 u8_enum!{
     ClockSelect {
@@ -31,9 +31,9 @@ impl TimerController {
         }
     }
 
-    pub fn add_cycles(&mut self, cycles: usize) -> Option<Interrupt> {
-        self.last_clock += cycles;
-        self.last_divider += cycles;
+    pub fn cpu_step(&mut self) -> Option<cpu::Interrupt> {
+        self.last_clock += cpu::CYCLES_PER_STEP;
+        self.last_divider += cpu::CYCLES_PER_STEP;
 
         let mut interrupt = None;
         while self.last_clock >= 16 {
@@ -45,7 +45,7 @@ impl TimerController {
             let divider = self.inc_divider();
 
             if clock || divider {
-                interrupt = Some(Interrupt::Timer);
+                interrupt = Some(cpu::Interrupt::Timer);
             }
         }
 

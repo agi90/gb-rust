@@ -83,7 +83,7 @@ impl HandlerHolder for MockHandlerHolder {
     fn get_handler_write(&mut self, _: u16) -> &mut Handler {
         self as &mut Handler
     }
-    fn add_cycles(&mut self, _: usize) {}
+    fn cpu_step(&mut self) {}
     fn check_interrupts(&mut self) -> Option<Interrupt> { None }
     fn key_down(&mut self, _: Key) {}
     fn key_up(&mut self, _: Key) {}
