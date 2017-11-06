@@ -22,7 +22,6 @@ pub type ScreenBuffer = [[GrayShade; SCREEN_X]; SCREEN_Y];
 
 pub struct Ppu {
     cycles: usize,
-    total_cycles: usize,
     video_ram: [u8; 8196],
     oam_ram: [u8; 160],
     screen_buffer: ScreenBuffer,
@@ -83,7 +82,6 @@ impl Ppu {
     pub fn new() -> Ppu {
         Ppu {
             cycles: 0,
-            total_cycles: 0,
             video_ram: [0; 8196],
             oam_ram: [0; 160],
             screen_buffer: [[GrayShade::C00; SCREEN_X]; SCREEN_Y],
@@ -388,7 +386,6 @@ impl Ppu {
         }
 
         self.cycles += cycles;
-        self.total_cycles += cycles;
     }
 
     fn switch_to(&mut self, mode: LCDMode) -> Option<Interrupt> {
