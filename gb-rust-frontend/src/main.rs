@@ -55,7 +55,7 @@ macro_rules! bail {
         {
             let result = $expr;
             if result.is_err() {
-                println!("{}", $expr.unwrap_err());
+                println!("{}", result.unwrap_err());
                 return;
             }
 
@@ -77,6 +77,50 @@ fn parse_string_at(mut address: u16, cpu: &mut Cpu) -> String {
     result
 }
 
+const DEFAULT_MAG: u32 = 3;
+
+#[derive(Debug)]
+struct Config {
+    rom_name: String,
+    is_headless: bool,
+    timeout: usize,
+    mag: u32,
+    commands: Vec<String>,
+    integ_tests_string_addr: Option<u16>,
+    is_debug: bool,
+}
+
+impl Config {
+    fn from_clap(matches: clap::ArgMatches) -> Result<Config, String> {
+        let timeout = matches.value_of("timeout")
+            .map(|t| t.parse::<usize>())
+            .unwrap_or(Ok(100))
+            .unwrap();
+        let mag = value_t!(matches.value_of("mag"), u32)
+            .unwrap_or(DEFAULT_MAG);
+        let commands: Vec<String> = matches.value_of("commands")
+            .map(|cc| cc.split(';').map(|c| c.trim().to_string()).collect())
+            .unwrap_or(vec![]);
+        let string_addr = if let Some(addr) = matches.value_of("string_addr") {
+            Some(u16::from_str_radix(addr, 16)
+                .map_err(|_| format!("Could not parse address '{}'. \
+    Please use format XXXX, where X is 0-F.", addr))?)
+        } else {
+            None
+        };
+
+        Ok(Config {
+            rom_name: matches.value_of("ROM").unwrap().to_string(),
+            is_headless: matches.occurrences_of("headless") > 0,
+            is_debug: matches.occurrences_of("debug") > 0,
+            timeout: timeout,
+            mag: mag,
+            commands: commands,
+            integ_tests_string_addr: string_addr,
+        })
+    }
+}
+
 pub fn main() {
     let matches = clap_app!(gbrust =>
         (version: "0.1b")
@@ -93,20 +137,13 @@ pub fn main() {
             "Semicolon separated commands to run after debugger starts. Assumes --debug.")
     ).get_matches();
 
-    let rom_name = matches.value_of("ROM").unwrap();
-    let mut save_file = bail!(open_save_file(&rom_name));
+    let config = bail!(Config::from_clap(matches));
 
-    let headless = matches.occurrences_of("headless") > 0;
-    let timeout = matches.value_of("timeout")
-        .map(|t| t.parse::<usize>())
-        .unwrap_or(Ok(100))
-        .unwrap();
-    let mag = value_t!(matches.value_of("mag"), u32)
-        .unwrap_or(3);
+    let mut save_file = bail!(open_save_file(&config.rom_name));
 
-    let mut controller = if !headless {
-        Some(Controller::new(gb::SCREEN_X as u32 * mag,
-                             gb::SCREEN_Y as u32 * mag))
+    let mut controller = if !config.is_headless {
+        Some(Controller::new(gb::SCREEN_X as u32 * config.mag,
+                             gb::SCREEN_Y as u32 * config.mag))
     } else {
         None
     };
@@ -114,7 +151,7 @@ pub fn main() {
     let mut emulator;
     {
         let mut rom_bytes = vec![];
-        let mut rom = bail!(open_rom(&rom_name));
+        let mut rom = bail!(open_rom(&config.rom_name));
         bail!(rom.read_to_end(&mut rom_bytes));
 
         emulator = Emulator::from_data(&rom_bytes, 44100.0).unwrap();
@@ -126,22 +163,18 @@ pub fn main() {
     }
 
     let mut debugger = Debugger::new();
-    let commands: Vec<&str> = matches.value_of("commands")
-        .map(|cc| cc.split(';').map(|c| c.trim()).collect())
-        .unwrap_or(vec![]);
-
-    for c in &commands {
+    for c in &config.commands {
         bail!(debugger.exec(c, &mut emulator));
     }
 
-    if matches.occurrences_of("debug") > 0 || commands.len() > 0 {
+    if config.is_debug || config.commands.len() > 0 {
         debugger.breakpoint(&mut emulator);
     }
 
     let mut natural_speed = true;
-    let mut counter = timeout * 1000000;
+    let mut counter = config.timeout * 1000000;
 
-    while !headless || counter > 0 {
+    while !config.is_headless || counter > 0 {
         debugger.check_breakpoints(&mut emulator);
 
         emulator.cpu.next_instruction();
@@ -166,11 +199,8 @@ pub fn main() {
         counter -= 1;
     }
 
-    if let Some(string_address) = matches.value_of("string_addr") {
-        let address = bail!(u16::from_str_radix(string_address, 16)
-            .map_err(|_| format!("Could not parse address '{}'. \
-Please use format XXXX, where X is 0-F.", string_address)));
-        print!("{}", parse_string_at(address, &mut emulator.cpu));
+    if let Some(addr) = config.integ_tests_string_addr {
+        print!("{}", parse_string_at(addr, &mut emulator.cpu));
     }
 
     bail!(save_file.seek(SeekFrom::Start(0)));
