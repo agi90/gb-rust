@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate glium;
 extern crate sdl2;
+extern crate image;
 
 #[macro_use]
 extern crate clap;
@@ -16,6 +17,7 @@ extern crate gb;
 
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write, Seek, SeekFrom};
+use image::ImageBuffer;
 
 use gb::{Emulator, Cpu};
 
@@ -88,6 +90,7 @@ struct Config {
     commands: Vec<String>,
     integ_tests_string_addr: Option<u16>,
     is_debug: bool,
+    screenshot_path: Option<String>,
 }
 
 impl Config {
@@ -113,12 +116,24 @@ impl Config {
             rom_name: matches.value_of("ROM").unwrap().to_string(),
             is_headless: matches.occurrences_of("headless") > 0,
             is_debug: matches.occurrences_of("debug") > 0,
+            screenshot_path: matches.value_of("screenshot").map(|s| s.to_string()),
             timeout: timeout,
             mag: mag,
             commands: commands,
             integ_tests_string_addr: string_addr,
         })
     }
+}
+
+fn save_screenshot(path: &str, screen: &gb::ScreenBuffer) -> Result<(), String> {
+    let mut img = ImageBuffer::new(gb::SCREEN_X as u32, gb::SCREEN_Y as u32);
+    for i in 0..gb::SCREEN_X {
+        for j in 0..gb::SCREEN_Y {
+            img.put_pixel(i as u32, j as u32, image::Luma([255 - screen[j][i] as u8 * 64]));
+        }
+    }
+
+    img.save(path).map_err(|e| e.to_string())
 }
 
 pub fn main() {
@@ -130,6 +145,8 @@ pub fn main() {
         (@arg mag: -m --magnification +takes_value "Number of times the screen should be magnified. Default is '3'.") 
         (@arg debug: -d --debug "Starts in debug mode.")
         (@arg headless: -H --headless "Run in headless mode. For integration tests.")
+        (@arg screenshot: -S --screenshot +takes_value
+            "Takes a screenshot at the end of the run. The screenshot will be saved in the file indicated by the argument.")
         (@arg timeout: -t --timeout +takes_value "Timeout when running headless, in millions of cycles. Default 100")
         (@arg string_addr: -s --result +takes_value
             "The emulator will print a null-terminated string preset at this address. For integration tests.")
@@ -201,6 +218,11 @@ pub fn main() {
 
     if let Some(addr) = config.integ_tests_string_addr {
         print!("{}", parse_string_at(addr, &mut emulator.cpu));
+    }
+
+    if let Some(screenshot) = config.screenshot_path {
+        bail!(save_screenshot(&screenshot,
+                              emulator.cpu.handler_holder.get_screen_buffer()));
     }
 
     bail!(save_file.seek(SeekFrom::Start(0)));
