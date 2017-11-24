@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    "gb-rust-core",
-    "gb-rust-frontend",
-    "gb-rust-libretro"
+    "core",
+    "frontend",
+    "libretro"
 ]
 
 [profile.release]

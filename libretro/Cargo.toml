@@ -12,7 +12,7 @@ cpuprofiler = { version = "0.0.3", optional = true }
 uuid = { version = "0.4", features = ["v4"], optional = true }
 
 [dependencies.gb]
-path = "../gb-rust-core"
+path = "../core"
 
 [features]
 profiler = ["cpuprofiler", "uuid"]
