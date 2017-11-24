@@ -74,7 +74,8 @@ impl Cartridge {
 
         Cartridge {
             startup_graphic: (&copy[0x104..0x133]).to_vec(),
-            game_title: String::from_utf8(copy[0x134..0x142].to_vec()).unwrap(),
+            game_title: String::from_utf8(copy[0x134..0x142].to_vec())
+                .unwrap_or("UNKNOWN".to_string()),
             gb_color_game: (copy[0x143] == 0x80),
             licence_code: ((copy[0x144] as u16) << 8) + (copy[0x145] as u16),
             super_game_boy: copy[0x146] == 0x03,
