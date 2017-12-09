@@ -37,6 +37,12 @@ impl Emulator {
     }
 
     pub fn generate_sound(&mut self) -> [i16; AUDIO_BUFFER_SIZE] {
+        let mut out = [0; AUDIO_BUFFER_SIZE];
+        self.generate_sound_into(&mut out);
+        out
+    }
+
+    pub fn generate_sound_into(&mut self, out: &mut [i16]) {
         let audio = self.cpu.handler_holder.get_audio_buffer();
 
         let mut i = 0;
@@ -73,8 +79,6 @@ impl Emulator {
         let channel_4_phase_inc = audio.sound_4().frequency() as f64 / self.frequency;
         let channel_4_volume = (VOLUME_MAX as f64 * audio.sound_4().volume() as f64
                                 / 16.0 / 4.0) as i16;
-
-        let mut out = [0; AUDIO_BUFFER_SIZE];
 
         while i < out.len() {
             let channel_1 = if channel_1_phase < audio.sound_1().wave_duty() as f64 {
@@ -127,8 +131,6 @@ impl Emulator {
             channel_3: channel_3_phase,
             channel_4: channel_4_phase,
         };
-
-        out
     }
 }
 

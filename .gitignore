@@ -6,3 +6,4 @@ Cargo.lock
 *.state
 rom
 rom-gbc
+wasm/emu.js

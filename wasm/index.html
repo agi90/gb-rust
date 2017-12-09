@@ -1,0 +1,179 @@
+<!DOCTYPE><html>
+<head>
+<style>
+    input[type=file] {
+        display: block;
+        margin-bottom: 10px;
+    }
+
+    #gameboy {
+        background-image: url('assets/Gameboy.svg');
+        background-repeat: no-repeat;
+        background-size: 302px;
+        height: 495px;
+        position: relative;
+    }
+
+    #screen {
+        position: relative;
+        left: 71px;
+        top: 61px;
+    }
+</style>
+    <script type="text/javascript" src="emu.js"></script>
+    <script>
+        "use strict";
+
+        window.addEventListener("gamepadconnected", (e) => {
+            console.log("Gamepad connected %d %s %d buttons %d axes",
+                    e.gamepad.index, e.gamepad.id,
+                    e.gamepad.buttons.length, e.gamepad.axes.length);
+        });
+
+        function pollGamepad() {
+            // This is for a PS4 gamepad
+            let buttons = {
+                a: false, // Button 1
+                b: false, // Button 2
+                start: false, // Button 8
+                select: false, // Button 9
+                up: false, // Axis 7 == -1
+                down: false, // Axis 7 == 1
+                left: false, // Axis 6 == -1
+                right: false, // Axis 6 == 1
+            };
+
+            if (!navigator.getGamepads().length) {
+                return buttons;
+            }
+
+            let gamepad = navigator.getGamepads()[0];
+
+            buttons.a = gamepad.buttons[2].pressed;
+            buttons.b = gamepad.buttons[1].pressed;
+            buttons.select = gamepad.buttons[8].pressed;
+            buttons.start = gamepad.buttons[9].pressed;
+            buttons.up = gamepad.axes[7] == -1;
+            buttons.down = gamepad.axes[7] == 1;
+            buttons.left = gamepad.axes[6] == -1;
+            buttons.right = gamepad.axes[6] == 1;
+
+            return buttons;
+        }
+
+        let test_string = Module.cwrap('test_string', 'string', ['number',
+                'number', 'number', 'number', 'number']);
+
+		let init = Module.cwrap('init', 'void', []);
+		init();
+
+        var screen;
+        var screenHeap;
+        var gamepadHeap;
+        var soundHeap;
+        var soundBuffer;
+        var audioContext;
+        var context;
+        var imageData;
+
+        function onLoad() {
+            screen = document.getElementById('screen');
+            context = screen.getContext('2d');
+            imageData = context.getImageData(0, 0, screen.width,
+                    screen.height);
+            audioContext = new AudioContext();
+            soundBuffer = audioContext.createBuffer(2, 1470, 44100);
+
+            console.log("Loaded!");
+        }
+
+        function refreshSound() {
+            for (let channel = 0; channel < 2; channel++) {
+                let buffer = soundBuffer.getChannelData(channel);
+                for (let i = 0; i < 735; i++) {
+                    buffer[i] = soundHeap[i * 2 + channel] / 32768;
+                }
+            }
+
+            let soundSource = audioContext.createBufferSource();
+            soundSource.buffer = soundBuffer;
+            soundSource.connect(audioContext.destination);
+            soundSource.start();
+        }
+
+        function refresh() {
+			window.requestAnimationFrame(() => {
+				let img = imageData.data;
+
+				for (let i = 0; i < 160; i++) {
+					for (let j = 0; j < 144; j++) {
+						let color = 255 - screenHeap[i * 144 + j] * 64;
+						img[j * 160 * 4 + i * 4    ] = color;
+						img[j * 160 * 4 + i * 4 + 1] = color;
+						img[j * 160 * 4 + i * 4 + 2] = color;
+						img[j * 160 * 4 + i * 4 + 3] = 255;
+					}
+				}
+
+				context.putImageData(imageData, 0, 0);
+
+                let gamepad = pollGamepad();
+                gamepadHeap[0] = gamepad.a + 0;
+                gamepadHeap[1] = gamepad.b + 0;
+                gamepadHeap[2] = gamepad.start + 0;
+                gamepadHeap[3] = gamepad.select + 0;
+                gamepadHeap[4] = gamepad.up + 0;
+                gamepadHeap[5] = gamepad.down + 0;
+                gamepadHeap[6] = gamepad.left + 0;
+                gamepadHeap[7] = gamepad.right + 0;
+
+                refreshSound();
+	        });
+        }
+
+        function handleNewRom(files) {
+            let reader = new FileReader();
+            reader.onload = () => {
+                let rom = new Uint8Array(reader.result);
+
+                let romSize = rom.length * rom.BYTES_PER_ELEMENT;
+                let romPtr = Module._malloc(romSize);
+                let romHeap = new Uint8Array(Module.HEAPU8.buffer, romPtr, romSize);
+                romHeap.set(new Uint8Array(rom.buffer));
+
+                let screenBytes = new Uint8Array(160 * 144 * 3);
+                let screenSize = screenBytes.length * screenBytes.BYTES_PER_ELEMENT;
+                let screenPtr = Module._malloc(screenSize);
+                screenHeap = new Uint8Array(Module.HEAPU8.buffer, screenPtr,
+                        screenSize);
+
+                let soundBytes = new Int16Array(1470);
+                let soundSize = soundBytes.length * soundBytes.BYTES_PER_ELEMENT;
+                let soundPtr = Module._malloc(soundSize);
+                soundHeap = new Int16Array(Module.HEAPU8.buffer, soundPtr, 1470);
+
+                let gamepadBytes = new Uint8Array(8);
+                let gamepadSize = gamepadBytes.length * gamepadBytes.BYTES_PER_ELEMENT;
+                let gamepadPtr = Module._malloc(gamepadSize);
+                gamepadHeap = new Uint8Array(Module.HEAPU8.buffer, gamepadPtr,
+                        gamepadSize);
+
+                let result = test_string(
+                        romHeap.byteOffset,
+                        romSize,
+                        screenHeap.byteOffset,
+                        soundHeap.byteOffset,
+                        gamepadHeap.byteOffset);
+            };
+
+            reader.readAsArrayBuffer(files[0]);
+        }
+    </script>
+</head>
+<body onload="onLoad()">
+    <input type="file" id="rom" onchange="handleNewRom(this.files)">
+    <div id=gameboy>
+        <canvas id="screen" width="160" height="144"></canvas>
+    </div>
+</body>
+</html>
