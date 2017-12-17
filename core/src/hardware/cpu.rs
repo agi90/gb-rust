@@ -84,7 +84,7 @@ pub trait HandlerHolder {
     fn check_interrupts(&mut self) -> Option<Interrupt>;
     fn should_refresh(&mut self) -> bool;
     fn ram(&mut self) -> &mut [u8];
-    fn rtc(&mut self) -> Option<&mut i64>;
+    fn rtc(&mut self) -> Option<&mut u64>;
     fn reset(&mut self);
 }
 

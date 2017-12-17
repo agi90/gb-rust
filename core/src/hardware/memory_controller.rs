@@ -1,14 +1,12 @@
-extern crate chrono;
-
 use std::ops::{Deref, DerefMut};
-use self::chrono::offset::utc::UTC;
-use self::chrono::{DateTime, NaiveDateTime};
+use std::time::SystemTime;
+use std::time;
 
 pub trait Mbc {
     fn read(&self, address: u16) -> u8;
     fn write(&mut self, address: u16, v: u8);
     fn ram(&mut self) -> &mut [u8];
-    fn rtc(&mut self) -> Option<&mut i64>;
+    fn rtc(&mut self) -> Option<&mut u64>;
 }
 
 struct Mbc0 {
@@ -43,7 +41,7 @@ impl Mbc for Mbc0 {
         &mut self.ram
     }
 
-    fn rtc(&mut self) -> Option<&mut i64> {
+    fn rtc(&mut self) -> Option<&mut u64> {
         None
     }
 }
@@ -70,7 +68,7 @@ struct Mbc13 {
     ram_rtc: RamRtc,
     ram_enabled: bool,
 
-    rtc: i64,
+    rtc: u64,
     rtc_register: u8,
     rtc_latch_status: RtcLatchStatus,
 
@@ -91,6 +89,12 @@ enum RtcLatchStatus {
 enum RamRtc {
     RamBank(usize),
     RtcRegister(u8),
+}
+
+fn now() -> u64 {
+    SystemTime::now()
+        .duration_since(time::UNIX_EPOCH).unwrap()
+        .as_secs()
 }
 
 impl Mbc13 {
@@ -151,16 +155,15 @@ impl Mbc13 {
     }
 
     fn read_rtc(&self, reg: u8) -> u8 {
-        let rtc = DateTime::<UTC>::from_utc(NaiveDateTime::from_timestamp(self.rtc, 0), UTC);
-
-        let diff = UTC::now().signed_duration_since(rtc);
+        let diff = now() - self.rtc;
+        let days = diff / 60 / 60 / 24;
         (match reg {
-            0x08 => diff.num_seconds() % 60,
-            0x09 => diff.num_minutes() % 60,
-            0x0A => diff.num_hours() % 24,
-            0x0B => diff.num_days() % 0xFF,
-            0x0C => diff.num_days() >> 8 & 0x01
-                + (if diff.num_days() > 511 { 0b10000000 } else { 0 }),
+            0x08 => diff % 60,
+            0x09 => (diff / 60) % 60,
+            0x0A => (diff / 60 / 60) % 24,
+            0x0B => (diff / 60 / 60 / 24) % 0xFF,
+            0x0C => days >> 8 & 0x01
+                + (if days > 511 { 0b10000000 } else { 0 }),
             _ => unreachable!(),
         } as u8)
     }
@@ -301,7 +304,7 @@ impl Mbc for Mbc13 {
         &mut self.ram
     }
 
-    fn rtc(&mut self) -> Option<&mut i64> {
+    fn rtc(&mut self) -> Option<&mut u64> {
         Some(&mut self.rtc)
     }
 }

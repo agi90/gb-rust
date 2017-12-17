@@ -96,7 +96,7 @@ impl HandlerHolder for MockHandlerHolder {
     }
     fn reset(&mut self) {}
     fn ram(&mut self) -> &mut [u8] { &mut self.data }
-    fn rtc(&mut self) -> Option<&mut i64> { None }
+    fn rtc(&mut self) -> Option<&mut u64> { None }
 }
 
 fn reset_all_registers(cpu: &mut Cpu) {

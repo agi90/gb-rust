@@ -143,7 +143,7 @@ impl cpu::HandlerHolder for GBHandlerHolder {
         self.cartridge.ram()
     }
 
-    fn rtc(&mut self) -> Option<&mut i64> {
+    fn rtc(&mut self) -> Option<&mut u64> {
         self.cartridge.rtc()
     }
 

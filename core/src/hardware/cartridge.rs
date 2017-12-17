@@ -91,7 +91,7 @@ impl Cartridge {
         self.memory_controller.ram()
     }
 
-    pub fn rtc(&mut self) -> Option<&mut i64> {
+    pub fn rtc(&mut self) -> Option<&mut u64> {
         self.memory_controller.rtc()
     }
 }

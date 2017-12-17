@@ -4,7 +4,6 @@ version = "0.1.0"
 authors = ["Giovanni Sferro <agi.novanta@gmail.com>"]
 
 [dependencies]
-chrono = "0.3"
 
 [features]
 debugger = []
