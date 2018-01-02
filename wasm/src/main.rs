@@ -63,15 +63,15 @@ pub extern "C" fn dealloc(ptr: *mut c_void, cap: usize) {
 
 #[no_mangle]
 pub unsafe extern "C" fn main_loop() {
-	if EMULATOR.is_none() || GAMEPAD.len() == 0 || SOUND == ptr::null_mut()
+    if EMULATOR.is_none() || GAMEPAD.len() == 0 || SOUND == ptr::null_mut()
         || SCREEN == ptr::null_mut() {
-		return;
-	}
+        return;
+    }
 
     let sound = slice::from_raw_parts_mut(SOUND as *mut i16, 1470);
     let screen = slice::from_raw_parts_mut(SCREEN as *mut u8,
                                            gb::SCREEN_X * gb::SCREEN_Y * 3);
-	main_loop_internal(EMULATOR.as_mut().unwrap(),
+    main_loop_internal(EMULATOR.as_mut().unwrap(),
         screen, sound, &GamepadStatus::from_raw(GAMEPAD));
 }
 
@@ -110,12 +110,12 @@ fn main_loop_internal(emulator: &mut Emulator, screen: &mut [u8],
     update_button(emulator, Key::Right, gamepad.right);
     emulator.cpu.interrupt(Interrupt::Joypad);
 
-	loop {
-		emulator.cpu.next_instruction();
-		if emulator.cpu.handler_holder.should_refresh() {
-			break;
-		}
-	}
+    loop {
+        emulator.cpu.next_instruction();
+        if emulator.cpu.handler_holder.should_refresh() {
+            break;
+        }
+    }
 
     store_frame(emulator.cpu.handler_holder.get_screen_buffer(),
                 screen);
@@ -128,11 +128,11 @@ pub fn init(data: *mut u8, data_size: isize, screen_data: *mut u8,
                    sound_data: *mut u8, gamepad_data: *mut u8) -> *mut c_char {
     unsafe {
         let bytes = slice::from_raw_parts(data, data_size as usize);
-		EMULATOR = Some(Emulator::from_data(&bytes, 44100.00).unwrap());
+        EMULATOR = Some(Emulator::from_data(&bytes, 44100.00).unwrap());
         SCREEN = screen_data;
         SOUND = sound_data;
         GAMEPAD = slice::from_raw_parts_mut(gamepad_data, 8);
-	}
+    }
 
     CString::new("OK")
         .unwrap()
