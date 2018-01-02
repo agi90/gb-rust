@@ -7,7 +7,12 @@ window.addEventListener("gamepadconnected", e => {
             e.gamepad.buttons.length, e.gamepad.axes.length);
 });
 
+var loadFired = false;
+
 function onLoad() {
+    if (loadFired) return;
+    loadFired = true;
+
     let screen = document.getElementById('screen');
     let canvasContext = screen.getContext('2d');
     let imageData = canvasContext.getImageData(0, 0, screen.width,
