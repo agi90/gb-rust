@@ -1,19 +1,16 @@
-#![feature(link_args)]
-
-// #[link_args = "-s EXPORTED_FUNCTIONS=['_test_string']"]
 extern {
-    pub fn emscripten_asm_const(s: *const c_char);
 }
 
 extern crate gb;
 
 use std::ptr;
-use std::os::raw::{
-	c_char,
-	c_int,
-};
+use std::mem;
 use std::ffi::{
     CString,
+};
+use std::os::raw::{
+    c_char,
+    c_void,
 };
 use std::slice;
 
@@ -37,11 +34,6 @@ static mut SCREEN: *mut u8 = 0 as *mut u8;
 static mut SOUND: *mut u8 = 0 as *mut u8;
 static mut GAMEPAD: &mut [u8] = &mut [];
 
-type EmCallbackFn = unsafe extern fn();
-extern {
-	fn emscripten_set_main_loop(func: EmCallbackFn, fps: c_int, simulate_infinite_loop: c_int);
-}
-
 #[derive(Debug)]
 struct GamepadStatus {
     a: bool,
@@ -54,7 +46,23 @@ struct GamepadStatus {
     right: bool,
 }
 
-unsafe extern "C" fn main_loop_raw() {
+#[no_mangle]
+pub extern "C" fn alloc(size: usize) -> *mut c_void {
+    let mut buf = Vec::with_capacity(size);
+    let ptr = buf.as_mut_ptr();
+    mem::forget(buf);
+    return ptr as *mut c_void;
+}
+
+#[no_mangle]
+pub extern "C" fn dealloc(ptr: *mut c_void, cap: usize) {
+    unsafe  {
+        let _buf = Vec::from_raw_parts(ptr, 0, cap);
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn main_loop() {
 	if EMULATOR.is_none() || GAMEPAD.len() == 0 || SOUND == ptr::null_mut()
         || SCREEN == ptr::null_mut() {
 		return;
@@ -63,7 +71,7 @@ unsafe extern "C" fn main_loop_raw() {
     let sound = slice::from_raw_parts_mut(SOUND as *mut i16, 1470);
     let screen = slice::from_raw_parts_mut(SCREEN as *mut u8,
                                            gb::SCREEN_X * gb::SCREEN_Y * 3);
-	main_loop(EMULATOR.as_mut().unwrap(),
+	main_loop_internal(EMULATOR.as_mut().unwrap(),
         screen, sound, &GamepadStatus::from_raw(GAMEPAD));
 }
 
@@ -82,8 +90,6 @@ impl GamepadStatus {
     }
 }
 
-const REFRESH_CODE: &'static [u8] = b"refresh();\0";
-
 fn update_button(emulator: &mut Emulator, button: Key, pressed: bool) {
     if pressed {
         emulator.cpu.key_down(button);
@@ -92,8 +98,8 @@ fn update_button(emulator: &mut Emulator, button: Key, pressed: bool) {
     }
 }
 
-fn main_loop(emulator: &mut Emulator, screen: &mut [u8], sound: &mut [i16],
-             gamepad: &GamepadStatus) {
+fn main_loop_internal(emulator: &mut Emulator, screen: &mut [u8],
+                      sound: &mut [i16], gamepad: &GamepadStatus) {
     update_button(emulator, Key::A, gamepad.a);
     update_button(emulator, Key::B, gamepad.b);
     update_button(emulator, Key::Select, gamepad.select);
@@ -115,14 +121,10 @@ fn main_loop(emulator: &mut Emulator, screen: &mut [u8], sound: &mut [i16],
                 screen);
 
     emulator.generate_sound_into(sound);
-
-	unsafe {
-		emscripten_asm_const(&REFRESH_CODE[0] as *const _ as *const c_char);
-	}
 }
 
 #[no_mangle]
-pub fn test_string(data: *mut u8, data_size: isize, screen_data: *mut u8,
+pub fn init(data: *mut u8, data_size: isize, screen_data: *mut u8,
                    sound_data: *mut u8, gamepad_data: *mut u8) -> *mut c_char {
     unsafe {
         let bytes = slice::from_raw_parts(data, data_size as usize);
@@ -135,13 +137,6 @@ pub fn test_string(data: *mut u8, data_size: isize, screen_data: *mut u8,
     CString::new("OK")
         .unwrap()
         .into_raw()
-}
-
-#[no_mangle]
-pub fn init() {
-	unsafe {
-		emscripten_set_main_loop(main_loop_raw, 60, 1);
-	}
 }
 
 fn main() {

@@ -75,7 +75,12 @@ impl Emulator {
             NoisePattern::C15 => &self.noise_15_bit[..],
             NoisePattern::C7  => &self.noise_7_bit[..],
         };
-        let mut channel_4_phase = self.phase.channel_4 % channel_4_pattern.len() as f64;
+        let mut channel_4_phase = self.phase.channel_4;
+        if channel_4_phase > channel_4_pattern.len() as f64 {
+            // This means we changed pattern, which means the phase is invalid
+            channel_4_phase = 0.0;
+        }
+
         let channel_4_phase_inc = audio.sound_4().frequency() as f64 / self.frequency;
         let channel_4_volume = (VOLUME_MAX as f64 * audio.sound_4().volume() as f64
                                 / 16.0 / 4.0) as i16;
@@ -116,11 +121,13 @@ impl Emulator {
                 (if audio.sound_3().playing_right() { channel_3 } else { 0 }) +
                 (if audio.sound_4().playing_right() { channel_4 } else { 0 })) / 4;
 
-            channel_1_phase = (channel_1_phase + channel_1_phase_inc) % 1.0;
-            channel_2_phase = (channel_2_phase + channel_2_phase_inc) % 1.0;
-            channel_3_phase = (channel_3_phase + channel_3_phase_inc) % 1.0;
-            channel_4_phase = (channel_4_phase + channel_4_phase_inc)
-                            % channel_4_pattern.len() as f64;
+            channel_1_phase = (channel_1_phase + channel_1_phase_inc).fract();
+            channel_2_phase = (channel_2_phase + channel_2_phase_inc).fract();
+            channel_3_phase = (channel_3_phase + channel_3_phase_inc).fract();
+            channel_4_phase =  channel_4_phase + channel_4_phase_inc;
+            while channel_4_phase > channel_4_pattern.len() as f64 {
+                channel_4_phase -= channel_4_pattern.len() as f64;
+            }
 
             i += 2;
         }

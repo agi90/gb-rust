@@ -7,3 +7,4 @@ Cargo.lock
 rom
 rom-gbc
 wasm/emu.js
+*.wasm
