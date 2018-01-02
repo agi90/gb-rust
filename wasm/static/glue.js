@@ -223,6 +223,7 @@ function romLoaded(rom, exports, canvasContext, imageData) {
         _memory: exports.memory,
         _alloc: exports.alloc,
         init: exports.init,
+        copy_save: exports.copy_save,
         main_loop: exports.main_loop,
         audio_processor: new ArbitraryAudioProcessor(
                 AUDIO_FRAMES_PER_SEC,
@@ -256,6 +257,15 @@ function romLoaded(rom, exports, canvasContext, imageData) {
     };
 
     let romHeap = Emu.alloc(rom);
+
+    let save = Uint8Array.from(
+            (window.localStorage.getItem('save') || '').split(','));
+    if (save.length != 32768) {
+        console.error('invalid sized save.');
+        save = new Uint8Array(32768);
+    }
+    let saveHeap = Emu.alloc(save);
+
     let screenHeap = Emu.alloc(new Uint8Array(SCREEN_X * SCREEN_Y));
     // Sound data is interleaved in the emulator
     //    sound = [left, right, left, right, ...]
@@ -263,8 +273,8 @@ function romLoaded(rom, exports, canvasContext, imageData) {
     let soundHeap = Emu.alloc(new Int16Array(AUDIO_FRAMES_PER_SEC * 2));
     let gamepadHeap = Emu.alloc(new Uint8Array(8));
 
-    Emu.init(romHeap.ptr, romHeap.size, screenHeap.ptr, soundHeap.ptr,
-             gamepadHeap.ptr);
+    Emu.init(romHeap.ptr, romHeap.size, saveHeap.ptr, screenHeap.ptr,
+             soundHeap.ptr, gamepadHeap.ptr);
 
     let keyboard = {
         a: false,
@@ -311,7 +321,16 @@ function romLoaded(rom, exports, canvasContext, imageData) {
         window.requestAnimationFrame(mainLoop);
     };
 
+    function saveState() {
+        Emu.copy_save();
+        let save = Emu.view_u8(saveHeap);
+        window.localStorage.setItem('save', save.toString());
+        window.localStorage.setItem('saveTimestamp', new Date());
+        window.setTimeout(saveState, 1000);
+    }
+
     mainLoop();
+    saveState();
 }
 
 function handleNewRom(rom, canvasContext, imageData) {

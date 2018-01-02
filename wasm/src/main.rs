@@ -32,6 +32,7 @@ fn store_frame(screen: &gb::ScreenBuffer, data: &mut [u8]) {
 static mut EMULATOR: Option<Emulator> = None;
 static mut SCREEN: *mut u8 = 0 as *mut u8;
 static mut SOUND: *mut u8 = 0 as *mut u8;
+static mut SAVE: &mut [u8] = &mut [];
 static mut GAMEPAD: &mut [u8] = &mut [];
 
 #[derive(Debug)]
@@ -124,11 +125,34 @@ fn main_loop_internal(emulator: &mut Emulator, screen: &mut [u8],
 }
 
 #[no_mangle]
-pub fn init(data: *mut u8, data_size: isize, screen_data: *mut u8,
-                   sound_data: *mut u8, gamepad_data: *mut u8) -> *mut c_char {
+pub unsafe extern "C" fn copy_save() {
+    if EMULATOR.is_none() || SAVE.len() == 0 {
+        return;
+    }
+
+    copy_save_internal(EMULATOR.as_mut().unwrap(), SAVE);
+}
+
+pub fn copy_save_internal(emulator: &mut Emulator, save: &mut [u8]) {
+    let ram = emulator.cpu.handler_holder.ram();
+    save[..ram.len()].copy_from_slice(ram);
+}
+
+#[no_mangle]
+pub fn init(data: *mut u8, data_size: isize, save_data: *mut u8,
+            screen_data: *mut u8, sound_data: *mut u8,
+            gamepad_data: *mut u8) -> *mut c_char {
     unsafe {
         let bytes = slice::from_raw_parts(data, data_size as usize);
-        EMULATOR = Some(Emulator::from_data(&bytes, 44100.00).unwrap());
+        let mut emulator = Emulator::from_data(&bytes, 44100.00).unwrap();
+        SAVE = slice::from_raw_parts_mut(save_data, 32768);
+        {
+            let ram = emulator.cpu.handler_holder.ram();
+            // borrow checker quirk...
+            let ram_len = ram.len();
+            ram.copy_from_slice(&SAVE[..ram_len]);
+        }
+        EMULATOR = Some(emulator);
         SCREEN = screen_data;
         SOUND = sound_data;
         GAMEPAD = slice::from_raw_parts_mut(gamepad_data, 8);
