@@ -149,6 +149,7 @@ class ArbitraryAudioProcessor {
         this.index = 0;
         this.startIndex = 0;
         this.remaining = 0;
+        this.running = true;
 
         let scriptProcessor = this.audioContext.createScriptProcessor(
             internalBufferSize, this.channels, this.channels);
@@ -161,8 +162,12 @@ class ArbitraryAudioProcessor {
      * ScriptProcessor. The buffer is cyclic so it will wrap around it
      * when it reaches the end. */
     _refreshAudio(buffer) {
-        if (this.remaining < buffer.length) {
+        if (!this.running || this.remaining < buffer.length) {
             // We don't have enough data :( a pop will be heard
+            let empty = new Float32Array(buffer.length);
+            for (let i = 0; i < this.channels; i++) {
+                buffer.getChannelData(i).set(empty);
+            }
             return;
         }
         this.remaining -= buffer.length;
@@ -195,6 +200,14 @@ class ArbitraryAudioProcessor {
         }
 
         this.index = remaining;
+    }
+
+    pause() {
+        this.running = false;
+    }
+
+    resume() {
+        this.running = true;
     }
 
     /* Enqueue data to be played.
@@ -287,6 +300,17 @@ function romLoaded(rom, exports, canvasContext, imageData) {
         right: false,
     };
 
+    let running = true;
+    window.addEventListener("focus", e => {
+        running = true;
+        Emu.audio_processor.resume();
+    });
+
+    window.addEventListener("blur", e => {
+        running = false;
+        Emu.audio_processor.pause();
+    });
+
     window.addEventListener("keyup", e => {
         let key = KEYBOARD_MAPPING[e.key];
         if (key) {
@@ -304,20 +328,23 @@ function romLoaded(rom, exports, canvasContext, imageData) {
     });
 
     function mainLoop() {
-        Emu.main_loop();
+        if (running) {
+            Emu.main_loop();
 
-        let screen = Emu.view_u8(screenHeap);
-        let img = imageData.data;
-        refreshScreen(screen, img);
+            let screen = Emu.view_u8(screenHeap);
+            let img = imageData.data;
+            refreshScreen(screen, img);
 
-        let gamepad = Emu.view_u8(gamepadHeap);
-        refreshGamepad(gamepad, keyboard);
+            let gamepad = Emu.view_u8(gamepadHeap);
+            refreshGamepad(gamepad, keyboard);
 
-        let sound = Emu.view_i16(soundHeap);
-        Emu.audio_processor
-            .pushData(convertSoundToStereoF16(sound));
+            let sound = Emu.view_i16(soundHeap);
+            Emu.audio_processor
+                .pushData(convertSoundToStereoF16(sound));
 
-        canvasContext.putImageData(imageData, 0, 0);
+            canvasContext.putImageData(imageData, 0, 0);
+        }
+
         window.requestAnimationFrame(mainLoop);
     };
 
