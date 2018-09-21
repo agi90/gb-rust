@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Agi Sferro <agi.novanta@gmail.com>"]
 
 [dependencies]
-glium = "0.16"
+glium = "0.22"
 clap = "2.20.3"
 sdl2 = "0.28.0"
 image = "0.17"

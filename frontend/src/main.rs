@@ -24,6 +24,15 @@ use gb::{Emulator, Cpu};
 use self::controller::{Event, Controller};
 use self::debugger::Debugger;
 
+use std::{
+    thread,
+    time,
+};
+
+// TODO: This should actually be 16 but 14ms seems to be better, investigate
+// why.
+const FRAME_TARGET: time::Duration = time::Duration::from_millis(14);
+
 fn open_save_file(rom_name: &str) -> Result<File, String> {
     let mut v: Vec<&str> = rom_name.split('.').collect();
     // If the file does not end with .gb or .gbc we might be reading garbage,
@@ -142,7 +151,7 @@ pub fn main() {
         (author: "Agi Sferro <agi.novanta@gmail.com>")
         (about: "Yet another DMG emulator written in Rust.")
         (@arg ROM: +required "Selects the ROM to run.")
-        (@arg mag: -m --magnification +takes_value "Number of times the screen should be magnified. Default is '3'.") 
+        (@arg mag: -m --magnification +takes_value "Number of times the screen should be magnified. Default is '3'.")
         (@arg debug: -d --debug "Starts in debug mode.")
         (@arg headless: -H --headless "Run in headless mode. For integration tests.")
         (@arg screenshot: -S --screenshot +takes_value
@@ -159,8 +168,8 @@ pub fn main() {
     let mut save_file = bail!(open_save_file(&config.rom_name));
 
     let mut controller = if !config.is_headless {
-        Some(Controller::new(gb::SCREEN_X as u32 * config.mag,
-                             gb::SCREEN_Y as u32 * config.mag))
+        Some(Controller::new(gb::SCREEN_X as f64 * config.mag as f64,
+                             gb::SCREEN_Y as f64 * config.mag as f64))
     } else {
         None
     };
@@ -192,6 +201,8 @@ pub fn main() {
     let mut counter = config.timeout * 1000000;
 
     while !config.is_headless || counter > 0 {
+        let now = time::SystemTime::now();
+
         debugger.check_breakpoints(&mut emulator);
 
         emulator.cpu.next_instruction();
@@ -208,6 +219,13 @@ pub fn main() {
                 }
 
                 c.refresh(&mut emulator);
+
+                if natural_speed {
+                    let elapsed = now.elapsed().unwrap();
+                    if elapsed < FRAME_TARGET {
+                        thread::sleep(FRAME_TARGET - elapsed);
+                    }
+                }
             }
         }
 

@@ -5,7 +5,7 @@ use glium::texture::pixel_buffer::PixelBuffer;
 use glium::texture::{ MipmapsOption, UncompressedFloatFormat };
 use glium::texture::texture2d::Texture2d;
 use glium::uniforms::{MagnifySamplerFilter, MinifySamplerFilter};
-use glium::backend::glutin_backend::GlutinFacade;
+use glium::backend::Facade;
 
 use gb::ScreenBuffer;
 
@@ -37,7 +37,7 @@ pub struct Vertex {
 implement_vertex!(Vertex, position, tex_coords);
 
 impl GLRenderer {
-    pub fn new(display: &mut GlutinFacade) -> GLRenderer {
+    pub fn new(display: &mut Facade) -> GLRenderer {
         let vertexes = [
             Vertex { position: [-1.0, -1.0], tex_coords: [0.0,          TEX_OFFSET_Y] },
             Vertex { position: [-1.0,  1.0], tex_coords: [0.0,          0.0] },
@@ -51,14 +51,14 @@ impl GLRenderer {
                 display, PrimitiveType::TriangleStrip, &[1u16, 2, 0, 3])).unwrap();
 
         let vertex_shader_src = r#"
-            #version 110
+            #version 140
 
             uniform mat4 matrix;
 
-            attribute vec2 position;
-            attribute vec2 tex_coords;
+            in vec2 position;
+            in vec2 tex_coords;
 
-            varying vec2 v_tex_coords;
+            out vec2 v_tex_coords;
 
             void main() {
               gl_Position = matrix * vec4(position, 0.0, 1.0);
@@ -67,16 +67,20 @@ impl GLRenderer {
         "#;
 
         let fragment_shader_src = r#"
-            #version 110
+            #version 140
 
-            uniform sampler2D tex;
+            uniform sampler2D tex_front;
+            uniform sampler2D tex_back;
             uniform mat4 palette;
 
-            varying vec2 v_tex_coords;
+            in vec2 v_tex_coords;
+            out vec4 f_color;
 
             void main() {
-              float color = texture2D(tex, v_tex_coords).x;
-              gl_FragColor = palette[int(color * 255.0 + 0.5)];
+              float color_front = texture(tex_front, v_tex_coords).x;
+              float color_back = texture(tex_back, v_tex_coords).x;
+              float color = mix(color_front, color_back, 0.5);
+              f_color = palette[uint(color * 255.0 + 0.5)];
             }
         "#;
 
@@ -98,10 +102,10 @@ impl GLRenderer {
                       [0.0, 0.0, 1.0, 0.0],
                       [0.0, 0.0, 0.0, 1.0]];
 
-        let mut palette = [[255.0, 247.0, 123.0, 1.0],
-                           [181.0, 174.0, 74.0,  1.0],
-                           [107.0, 105.0, 49.0,  1.0],
-                           [33.0,  32.0,  16.0,  1.0 ]];
+        let mut palette = [[255.0, 247.0, 123.0, 255.0],
+                           [181.0, 174.0, 74.0,  255.0],
+                           [107.0, 105.0, 49.0,  255.0],
+                           [33.0,  32.0,  16.0,  255.0 ]];
 
         for i in 0..4 {
             for j in 0..4 {
@@ -143,7 +147,7 @@ impl GLRenderer {
         let uniforms = uniform! {
             matrix: self.matrix,
             palette: self.palette,
-            tex: self.texture.sampled()
+            texure: self.texture.sampled()
                 .minify_filter(MinifySamplerFilter::Nearest)
                 .magnify_filter(MagnifySamplerFilter::Nearest)
         };
