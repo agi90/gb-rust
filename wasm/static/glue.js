@@ -41,9 +41,9 @@ var KEYBOARD_MAPPING = {
 };
 
 var FPS = 60;
-var FREQUENCY = 44100;
-var AUDIO_FRAMES_PER_SEC = FREQUENCY / FPS;
-var INTERNAL_AUDIO_FRAMES_PER_SEC = 512;
+var SAMPLE_RATE = 44100;
+var AUDIO_FRAMES_PER_SEC = SAMPLE_RATE / FPS;
+var INTERNAL_AUDIO_FRAMES_PER_SEC = 256;
 var SCREEN_X = 160;
 var SCREEN_Y = 144;
 
@@ -126,7 +126,7 @@ function refreshGamepad(gamepad, keyboard) {
 
 /* ScriptProcessor only supports buffers of power-of-2 length:
  * 256, 512, 1024, 2048, 4096. The emulator runs off of buffers of length
- * 735 (one frame worth of sound data, 44100 Hz / 60 fps). This class
+ * 735 (one frame worth of sound data, SAMPLE_RATE / 60 fps). This class
  * allows consumers to play music buffered for arbitrary-sized chunk of data.
  */
 class ArbitraryAudioProcessor {
@@ -140,11 +140,13 @@ class ArbitraryAudioProcessor {
         }
 
         this.bufferSize = bufferSize;
-        this.audioContext = new AudioContext();
+        this.audioContext = new AudioContext({
+            sampleRate: SAMPLE_RATE,
+        });
         this.channels = channels;
         this.buffers = [];
         for (let i = 0; i < this.channels; i++) {
-            this.buffers.push(new Float32Array(this.bufferSize * 4));
+            this.buffers.push(new Float32Array(this.bufferSize * 16));
         }
         this.index = 0;
         this.startIndex = 0;
@@ -162,28 +164,30 @@ class ArbitraryAudioProcessor {
      * ScriptProcessor. The buffer is cyclic so it will wrap around it
      * when it reaches the end. */
     _refreshAudio(buffer) {
-        if (!this.running || this.remaining < buffer.length) {
-            // We don't have enough data :( a pop will be heard
-            let empty = new Float32Array(buffer.length);
-            for (let i = 0; i < this.channels; i++) {
-                buffer.getChannelData(i).set(empty);
-            }
-            return;
+        do {
+            this._loadBuffer(buffer);
+        // If we're running too much ahead we'll skip some frames
+        } while (this.remaining > buffer.length * 6)
+    }
+
+    _loadBuffer(buffer) {
+        let bufferData = [];
+        for (let i = 0; i < this.channels; i++) {
+            bufferData[i] = buffer.getChannelData(i);
         }
-        this.remaining -= buffer.length;
-        if (this.remaining > buffer.length * 6) {
-            // Audio is running a little too much ahead, let's discard the
-            // next buffer to try catching up.
-            this._refreshAudio(buffer);
+
+        if (!this.running || this.remaining < buffer.length) {
+            return;
         }
         let next = this.index + buffer.length;
         let dataLength = this.buffers[0].length;
         let end = next < dataLength ? next : dataLength;
 
         for (let i = 0; i < this.channels; i++) {
-            buffer.getChannelData(i)
-                .set(this.buffers[i].subarray(this.index, end));
+            bufferData[i].set(this.buffers[i].subarray(this.index, end));
         }
+
+        this.remaining -= buffer.length;
 
         let remaining = next - end;
         if (remaining == 0) {
@@ -194,9 +198,9 @@ class ArbitraryAudioProcessor {
         this.index = 0;
 
         for (let i = 0; i < this.channels; i++) {
-            let channelData = buffer.getChannelData(i);
-            channelData.set(this.buffers[i].subarray(this.index, remaining),
-                    channelData.length - remaining);
+            bufferData[i].set(
+                this.buffers[i].subarray(this.index, remaining),
+                buffer.length - remaining);
         }
 
         this.index = remaining;
