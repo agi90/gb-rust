@@ -30,8 +30,8 @@ impl Mbc0 {
 impl Mbc for Mbc0 {
     fn read(&self, address: u16) -> u8 {
         match address {
-            0x0000 ... 0x7FFF => self.data[address as usize],
-            0xA000 ... 0xBFFF => self.ram[(address as usize) - 0xA000],
+            0x0000 ..= 0x7FFF => self.data[address as usize],
+            0xA000 ..= 0xBFFF => self.ram[(address as usize) - 0xA000],
             _ => unimplemented!(),
         }
     }
@@ -258,9 +258,9 @@ impl Mbc13 {
 impl Mbc for Mbc13 {
     fn read(&self, address: u16) -> u8 {
         match address {
-            0x0000 ... 0x3FFF => self.data[address as usize],
-            0x4000 ... 0x7FFF => self.data[address as usize + self.offset],
-            0xA000 ... 0xBFFF => {
+            0x0000 ..= 0x3FFF => self.data[address as usize],
+            0x4000 ..= 0x7FFF => self.data[address as usize + self.offset],
+            0xA000 ..= 0xBFFF => {
                 match self.mode {
                     MbcMode::Mbc1 => self.read_ram_mbc1(address),
                     MbcMode::Mbc3 => self.read_ram_rtc_mbc3(address),
@@ -272,7 +272,7 @@ impl Mbc for Mbc13 {
 
     fn write(&mut self, address: u16, v: u8) {
         match address {
-            0x0000 ... 0x1FFF => {
+            0x0000 ..= 0x1FFF => {
                 match v & 0x0A {
                     0x00 => self.ram_enabled = false,
                     0x0A => self.ram_enabled = true,
@@ -283,25 +283,25 @@ impl Mbc for Mbc13 {
                     }
                 }
             },
-            0x2000 ... 0x3FFF => {
+            0x2000 ..= 0x3FFF => {
                 match self.mode {
                     MbcMode::Mbc1 => self.switch_bank_mbc1(v),
                     MbcMode::Mbc3 => self.switch_bank_mbc3(v),
                 }
             },
-            0x4000 ... 0x5FFF => {
+            0x4000 ..= 0x5FFF => {
                 match self.mode {
                     MbcMode::Mbc1 => self.switch_ram_bank_mbc1(v),
                     MbcMode::Mbc3 => self.switch_ram_bank_mbc3(v),
                 }
             },
-            0x6000 ... 0x7FFF => {
+            0x6000 ..= 0x7FFF => {
                 match self.mode {
                     MbcMode::Mbc1 => unimplemented!(),
                     MbcMode::Mbc3 => self.latch_clock_data(v),
                 }
             },
-            0xA000 ... 0xBFFF => {
+            0xA000 ..= 0xBFFF => {
                 match self.mode {
                     MbcMode::Mbc1 => self.write_ram_mbc1(address, v),
                     MbcMode::Mbc3 => self.write_ram_rtc_mbc3(address, v),

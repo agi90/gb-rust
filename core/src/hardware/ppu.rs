@@ -50,16 +50,16 @@ u8_enum!{
 impl cpu::Handler for Ppu {
     fn read(&self, address: u16) -> u8 {
         match address {
-            0x8000 ... 0x9FFF => self.read_ram(address),
-            0xFE00 ... 0xFE9F => self.oam_ram[address as usize - 0xFE00],
+            0x8000 ..= 0x9FFF => self.read_ram(address),
+            0xFE00 ..= 0xFE9F => self.oam_ram[address as usize - 0xFE00],
             _ => self.mapper.read(address),
         }
     }
 
     fn write(&mut self, address: u16, v: u8) {
         match address {
-            0x8000 ... 0x9FFF => self.write_ram(address, v),
-            0xFE00 ... 0xFE9F => self.oam_ram[address as usize - 0xFE00] = v,
+            0x8000 ..= 0x9FFF => self.write_ram(address, v),
+            0xFE00 ..= 0xFE9F => self.oam_ram[address as usize - 0xFE00] = v,
             0xFF41 => self.write_stat(v),
             _ => self.mapper.write(address, v),
         }
@@ -439,7 +439,7 @@ impl Ppu {
 
                 return interrupt;
             },
-            8 ... 452 => {
+            8 ..= 452 => {
                 // VBlank running, nothing to do
             },
             _ => unreachable!(),
@@ -485,13 +485,13 @@ impl Ppu {
 
                 interrupt = interrupt.or(self.switch_to(LCDMode::SearchingOAM));
             },
-            8 ... 80 | 88 | 252 | 260 ... 452 => {
+            8 ..= 80 | 88 | 252 | 260 ..= 452 => {
                 // The ppu is running one of the modes, do nothing
             },
             84 => {
                 interrupt = interrupt.or(self.switch_to(LCDMode::LCDTransfer));
             },
-            92 ... 248 => {
+            92 ..= 248 => {
                 for i in 0..4 {
                     // This is only an approximation of what actually happens.
                     // More information is available at:

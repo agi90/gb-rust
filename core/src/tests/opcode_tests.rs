@@ -488,7 +488,7 @@ fn test_ld_X_Y() {
         // inside the memory
         match a {
             0x46 | 0x56 | 0x66 | 0x4E | 0x5E | 0x6E |
-                0x70 ... 0x75 | 0x77 | 0x7E => {
+                0x70 ..= 0x75 | 0x77 | 0x7E => {
                     cpu.set_H_reg(0x00);
                     cpu.set_L_reg(0x08);
             }
@@ -521,14 +521,14 @@ fn test_ld_X_Y() {
         };
 
         match a {
-            0x40 ... 0x47 => assert_eq!(cpu.get_B_reg(), expected),
-            0x48 ... 0x4F => assert_eq!(cpu.get_C_reg(), expected),
-            0x50 ... 0x57 => assert_eq!(cpu.get_D_reg(), expected),
-            0x58 ... 0x5F => assert_eq!(cpu.get_E_reg(), expected),
-            0x60 ... 0x67 => assert_eq!(cpu.get_H_reg(), expected),
-            0x68 ... 0x6F => assert_eq!(cpu.get_L_reg(), expected),
-            0x70 ... 0x77 => assert_eq!(cpu.deref(0x0008), expected),
-            0x78 ... 0x7F => assert_eq!(cpu.get_A_reg(), expected),
+            0x40 ..= 0x47 => assert_eq!(cpu.get_B_reg(), expected),
+            0x48 ..= 0x4F => assert_eq!(cpu.get_C_reg(), expected),
+            0x50 ..= 0x57 => assert_eq!(cpu.get_D_reg(), expected),
+            0x58 ..= 0x5F => assert_eq!(cpu.get_E_reg(), expected),
+            0x60 ..= 0x67 => assert_eq!(cpu.get_H_reg(), expected),
+            0x68 ..= 0x6F => assert_eq!(cpu.get_L_reg(), expected),
+            0x70 ..= 0x77 => assert_eq!(cpu.deref(0x0008), expected),
+            0x78 ..= 0x7F => assert_eq!(cpu.get_A_reg(), expected),
             _ => panic!(),
         }
     }

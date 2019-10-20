@@ -186,7 +186,7 @@ impl Cpu {
         }
 
         match address {
-            0xFF04 ... 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.read(address),
+            0xFF04 ..= 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.read(address),
             _ => self.handler_holder.get_handler_read(address)
                      .read(address)
         }
@@ -202,7 +202,7 @@ impl Cpu {
 
         self.add_cycles(4);
         match address {
-            0xFF04 ... 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.read(address),
+            0xFF04 ..= 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.read(address),
             _ => self.handler_holder.get_handler_read(address)
                      .read(address)
         }
@@ -218,7 +218,7 @@ impl Cpu {
 
         match address {
             0xFF46 => self.copy_memory_to_vram(v),
-            0xFF04 ... 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.write(address, v),
+            0xFF04 ..= 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.write(address, v),
             _ => self.handler_holder.get_handler_write(address)
                      .write(address, v),
         }
@@ -235,7 +235,7 @@ impl Cpu {
         self.add_cycles(4);
         match address {
             0xFF46 => self.copy_memory_to_vram(v),
-            0xFF04 ... 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.write(address, v),
+            0xFF04 ..= 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.write(address, v),
             _ => self.handler_holder.get_handler_write(address)
                      .write(address, v),
         }
@@ -554,7 +554,7 @@ impl InterruptHandler {
     pub fn read(&self, address: u16) -> u8 {
         match address {
             0xFF0F | 0xFFFF => self.register.read(address),
-            0xFF04 ... 0xFF07 => self.timer_controller.read(address),
+            0xFF04 ..= 0xFF07 => self.timer_controller.read(address),
             _ => panic!(),
         }
     }
@@ -562,7 +562,7 @@ impl InterruptHandler {
     pub fn write(&mut self, address: u16, v: u8) {
         match address {
             0xFF0F | 0xFFFF => self.register.write(address, v),
-            0xFF04 ... 0xFF07 => self.timer_controller.write(address, v),
+            0xFF04 ..= 0xFF07 => self.timer_controller.write(address, v),
             _ => panic!(),
         }
     }

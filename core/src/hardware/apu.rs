@@ -1098,7 +1098,7 @@ impl Handler for SoundController {
 
                 v | 0b01110000
             },
-            0xFF30 ... 0xFF3F => self.buffer.sound_3.sound.wave_pattern[address as usize - 0xFF30],
+            0xFF30 ..= 0xFF3F => self.buffer.sound_3.sound.wave_pattern[address as usize - 0xFF30],
             _ => self.mapper.read(address),
         }
     }
@@ -1156,7 +1156,7 @@ impl Handler for SoundController {
                            address, v);
             },
             0xFF26 => self.write_nr52(v),
-            0xFF30 ... 0xFF3F => self.buffer.sound_3.sound.wave_pattern[address as usize - 0xFF30] = v,
+            0xFF30 ..= 0xFF3F => self.buffer.sound_3.sound.wave_pattern[address as usize - 0xFF30] = v,
             _ => {
                 self.mapper.write(address, v);
             }
