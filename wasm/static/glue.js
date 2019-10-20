@@ -369,13 +369,15 @@ function handleNewRom(rom, canvasContext, imageData) {
 
     reader.onload = () => {
         let rom = new Uint8Array(reader.result);
-        fetch('emu.wasm')
-            .then(r => r.arrayBuffer())
-            .then(b => WebAssembly.instantiate(b, {env: {}}))
-            .then(r => {
-                romLoaded(rom, r.instance.exports, canvasContext,
-                          imageData);
-            });
+        WebAssembly.instantiateStreaming(fetch('emu.wasm'), {
+            imports: {
+                date_now: () => new Date().getTime() / 1000,
+            }
+        })
+        .then(r => {
+            romLoaded(rom, r.instance.exports, canvasContext,
+                      imageData);
+        });
     };
 
     reader.readAsArrayBuffer(rom);

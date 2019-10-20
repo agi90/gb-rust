@@ -2,6 +2,10 @@ use std::ops::{Deref, DerefMut};
 use std::time::SystemTime;
 use std::time;
 
+#[cfg(target_arch = "wasm32")]
+#[link(wasm_import_module = "imports")]
+extern { fn date_now() -> f64; }
+
 pub trait Mbc {
     fn read(&self, address: u16) -> u8;
     fn write(&mut self, address: u16, v: u8);
@@ -91,10 +95,17 @@ enum RamRtc {
     RtcRegister(u8),
 }
 
+// wasm32-unknown-unknown doesn't support SystemTime::now()
+#[cfg(not(target_arch = "wasm32"))]
 fn now() -> u64 {
     SystemTime::now()
         .duration_since(time::UNIX_EPOCH).unwrap()
         .as_secs()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn now() -> u64 {
+    unsafe { date_now() as u64 }
 }
 
 impl Mbc13 {
