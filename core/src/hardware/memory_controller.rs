@@ -321,18 +321,18 @@ impl Mbc for Mbc13 {
 }
 
 pub struct MemoryController {
-    controller: Box<Mbc>,
+    controller: Box<dyn Mbc>,
 }
 
 impl MemoryController {
     pub fn from_bytes(bytes: Vec<u8>) -> MemoryController {
         let controller = match bytes[0x147] {
             0x00 =>
-                Box::new(Mbc0::new(bytes)) as Box<Mbc>,
+                Box::new(Mbc0::new(bytes)) as Box<dyn Mbc>,
             0x01 | 0x02 | 0x03 =>
-                Box::new(Mbc13::new(bytes, MbcMode::Mbc1)) as Box<Mbc>,
+                Box::new(Mbc13::new(bytes, MbcMode::Mbc1)) as Box<dyn Mbc>,
             0x0F | 0x10 | 0x11 | 0x12 | 0x13 =>
-                Box::new(Mbc13::new(bytes, MbcMode::Mbc3)) as Box<Mbc>,
+                Box::new(Mbc13::new(bytes, MbcMode::Mbc3)) as Box<dyn Mbc>,
             _ => {
                 println!("Unrecognized type {:02X}", bytes[0x147]);
                 panic!();
@@ -354,7 +354,7 @@ impl MemoryController {
 }
 
 impl Deref for MemoryController {
-    type Target = Mbc;
+    type Target = dyn Mbc;
     fn deref(&self) -> &Self::Target {
         &*self.controller
     }

@@ -237,19 +237,19 @@ fn init_device<T>(
     }).unwrap()
 }
 
-fn refresh_device_1(channel: &Channel1View, b: &mut Sound<SquareWave>) -> f32 {
+fn refresh_device_1(channel: &dyn Channel1View, b: &mut Sound<SquareWave>) -> f32 {
     b.sound.wave_duty = channel.wave_duty();
     b.volume = channel.volume() as f32 / 16.0 / 4.0;
     131072.0 / (2048.0 - channel.frequency() as f32)
 }
 
-fn refresh_device_2(channel: &Channel2View, b: &mut Sound<SquareWave>) -> f32 {
+fn refresh_device_2(channel: &dyn Channel2View, b: &mut Sound<SquareWave>) -> f32 {
     b.sound.wave_duty = channel.wave_duty();
     b.volume = channel.volume() as f32 / 16.0 / 4.0;
     131072.0 / (2048.0 - channel.frequency() as f32)
 }
 
-fn refresh_device_3(channel: &Channel3View, b: &mut Sound<WavePattern>) -> f32 {
+fn refresh_device_3(channel: &dyn Channel3View, b: &mut Sound<WavePattern>) -> f32 {
     let mut pattern = [0; 32];
     for i in 0..16 {
         pattern[i*2] =     (channel.wave_pattern()[i] & 0b11110000) >> 4;
@@ -260,7 +260,7 @@ fn refresh_device_3(channel: &Channel3View, b: &mut Sound<WavePattern>) -> f32 {
     65536.0 / (2048.0 - channel.frequency() as f32)
 }
 
-fn refresh_device_4(channel: &Channel4View, b: &mut Sound<WhiteNoise>) -> f32 {
+fn refresh_device_4(channel: &dyn Channel4View, b: &mut Sound<WhiteNoise>) -> f32 {
     b.sound.pattern = channel.pattern();
     b.volume = channel.volume() as f32 / 16.0 / 4.0;
     channel.frequency() as f32
@@ -289,7 +289,7 @@ impl SDLPlayer {
         }
     }
 
-    pub fn refresh(&mut self, audio_buffer: &AudioBuffer) {
+    pub fn refresh(&mut self, audio_buffer: &dyn AudioBuffer) {
         {
             let freq = refresh_device_1(audio_buffer.sound_1(),
                                         self.device_1.lock().deref_mut());

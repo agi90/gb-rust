@@ -80,7 +80,7 @@ impl cpu::HandlerHolder for GBHandlerHolder {
         self.ppu.should_refresh()
     }
 
-    fn get_audio_buffer(&self) -> &AudioBuffer {
+    fn get_audio_buffer(&self) -> &dyn AudioBuffer {
         self.apu.get_audio()
     }
 
@@ -92,7 +92,7 @@ impl cpu::HandlerHolder for GBHandlerHolder {
         self.joypad_register.key_down(key);
     }
 
-    fn get_handler_read(&self, address: u16) -> &cpu::Handler {
+    fn get_handler_read(&self, address: u16) -> &dyn cpu::Handler {
         match address {
             0x0000 ..= 0x7FFF => &self.cartridge,
             0x8000 ..= 0x9FFF => &self.ppu,
@@ -112,7 +112,7 @@ impl cpu::HandlerHolder for GBHandlerHolder {
         }
     }
 
-    fn get_handler_write(&mut self, address: u16) -> &mut cpu::Handler {
+    fn get_handler_write(&mut self, address: u16) -> &mut dyn cpu::Handler {
         match address {
             0x0000 ..= 0x7FFF => &mut self.cartridge,
             0x8000 ..= 0x9FFF => &mut self.ppu,

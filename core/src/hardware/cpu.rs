@@ -52,7 +52,7 @@ pub struct Cpu {
 
     debug: bool,
 
-    pub handler_holder: Box<HandlerHolder>,
+    pub handler_holder: Box<dyn HandlerHolder>,
 
     // The watch_addresses feature is very expensive
     // so we only enabled it for platform where we might
@@ -77,9 +77,9 @@ pub trait HandlerHolder {
     fn key_down(&mut self, key: Key);
     fn key_up(&mut self, key: Key);
     fn get_screen_buffer(&self) -> &ScreenBuffer;
-    fn get_audio_buffer(&self) -> &AudioBuffer;
-    fn get_handler_read(&self, address: u16) -> &Handler;
-    fn get_handler_write(&mut self, address: u16) -> &mut Handler;
+    fn get_audio_buffer(&self) -> &dyn AudioBuffer;
+    fn get_handler_read(&self, address: u16) -> &dyn Handler;
+    fn get_handler_write(&mut self, address: u16) -> &mut dyn Handler;
     fn cpu_step(&mut self);
     fn check_interrupts(&mut self) -> Option<Interrupt>;
     fn should_refresh(&mut self) -> bool;
@@ -111,7 +111,7 @@ impl Hardware for Cpu {
 }
 
 impl Cpu {
-    pub fn new(handler_holder: Box<HandlerHolder>) -> Cpu {
+    pub fn new(handler_holder: Box<dyn HandlerHolder>) -> Cpu {
         let cpu = Cpu {
             // Flags
             Z_flag: false,

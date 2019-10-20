@@ -143,18 +143,18 @@ impl Debugger {
     pub fn handle_binary(&mut self, command: &str, arg: &str, emulator: &mut Emulator) -> Result<bool, ()> {
         match command {
             "bo" => {
-                let op = try!(to_value(arg));
+                let op = to_value(arg)?;
                 println!("Breakpoint for opcode {}",
                          OpCode::from_byte(op, false).to_string());
                 self.op_breakpoints.insert(op);
             },
             "ba" => {
-                let address = try!(to_address(arg));
+                let address = to_address(arg)?;
                 println!("Breakpoint for address {:04X}", address);
                 self.address_breakpoints.insert(address);
             },
             "bm" => {
-                let address = try!(to_address(arg));
+                let address = to_address(arg)?;
                 println!("Breakpoint for memory access at address {:04X}", address);
                 emulator.cpu.watch(address);
             },
@@ -162,17 +162,17 @@ impl Debugger {
                 if arg == "cpu" {
                     print_cpu_status(emulator, &self.watches);
                 } else {
-                    let address = try!(to_address(arg));
+                    let address = to_address(arg)?;
                     println!("${:04X}={:02X}", address, emulator.cpu.deref_debug(address));
                 }
             },
             "po" => {
-                let address = try!(to_address(arg));
+                let address = to_address(arg)?;
                 println!("${:04X} = {}", address,
                          OpCode::from_byte(emulator.cpu.deref_debug(address), false).to_string());
             },
             "w" | "watch" => {
-                let address = try!(to_address(arg));
+                let address = to_address(arg)?;
                 println!("Adding {:04X} to the watch list.", address);
                 self.watches.insert(address);
             },
@@ -188,8 +188,8 @@ impl Debugger {
                           emulator: &mut Emulator) -> Result<bool, ()> {
         match command {
             "s" | "set" => {
-                let address = try!(to_address(arg1));
-                let v = try!(to_value(arg2));
+                let address = to_address(arg1)?;
+                let v = to_value(arg2)?;
 
                 println!("Setting ${:04X}={:02X}h", address, v);
                 emulator.cpu.set_deref_debug(address, v);

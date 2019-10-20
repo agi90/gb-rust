@@ -37,7 +37,7 @@ pub struct Vertex {
 implement_vertex!(Vertex, position, tex_coords);
 
 impl GLRenderer {
-    pub fn new(display: &mut Facade) -> GLRenderer {
+    pub fn new(display: &mut dyn Facade) -> GLRenderer {
         let vertexes = [
             Vertex { position: [-1.0, -1.0], tex_coords: [0.0,          TEX_OFFSET_Y] },
             Vertex { position: [-1.0,  1.0], tex_coords: [0.0,          0.0] },

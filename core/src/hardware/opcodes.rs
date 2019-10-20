@@ -20,7 +20,6 @@ macro_rules! op_codes {
                 if prefixed {
                     match hex {
                         $($cb_hex => OpCode::$cb_element),*,
-                        _ => panic!(format!("Op code not implemented 0xCB 0x{:x}", hex))
                     }
                 } else {
                     match hex {

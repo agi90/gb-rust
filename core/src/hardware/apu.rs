@@ -163,7 +163,7 @@ impl VolumeSweep for AudioLine<SweepWaveDuty> {
 }
 
 impl TriggerEvent for AudioLine<SweepWaveDuty> {
-    fn trigger_event(&mut self, mapper: &mut LineMapper) {
+    fn trigger_event(&mut self, mapper: &mut dyn LineMapper) {
         self.sound.shadow_frequency = mapper.frequency();
 
         {
@@ -189,7 +189,7 @@ impl TriggerEvent for AudioLine<SweepWaveDuty> {
 }
 
 impl AudioLine<SweepWaveDuty> {
-    fn update_frequency(&mut self, update: bool, mapper: &mut LineMapper) {
+    fn update_frequency(&mut self, update: bool, mapper: &mut dyn LineMapper) {
         if mapper.sweep_direction() == ToneSweepDirection::Down {
             self.sound.sweep.down_computed_since_reset = true;
         }
@@ -218,7 +218,7 @@ struct WaveDuty {
 }
 
 impl TriggerEvent for AudioLine<WaveDuty> {
-    fn trigger_event(&mut self, _: &mut LineMapper) {
+    fn trigger_event(&mut self, _: &mut dyn LineMapper) {
         // TODO:
     }
     fn default_length(&self) -> i64 {
@@ -240,7 +240,7 @@ struct Noise {
 }
 
 impl TriggerEvent for AudioLine<Noise> {
-    fn trigger_event(&mut self, _: &mut LineMapper) {
+    fn trigger_event(&mut self, _: &mut dyn LineMapper) {
         // TODO:
     }
     fn default_length(&self) -> i64 {
@@ -262,7 +262,7 @@ struct Wave {
 }
 
 impl TriggerEvent for AudioLine<Wave> {
-    fn trigger_event(&mut self, _: &mut LineMapper) {
+    fn trigger_event(&mut self, _: &mut dyn LineMapper) {
         // TODO:
     }
     fn default_length(&self) -> i64 {
@@ -320,7 +320,7 @@ impl <T> AudioLine<T>
 }
 
 trait TriggerEvent {
-    fn trigger_event(&mut self, line_mapper: &mut LineMapper);
+    fn trigger_event(&mut self, line_mapper: &mut dyn LineMapper);
     fn default_length(&self) -> i64;
     fn turn_off(&mut self);
 }
@@ -333,10 +333,10 @@ struct GbAudioBuffer {
 }
 
 pub trait AudioBuffer {
-    fn sound_1(&self) -> &Channel1View;
-    fn sound_2(&self) -> &Channel2View;
-    fn sound_3(&self) -> &Channel3View;
-    fn sound_4(&self) -> &Channel4View;
+    fn sound_1(&self) -> &dyn Channel1View;
+    fn sound_2(&self) -> &dyn Channel2View;
+    fn sound_3(&self) -> &dyn Channel3View;
+    fn sound_4(&self) -> &dyn Channel4View;
 }
 
 /** This view is used to expose the sound state
@@ -440,16 +440,16 @@ impl PatternView for AudioLine<Noise> {
 }
 
 impl AudioBuffer for GbAudioBuffer {
-    fn sound_1(&self) -> &Channel1View {
+    fn sound_1(&self) -> &dyn Channel1View {
         &self.sound_1
     }
-    fn sound_2(&self) -> &Channel2View {
+    fn sound_2(&self) -> &dyn Channel2View {
         &self.sound_2
     }
-    fn sound_3(&self) -> &Channel3View {
+    fn sound_3(&self) -> &dyn Channel3View {
         &self.sound_3
     }
-    fn sound_4(&self) -> &Channel4View {
+    fn sound_4(&self) -> &dyn Channel4View {
         &self.sound_4
     }
 }
@@ -675,23 +675,23 @@ impl<'a> LineMapper for Line4Mapper<'a> {
     }
 }
 
-fn update_playing<T>(line: &mut LineMapper, sound: &mut AudioLine<T>) {
+fn update_playing<T>(line: &mut dyn LineMapper, sound: &mut AudioLine<T>) {
     sound.playing_left  = sound.on && line.playing_left();
     sound.playing_right = sound.on && line.playing_right();
 }
 
-fn update_frequency<T>(mapper: &mut LineMapper, sound: &mut AudioLine<T>) {
+fn update_frequency<T>(mapper: &mut dyn LineMapper, sound: &mut AudioLine<T>) {
     sound.frequency = mapper.frequency();
 }
 
-fn update_dac<T>(line: &mut LineMapper, sound: &mut AudioLine<T>)
+fn update_dac<T>(line: &mut dyn LineMapper, sound: &mut AudioLine<T>)
         where AudioLine<T>: TriggerEvent {
     if line.dac_off() {
         sound.turn_off();
     }
 }
 
-fn update_length<T>(line: &mut LineMapper, sound: &mut AudioLine<T>)
+fn update_length<T>(line: &mut dyn LineMapper, sound: &mut AudioLine<T>)
     where AudioLine<T> : TriggerEvent {
     if !line.consecutive() {
         return;
@@ -706,7 +706,7 @@ fn update_length<T>(line: &mut LineMapper, sound: &mut AudioLine<T>)
     }
 }
 
-fn update_volume<T>(line: &mut LineMapper, sound: &mut AudioLine<T>)
+fn update_volume<T>(line: &mut dyn LineMapper, sound: &mut AudioLine<T>)
     where AudioLine<T> : VolumeSweep {
     let sweep = line.envelope_sweep();
     if sweep == 0 {
@@ -740,7 +740,7 @@ fn update_volume<T>(line: &mut LineMapper, sound: &mut AudioLine<T>)
     }
 }
 
-fn trigger_event<T>(sound: &mut AudioLine<T>, line_mapper: &mut LineMapper,
+fn trigger_event<T>(sound: &mut AudioLine<T>, line_mapper: &mut dyn LineMapper,
                     frame_sequencer: &FrameSequencer)
     where AudioLine<T>: TriggerEvent + VolumeSweep {
     sound.on = true;
@@ -782,7 +782,7 @@ fn extra_length_check<T>(sound: &mut AudioLine<T>, frame_sequencer: &FrameSequen
 }
 
 /** Behavior for writing to the NRx4 register. */
-fn write_nrx4<T>(sound: &mut AudioLine<T>, mapper: &mut LineMapper,
+fn write_nrx4<T>(sound: &mut AudioLine<T>, mapper: &mut dyn LineMapper,
               frame_sequencer: &FrameSequencer, address: u16, v: u8)
     where AudioLine<T>: TriggerEvent + VolumeSweep {
     let turns_length_on = !mapper.consecutive() && v & 0b01000000 > 0;
@@ -923,7 +923,7 @@ impl SoundController {
         }
     }
 
-    pub fn get_audio(&self) -> &AudioBuffer {
+    pub fn get_audio(&self) -> &dyn AudioBuffer {
         &self.buffer
     }
 

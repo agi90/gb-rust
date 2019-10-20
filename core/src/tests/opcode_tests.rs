@@ -48,10 +48,10 @@ struct MockHandlerHolder {
 struct MockAudioBuffer;
 
 impl AudioBuffer for MockAudioBuffer {
-    fn sound_1(&self) -> &Channel1View { MOCK_CHANNEL }
-    fn sound_2(&self) -> &Channel2View { MOCK_CHANNEL }
-    fn sound_3(&self) -> &Channel3View { MOCK_CHANNEL }
-    fn sound_4(&self) -> &Channel4View { MOCK_CHANNEL }
+    fn sound_1(&self) -> &dyn Channel1View { MOCK_CHANNEL }
+    fn sound_2(&self) -> &dyn Channel2View { MOCK_CHANNEL }
+    fn sound_3(&self) -> &dyn Channel3View { MOCK_CHANNEL }
+    fn sound_4(&self) -> &dyn Channel4View { MOCK_CHANNEL }
 }
 
 impl MockHandlerHolder {
@@ -76,12 +76,12 @@ impl Handler for MockHandlerHolder {
 }
 
 impl HandlerHolder for MockHandlerHolder {
-    fn get_handler_read(&self, _: u16) -> &Handler {
-        self as &Handler
+    fn get_handler_read(&self, _: u16) -> &dyn Handler {
+        self as &dyn Handler
     }
 
-    fn get_handler_write(&mut self, _: u16) -> &mut Handler {
-        self as &mut Handler
+    fn get_handler_write(&mut self, _: u16) -> &mut dyn Handler {
+        self as &mut dyn Handler
     }
     fn cpu_step(&mut self) {}
     fn check_interrupts(&mut self) -> Option<Interrupt> { None }
@@ -91,7 +91,7 @@ impl HandlerHolder for MockHandlerHolder {
         &self.screen_buffer
     }
     fn should_refresh(&mut self) -> bool { false }
-    fn get_audio_buffer(&self) -> &AudioBuffer {
+    fn get_audio_buffer(&self) -> &dyn AudioBuffer {
         &self.audio_buffer
     }
     fn reset(&mut self) {}
