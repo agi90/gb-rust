@@ -7,17 +7,18 @@
     }
 
     #gameboy {
-        background-image: url('assets/Gameboy.svg');
-        background-repeat: no-repeat;
-        background-size: 302px;
-        height: 495px;
         position: relative;
+        width: 302px;
     }
 
     #screen {
-        position: relative;
+        position: absolute;
         left: 71px;
         top: 61px;
+    }
+
+    #console {
+        width: 302px;
     }
 </style>
     <script type="text/javascript" src="glue.js"></script>
@@ -25,7 +26,22 @@
 <body onload="onLoad()">
     <input type="file" id="rom">
     <div id=gameboy>
+        <img
+            id=console
+            src="assets/Gameboy.svg"
+            usemap="#console-map">
         <canvas id="screen" width="160" height="144"></canvas>
     </div>
+
+    <map name="console-map">
+        <area id="a-button" title="A" href="#" coords="259,313,18" shape="circle">
+        <area id="b-button" title="B" href="#" coords="210,334,18" shape="circle">
+        <area id="start-button" title="Start" href="#" coords="143,400,153,420,182,405,172,386" shape="poly">
+        <area id="select-button" title="Select" href="#" coords="93,400,101,420,133,405,124,384,107,393" shape="poly">
+        <area id="up-button" title="Up" href="#" coords="65,328,51,315,51,291,79,291,79,315" shape="poly">
+        <area id="right-button" title="Right" href="#" coords="65,328,80,314,100,315,102,340,79,341,73,335" shape="poly">
+        <area id="down-button" title="Down" href="#" coords="79,365,78,339,64,329,51,342,50,365" shape="poly">
+        <area id="left-button" title="Left" href="#" coords="28,341,28,313,50,314,64,329,51,342" shape="poly">
+    </map>
 </body>
 </html>

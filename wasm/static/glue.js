@@ -29,6 +29,17 @@ function onLoad() {
     console.log("Loaded!");
 }
 
+var UI_BUTTON_MAPPING = {
+    "left-button": "left",
+    "right-button": "right",
+    "up-button": "up",
+    "down-button": "down",
+    "a-button": "a",
+    "b-button": "b",
+    "start-button": "start",
+    "select-button": "select"
+};
+
 var KEYBOARD_MAPPING = {
     "ArrowLeft": "left",
     "ArrowRight": "right",
@@ -108,10 +119,14 @@ function refreshScreen(screen, img) {
     }
 }
 
-function refreshGamepad(gamepad, keyboard) {
+function refreshGamepad(gamepad, keyboard, ui_buttons) {
     let poll = pollGamepad();
     if (poll === null) {
-        poll = keyboard;
+        let combined = {};
+        for (let key of Object.keys(keyboard)) {
+            combined[key] = keyboard[key] || ui_buttons[key];
+        }
+        poll = combined;
     }
 
     gamepad[0] = poll.a + 0;
@@ -303,6 +318,7 @@ function romLoaded(rom, exports, canvasContext, imageData) {
         left: false,
         right: false,
     };
+    let ui_buttons = Object.assign({}, keyboard);
 
     let running = true;
     window.addEventListener("focus", e => {
@@ -331,6 +347,19 @@ function romLoaded(rom, exports, canvasContext, imageData) {
         }
     });
 
+    for (let id of Object.keys(UI_BUTTON_MAPPING)) {
+        let button = document.getElementById(id);
+        let key = UI_BUTTON_MAPPING[id];
+        button.addEventListener("mousedown", e => {
+            ui_buttons[key] = true;
+            e.preventDefault();
+        });
+        button.addEventListener("mouseup", e => {
+            ui_buttons[key] = false;
+            e.preventDefault();
+        });
+    }
+
     function mainLoop() {
         if (running) {
             Emu.main_loop();
@@ -340,7 +369,7 @@ function romLoaded(rom, exports, canvasContext, imageData) {
             refreshScreen(screen, img);
 
             let gamepad = Emu.view_u8(gamepadHeap);
-            refreshGamepad(gamepad, keyboard);
+            refreshGamepad(gamepad, keyboard, ui_buttons);
 
             let sound = Emu.view_i16(soundHeap);
             Emu.audio_processor
