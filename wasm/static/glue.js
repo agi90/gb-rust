@@ -362,8 +362,9 @@ function romLoaded(rom, exports, canvasContext, imageData) {
         button.addEventListener("touchstart", on_button_pressed);
         button.addEventListener("mouseup", on_button_released);
         button.addEventListener("touchend", on_button_released);
-        button.addEventListener("click", e => e.preventDefault);
-        button.addEventListener("touch", e => e.preventDefault);
+        button.addEventListener("click", e => e.preventDefault());
+        button.addEventListener("touch", e => e.preventDefault());
+        button.addEventListener("contextmenu", e => e.preventDefault());
     }
 
     function mainLoop() {
