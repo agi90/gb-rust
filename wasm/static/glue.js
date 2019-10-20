@@ -350,14 +350,20 @@ function romLoaded(rom, exports, canvasContext, imageData) {
     for (let id of Object.keys(UI_BUTTON_MAPPING)) {
         let button = document.getElementById(id);
         let key = UI_BUTTON_MAPPING[id];
-        button.addEventListener("mousedown", e => {
+        let on_button_pressed = e => {
             ui_buttons[key] = true;
             e.preventDefault();
-        });
-        button.addEventListener("mouseup", e => {
+        };
+        let on_button_released = e => {
             ui_buttons[key] = false;
             e.preventDefault();
-        });
+        };
+        button.addEventListener("mousedown", on_button_pressed);
+        button.addEventListener("touchstart", on_button_pressed);
+        button.addEventListener("mouseup", on_button_released);
+        button.addEventListener("touchend", on_button_released);
+        button.addEventListener("click", e => e.preventDefault);
+        button.addEventListener("touch", e => e.preventDefault);
     }
 
     function mainLoop() {
