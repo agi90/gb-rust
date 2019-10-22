@@ -30,7 +30,6 @@ pub type ScreenBuffer = [[GrayShade; SCREEN_X]; SCREEN_Y];
 pub struct Ppu {
     cycles: usize,
     video_ram: [u8; 8196],
-    oam_ram: [u8; 160],
     screen_buffer: ScreenBuffer,
     should_refresh: bool,
     mapper: VideoMemoryMapper,
@@ -47,11 +46,28 @@ u8_enum!{
     }
 }
 
+#[inline]
+fn pattern_value(video_ram: &[u8], offset: usize, x: usize, y: usize) -> u8 {
+    let l = video_ram[offset + (y * 2)];
+    let h = video_ram[offset + (y * 2) + 1];
+
+    match x {
+          7 =>  (0b00000001 & l)       + ((0b00000001 & h) << 1),
+          6 => ((0b00000010 & l) >> 1) + ((0b00000010 & h)     ),
+          5 => ((0b00000100 & l) >> 2) + ((0b00000100 & h) >> 1),
+          4 => ((0b00001000 & l) >> 3) + ((0b00001000 & h) >> 2),
+          3 => ((0b00010000 & l) >> 4) + ((0b00010000 & h) >> 3),
+          2 => ((0b00100000 & l) >> 5) + ((0b00100000 & h) >> 4),
+          1 => ((0b01000000 & l) >> 6) + ((0b01000000 & h) >> 5),
+          0 => ((0b10000000 & l) >> 7) + ((0b10000000 & h) >> 6),
+          _ => unreachable!(),
+    }
+}
+
 impl cpu::Handler for Ppu {
     fn read(&self, address: u16) -> u8 {
         match address {
             0x8000 ..= 0x9FFF => self.read_ram(address),
-            0xFE00 ..= 0xFE9F => self.oam_ram[address as usize - 0xFE00],
             _ => self.mapper.read(address),
         }
     }
@@ -59,7 +75,6 @@ impl cpu::Handler for Ppu {
     fn write(&mut self, address: u16, v: u8) {
         match address {
             0x8000 ..= 0x9FFF => self.write_ram(address, v),
-            0xFE00 ..= 0xFE9F => self.oam_ram[address as usize - 0xFE00] = v,
             0xFF41 => self.write_stat(v),
             _ => self.mapper.write(address, v),
         }
@@ -81,7 +96,6 @@ impl Ppu {
         Ppu {
             cycles: 0,
             video_ram: [0; 8196],
-            oam_ram: [0; 160],
             screen_buffer: [[GrayShade::C00; SCREEN_X]; SCREEN_Y],
             should_refresh: false,
             mapper: VideoMemoryMapper::new(),
@@ -138,7 +152,7 @@ impl Ppu {
             0x0800
         };
 
-        self.pattern_value(pattern_offset + tile * 16, x % 8, y % 8)
+        pattern_value(&self.video_ram, pattern_offset + tile * 16, x % 8, y % 8)
     }
 
     fn background_color_from_raw(&self, raw: u8) -> GrayShade {
@@ -154,154 +168,6 @@ impl Ppu {
     fn background_value_at(&self, tile_map: TileMap, x: usize, y: usize) -> GrayShade {
         let raw = self.raw_background_at(tile_map, x, y);
         self.background_color_from_raw(raw)
-    }
-
-    fn sprite_value_at(&self, id: usize, x: usize, y: usize) -> GrayShade {
-        let flags = self.sprite_flags(id);
-
-        let x = if flags.x_flip { 7 - x } else { x };
-
-        let y = if !flags.y_flip { y } else {
-            match self.mapper.sprite_size() {
-                SpriteSize::C8by8  =>  7 - y,
-                SpriteSize::C8by16 => 15 - y,
-            }
-        };
-
-        let tile_index = match self.mapper.sprite_size() {
-            SpriteSize::C8by8  => self.sprite_tile_index(id),
-            SpriteSize::C8by16 => self.sprite_tile_index(id) & 0xFE,
-        };
-
-        let color = self.pattern_value(tile_index * 16, x, y);
-
-        match &flags.palette {
-            &SpritePalette::C0 => {
-                match color {
-                    0b00 => GrayShade::Transparent,
-                    0b01 => self.mapper.obp0_palette_01(),
-                    0b10 => self.mapper.obp0_palette_10(),
-                    0b11 => self.mapper.obp0_palette_11(),
-                    _ => unreachable!(),
-                }
-            },
-            &SpritePalette::C1 => {
-                match color {
-                    0b00 => GrayShade::Transparent,
-                    0b01 => self.mapper.obp1_palette_01(),
-                    0b10 => self.mapper.obp1_palette_10(),
-                    0b11 => self.mapper.obp1_palette_11(),
-                    _ => unreachable!(),
-                }
-            }
-        }
-    }
-
-    #[inline]
-    fn pattern_value(&self, offset: usize, x: usize, y: usize) -> u8 {
-        let l = self.video_ram[offset + (y * 2)];
-        let h = self.video_ram[offset + (y * 2) + 1];
-
-        match x {
-            7 =>  (0b00000001 & l)       + ((0b00000001 & h) << 1),
-            6 => ((0b00000010 & l) >> 1) + ((0b00000010 & h)     ),
-            5 => ((0b00000100 & l) >> 2) + ((0b00000100 & h) >> 1),
-            4 => ((0b00001000 & l) >> 3) + ((0b00001000 & h) >> 2),
-            3 => ((0b00010000 & l) >> 4) + ((0b00010000 & h) >> 3),
-            2 => ((0b00100000 & l) >> 5) + ((0b00100000 & h) >> 4),
-            1 => ((0b01000000 & l) >> 6) + ((0b01000000 & h) >> 5),
-            0 => ((0b10000000 & l) >> 7) + ((0b10000000 & h) >> 6),
-            _ => unreachable!(),
-        }
-    }
-
-    #[inline]
-    fn sprite_y(&self, id: usize) -> usize {
-        self.oam_ram[id * 4] as usize
-    }
-
-    #[inline]
-    fn sprite_x(&self, id: usize) -> usize {
-        self.oam_ram[id * 4 + 1] as usize
-    }
-
-    #[inline]
-    fn sprite_tile_index(&self, id: usize) -> usize {
-        self.oam_ram[id * 4 + 2] as usize
-    }
-
-    #[inline]
-    fn sprite_flags(&self, id: usize) -> SpriteFlags {
-        let v = self.oam_ram[id * 4 + 3];
-
-        SpriteFlags {
-            below_bg:    v & (0b10000000) > 0,
-            y_flip:      v & (0b01000000) > 0,
-            x_flip:      v & (0b00100000) > 0,
-            palette:  if v & (0b00010000) > 0 { SpritePalette::C1 } else { SpritePalette::C0 },
-        }
-    }
-
-    fn is_sprite_visible(&self, id: usize, scanline: usize) -> bool {
-        let y = self.sprite_y(id);
-        match self.mapper.sprite_size() {
-            SpriteSize::C8by8 =>  scanline + 16 >= y && scanline + 8 < y,
-            SpriteSize::C8by16 => scanline + 16 >= y && scanline < y,
-        }
-    }
-
-    fn is_sprite_horizontally_visible(&self, id: usize, h: usize) -> bool {
-        let x = self.sprite_x(id);
-        h + 8 >= x && h < x
-    }
-
-    fn print_sprites(&mut self, scanline: usize) {
-        // Normally visible_sprites would be an array
-        // but this code path is very hot so we need to
-        // be cautios about performance.
-        let mut visible_sprites = [0; 10];
-        let mut visible_sprites_len = 0;
-
-        for i in 0..40 {
-            if visible_sprites_len >= 10 {
-                break;
-            }
-
-            if !self.is_sprite_visible(i, scanline) {
-                continue;
-            }
-
-            visible_sprites[visible_sprites_len] = i;
-            visible_sprites_len += 1;
-        }
-
-        &visible_sprites[0..visible_sprites_len]
-            .sort_by_key(|&id| self.sprite_x(id));
-
-        for x in 0..SCREEN_X {
-            for i in 0..visible_sprites_len {
-                let id = visible_sprites[i];
-                if !self.is_sprite_horizontally_visible(id, x) {
-                    continue;
-                }
-
-                let flags = self.sprite_flags(id);
-
-                let color = self.sprite_value_at(
-                        id,
-                        x + 8 - self.sprite_x(id),
-                        scanline + 16 - self.sprite_y(id));
-
-                if color != GrayShade::Transparent {
-                    if !flags.below_bg || self.background[x] == 0 {
-                            if x < SCREEN_X && scanline < SCREEN_Y {
-                                self.screen_buffer[scanline][x] = color;
-                            }
-                        }
-                    break;
-                }
-            }
-        }
     }
 
     pub fn get_screen(&self) -> &ScreenBuffer {
@@ -448,7 +314,7 @@ impl Ppu {
         None
     }
 
-    pub fn check_interrupts(&mut self) -> Option<cpu::Interrupt> {
+    pub fn check_interrupts(&mut self, oam_ram: &[u8]) -> Option<cpu::Interrupt> {
         if self.mapper.lcd_on() == 0 {
             return None;
         }
@@ -503,14 +369,167 @@ impl Ppu {
             256 => {
                 interrupt = interrupt.or(self.switch_to(LCDMode::HBlank));
                 let scanline = self.scanline() as usize;
-                self.print_sprites(scanline);
+                self.print_sprites(oam_ram, scanline);
             },
             _ => unreachable!(),
         }
 
         interrupt
     }
+
+    fn print_sprites(&mut self, oam_ram: &[u8], scanline: usize) {
+        let mut sprite_module = SpriteModule {
+            oam_ram,
+            video_ram: &self.video_ram,
+            mapper: &self.mapper,
+            background: &self.background,
+            screen_buffer: &mut self.screen_buffer,
+        };
+
+        sprite_module.print_sprites(scanline);
+    }
 }
+
+struct SpriteModule<'a> {
+    oam_ram: &'a [u8],
+    video_ram: &'a [u8],
+    background: &'a [u8],
+    mapper: &'a VideoMemoryMapper,
+    screen_buffer: &'a mut ScreenBuffer,
+}
+
+impl <'a> SpriteModule<'a> {
+    fn print_sprites(&mut self, scanline: usize) {
+        // Normally visible_sprites would be an array
+        // but this code path is very hot so we need to
+        // be cautios about performance.
+        let mut visible_sprites = [0; 10];
+        let mut visible_sprites_len = 0;
+
+        for i in 0..40 {
+            if visible_sprites_len >= 10 {
+                break;
+            }
+
+            if !self.is_sprite_visible(i, scanline) {
+                continue;
+            }
+
+            visible_sprites[visible_sprites_len] = i;
+            visible_sprites_len += 1;
+        }
+
+        &visible_sprites[0..visible_sprites_len]
+            .sort_by_key(|&id| self.sprite_x(id));
+
+        for x in 0..SCREEN_X {
+            for i in 0..visible_sprites_len {
+                let id = visible_sprites[i];
+                if !self.is_sprite_horizontally_visible(id, x) {
+                    continue;
+                }
+
+                let flags = self.sprite_flags(id);
+
+                let color = self.sprite_value_at(
+                        id,
+                        x + 8 - self.sprite_x(id),
+                        scanline + 16 - self.sprite_y(id));
+
+                if color != GrayShade::Transparent {
+                    if !flags.below_bg || self.background[x] == 0 {
+                            if x < SCREEN_X && scanline < SCREEN_Y {
+                                self.screen_buffer[scanline][x] = color;
+                            }
+                        }
+                    break;
+                }
+            }
+        }
+    }
+
+    #[inline]
+    fn sprite_y(&self, id: usize) -> usize {
+        self.oam_ram[id * 4] as usize
+    }
+
+    #[inline]
+    fn sprite_x(&self, id: usize) -> usize {
+        self.oam_ram[id * 4 + 1] as usize
+    }
+
+    #[inline]
+    fn sprite_tile_index(&self, id: usize) -> usize {
+        self.oam_ram[id * 4 + 2] as usize
+    }
+
+    #[inline]
+    fn sprite_flags(&self, id: usize) -> SpriteFlags {
+        let v = self.oam_ram[id * 4 + 3];
+
+        SpriteFlags {
+            below_bg:    v & (0b10000000) > 0,
+            y_flip:      v & (0b01000000) > 0,
+            x_flip:      v & (0b00100000) > 0,
+            palette:  if v & (0b00010000) > 0 { SpritePalette::C1 } else { SpritePalette::C0 },
+        }
+    }
+
+    fn is_sprite_visible(&self, id: usize, scanline: usize) -> bool {
+        let y = self.sprite_y(id);
+        match self.mapper.sprite_size() {
+            SpriteSize::C8by8 =>  scanline + 16 >= y && scanline + 8 < y,
+            SpriteSize::C8by16 => scanline + 16 >= y && scanline < y,
+        }
+    }
+
+    fn is_sprite_horizontally_visible(&self, id: usize, h: usize) -> bool {
+        let x = self.sprite_x(id);
+        h + 8 >= x && h < x
+    }
+
+    fn sprite_value_at(&self, id: usize, x: usize, y: usize) -> GrayShade {
+        let flags = self.sprite_flags(id);
+
+        let x = if flags.x_flip { 7 - x } else { x };
+
+        let y = if !flags.y_flip { y } else {
+            match self.mapper.sprite_size() {
+                SpriteSize::C8by8  =>  7 - y,
+                SpriteSize::C8by16 => 15 - y,
+            }
+        };
+
+        let tile_index = match self.mapper.sprite_size() {
+            SpriteSize::C8by8  => self.sprite_tile_index(id),
+            SpriteSize::C8by16 => self.sprite_tile_index(id) & 0xFE,
+        };
+
+        let color = pattern_value(&self.video_ram, tile_index * 16, x, y);
+
+        match &flags.palette {
+            &SpritePalette::C0 => {
+                match color {
+                    0b00 => GrayShade::Transparent,
+                    0b01 => self.mapper.obp0_palette_01(),
+                    0b10 => self.mapper.obp0_palette_10(),
+                    0b11 => self.mapper.obp0_palette_11(),
+                    _ => unreachable!(),
+                }
+            },
+            &SpritePalette::C1 => {
+                match color {
+                    0b00 => GrayShade::Transparent,
+                    0b01 => self.mapper.obp1_palette_01(),
+                    0b10 => self.mapper.obp1_palette_10(),
+                    0b11 => self.mapper.obp1_palette_11(),
+                    _ => unreachable!(),
+                }
+            }
+        }
+    }
+}
+
 
 u8_enum!{
     SpritePalette {

@@ -73,13 +73,16 @@ pub trait Handler {
 
 /** This interface is used to decouple memory access
   and the CPU */
-pub trait HandlerHolder {
+pub trait MapperHolder {
+    fn get_handler_read(&self, address: u16) -> &dyn Handler;
+    fn get_handler_write(&mut self, address: u16) -> &mut dyn Handler;
+}
+
+pub trait HandlerHolder : MapperHolder {
     fn key_down(&mut self, key: Key);
     fn key_up(&mut self, key: Key);
     fn get_screen_buffer(&self) -> &ScreenBuffer;
     fn get_audio_buffer(&self) -> &dyn AudioBuffer;
-    fn get_handler_read(&self, address: u16) -> &dyn Handler;
-    fn get_handler_write(&mut self, address: u16) -> &mut dyn Handler;
     fn cpu_step(&mut self);
     fn check_interrupts(&mut self) -> Option<Interrupt>;
     fn should_refresh(&mut self) -> bool;
@@ -217,7 +220,6 @@ impl Cpu {
         }
 
         match address {
-            0xFF46 => self.copy_memory_to_vram(v),
             0xFF04 ..= 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.write(address, v),
             _ => self.handler_holder.get_handler_write(address)
                      .write(address, v),
@@ -234,17 +236,9 @@ impl Cpu {
 
         self.add_cycles(4);
         match address {
-            0xFF46 => self.copy_memory_to_vram(v),
             0xFF04 ..= 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.write(address, v),
             _ => self.handler_holder.get_handler_write(address)
                      .write(address, v),
-        }
-    }
-
-    fn copy_memory_to_vram(&mut self, v: u8) {
-        for i in 0..0xA0 {
-            let v = self.deref(((v as u16) << 8) + i);
-            self.set_deref(0xFE00 + (i as u16), v);
         }
     }
 

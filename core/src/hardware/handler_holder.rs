@@ -2,10 +2,32 @@ use hardware::apu::{SoundController, AudioBuffer};
 use hardware::cartridge::Cartridge;
 use hardware::cpu;
 use hardware::ppu::{Ppu, ScreenBuffer};
+use hardware::dma::DmaController;
 
 use bitfield::Bitfield;
 
 pub struct GBHandlerHolder {
+    dma: DmaController,
+    inner: InnerHandlerHolder,
+}
+
+impl GBHandlerHolder {
+    pub fn new(cartridge: Cartridge) -> GBHandlerHolder {
+        GBHandlerHolder {
+            dma: DmaController::new(),
+            inner: InnerHandlerHolder {
+                cartridge,
+                memory_holder: MemoryHolder::new(),
+                ppu: Ppu::new(),
+                joypad_register: JoypadRegister::new(),
+                serial_transfer_controller: SerialTransfer::new(),
+                apu: SoundController::new(),
+            },
+        }
+    }
+}
+
+pub struct InnerHandlerHolder {
     memory_holder: MemoryHolder,
     cartridge: Cartridge,
     pub ppu: Ppu,
@@ -14,16 +36,90 @@ pub struct GBHandlerHolder {
     apu: SoundController,
 }
 
-impl GBHandlerHolder {
-    pub fn new(cartridge: Cartridge) -> GBHandlerHolder {
-        GBHandlerHolder {
-            memory_holder: MemoryHolder::new(),
-            cartridge: cartridge,
-            ppu: Ppu::new(),
-            joypad_register: JoypadRegister::new(),
-            serial_transfer_controller: SerialTransfer::new(),
-            apu: SoundController::new(),
+impl cpu::MapperHolder for InnerHandlerHolder {
+    fn get_handler_read(&self, address: u16) -> &dyn cpu::Handler {
+        match address {
+            0x0000 ..= 0x7FFF => &self.cartridge,
+            0x8000 ..= 0x9FFF => &self.ppu,
+            0xA000 ..= 0xBFFF => &self.cartridge,
+            0xC000 ..= 0xDFFF => &self.memory_holder,
+            // Accessing this in the real GB will return the internal_ram echoed
+            // but it's probably a bug in the emulator, so let's panic
+            0xE000 ..= 0xFDFF => panic!("Tried to access echo of internal ram"),
+            0xFEA0 ..= 0xFEFF => &self.memory_holder,
+            0xFF00            => &self.joypad_register,
+            0xFF01 ..= 0xFF02 => &self.serial_transfer_controller,
+            0xFF09 ..= 0xFF3F => &self.apu,
+            0xFF40 ..= 0xFF45 => &self.ppu,
+            0xFF47 ..= 0xFF4B => &self.ppu,
+            0xFF4C ..= 0xFFFE => &self.memory_holder,
+            _ => unreachable!(),
         }
+    }
+
+    fn get_handler_write(&mut self, address: u16) -> &mut dyn cpu::Handler {
+        match address {
+            0x0000 ..= 0x7FFF => &mut self.cartridge,
+            0x8000 ..= 0x9FFF => &mut self.ppu,
+            0xA000 ..= 0xBFFF => &mut self.cartridge,
+            0xC000 ..= 0xDFFF => &mut self.memory_holder,
+            0xE000 ..= 0xFDFF => &mut self.memory_holder,
+            0xFEA0 ..= 0xFEFF => &mut self.memory_holder,
+            0xFF00            => &mut self.joypad_register,
+            0xFF01 ..= 0xFF02 => &mut self.serial_transfer_controller,
+            0xFF09 ..= 0xFF3F => &mut self.apu,
+            0xFF40 ..= 0xFF45 => &mut self.ppu,
+            0xFF47 ..= 0xFF4B => &mut self.ppu,
+            0xFF4C ..= 0xFFFE => &mut self.memory_holder,
+            _ => unimplemented!(),
+        }
+    }
+}
+
+impl InnerHandlerHolder {
+    fn get_screen_buffer(&self) -> &ScreenBuffer {
+        self.ppu.get_screen()
+    }
+
+    fn should_refresh(&mut self) -> bool {
+        self.ppu.should_refresh()
+    }
+
+    fn get_audio_buffer(&self) -> &dyn AudioBuffer {
+        self.apu.get_audio()
+    }
+
+    fn key_up(&mut self, key: Key) {
+        self.joypad_register.key_up(key);
+    }
+
+    fn key_down(&mut self, key: Key) {
+        self.joypad_register.key_down(key);
+    }
+
+    fn cpu_step(&mut self) {
+        self.ppu.cpu_step();
+        self.apu.cpu_step();
+    }
+
+    fn check_interrupts(&mut self, oam_ram: &[u8]) -> Option<cpu::Interrupt> {
+        self.ppu.check_interrupts(oam_ram)
+    }
+
+    fn ram(&mut self) -> &mut [u8] {
+        self.cartridge.ram()
+    }
+
+    fn rtc(&mut self) -> Option<&mut u64> {
+        self.cartridge.rtc()
+    }
+
+    fn reset(&mut self) {
+        self.memory_holder = MemoryHolder::new();
+        self.ppu = Ppu::new();
+        self.joypad_register = JoypadRegister::new();
+        self.serial_transfer_controller = SerialTransfer::new();
+        self.apu = SoundController::new();
     }
 }
 
@@ -49,7 +145,7 @@ impl cpu::Handler for MemoryHolder {
             0xFEA0 ..= 0xFEFF | 0xFF4C ..= 0xFF7F => {
                 // This area of the memory is not theoretically accessible but
                 // some games do try to read from here because of bugs in them.
-                // We will just return the default bus value.
+                // We will just return open bus.
                 0xFF
             },
             0xC000 ..= 0xDFFF => self.internal_ram[(address - 0xC000) as usize],
@@ -71,88 +167,65 @@ impl cpu::Handler for MemoryHolder {
     }
 }
 
-impl cpu::HandlerHolder for GBHandlerHolder {
-    fn get_screen_buffer(&self) -> &ScreenBuffer {
-        self.ppu.get_screen()
-    }
-
-    fn should_refresh(&mut self) -> bool {
-        self.ppu.should_refresh()
-    }
-
-    fn get_audio_buffer(&self) -> &dyn AudioBuffer {
-        self.apu.get_audio()
-    }
-
-    fn key_up(&mut self, key: Key) {
-        self.joypad_register.key_up(key);
-    }
-
-    fn key_down(&mut self, key: Key) {
-        self.joypad_register.key_down(key);
-    }
-
+impl cpu::MapperHolder for GBHandlerHolder {
     fn get_handler_read(&self, address: u16) -> &dyn cpu::Handler {
         match address {
-            0x0000 ..= 0x7FFF => &self.cartridge,
-            0x8000 ..= 0x9FFF => &self.ppu,
-            0xA000 ..= 0xBFFF => &self.cartridge,
-            0xC000 ..= 0xDFFF => &self.memory_holder,
-            // Accessing this in the real GB will return the internal_ram echoed
-            // but it's probably a bug in the emulator, so let's panic
-            0xE000 ..= 0xFDFF => panic!("Tried to access echo of internal ram"),
-            0xFE00 ..= 0xFE9F => &self.ppu,
-            0xFEA0 ..= 0xFEFF => &self.memory_holder,
-            0xFF00            => &self.joypad_register,
-            0xFF01 ..= 0xFF02 => &self.serial_transfer_controller,
-            0xFF09 ..= 0xFF3F => &self.apu,
-            0xFF40 ..= 0xFF4B => &self.ppu,
-            0xFF4C ..= 0xFFFE => &self.memory_holder,
-            _ => unreachable!(),
+            0xFE00 ..= 0xFE9F => &self.dma,
+            0xFF46            => &self.dma,
+            _ => self.inner.get_handler_read(address),
         }
     }
 
     fn get_handler_write(&mut self, address: u16) -> &mut dyn cpu::Handler {
         match address {
-            0x0000 ..= 0x7FFF => &mut self.cartridge,
-            0x8000 ..= 0x9FFF => &mut self.ppu,
-            0xA000 ..= 0xBFFF => &mut self.cartridge,
-            0xC000 ..= 0xDFFF => &mut self.memory_holder,
-            0xE000 ..= 0xFDFF => &mut self.memory_holder,
-            0xFE00 ..= 0xFE9F => &mut self.ppu,
-            0xFEA0 ..= 0xFEFF => &mut self.memory_holder,
-            0xFF00            => &mut self.joypad_register,
-            0xFF01 ..= 0xFF02 => &mut self.serial_transfer_controller,
-            0xFF09 ..= 0xFF3F => &mut self.apu,
-            0xFF40 ..= 0xFF4B => &mut self.ppu,
-            0xFF4C ..= 0xFFFE => &mut self.memory_holder,
-            _ => unimplemented!(),
+            0xFE00 ..= 0xFE9F => &mut self.dma,
+            0xFF46            => &mut self.dma,
+            _ => self.inner.get_handler_write(address),
         }
+    }
+}
+
+impl cpu::HandlerHolder for GBHandlerHolder {
+    fn get_screen_buffer(&self) -> &ScreenBuffer {
+        self.inner.get_screen_buffer()
+    }
+
+    fn should_refresh(&mut self) -> bool {
+        self.inner.should_refresh()
+    }
+
+    fn get_audio_buffer(&self) -> &dyn AudioBuffer {
+        self.inner.get_audio_buffer()
+    }
+
+    fn key_up(&mut self, key: Key) {
+        self.inner.key_up(key);
+    }
+
+    fn key_down(&mut self, key: Key) {
+        self.inner.key_down(key);
     }
 
     fn cpu_step(&mut self) {
-        self.ppu.cpu_step();
-        self.apu.cpu_step();
+        self.inner.cpu_step();
+        self.dma.cpu_step(&mut self.inner);
     }
 
     fn check_interrupts(&mut self) -> Option<cpu::Interrupt> {
-        self.ppu.check_interrupts()
+        self.inner.check_interrupts(&self.dma.oam_ram)
     }
 
     fn ram(&mut self) -> &mut [u8] {
-        self.cartridge.ram()
+        self.inner.ram()
     }
 
     fn rtc(&mut self) -> Option<&mut u64> {
-        self.cartridge.rtc()
+        self.inner.rtc()
     }
 
     fn reset(&mut self) {
-        self.memory_holder = MemoryHolder::new();
-        self.ppu = Ppu::new();
-        self.joypad_register = JoypadRegister::new();
-        self.serial_transfer_controller = SerialTransfer::new();
-        self.apu = SoundController::new();
+        self.inner.reset();
+        self.dma = DmaController::new();
     }
 }
 

@@ -1,4 +1,10 @@
-use hardware::cpu::{Cpu, Handler, HandlerHolder, Interrupt};
+use hardware::cpu::{
+    Cpu,
+    MapperHolder,
+    Handler,
+    HandlerHolder,
+    Interrupt
+};
 use hardware::opcodes::OpCode;
 use hardware::ppu::{ScreenBuffer, GrayShade};
 use hardware::apu::*;
@@ -75,7 +81,7 @@ impl Handler for MockHandlerHolder {
     }
 }
 
-impl HandlerHolder for MockHandlerHolder {
+impl MapperHolder for MockHandlerHolder {
     fn get_handler_read(&self, _: u16) -> &dyn Handler {
         self as &dyn Handler
     }
@@ -83,6 +89,9 @@ impl HandlerHolder for MockHandlerHolder {
     fn get_handler_write(&mut self, _: u16) -> &mut dyn Handler {
         self as &mut dyn Handler
     }
+}
+
+impl HandlerHolder for MockHandlerHolder {
     fn cpu_step(&mut self) {}
     fn check_interrupts(&mut self) -> Option<Interrupt> { None }
     fn key_down(&mut self, _: Key) {}

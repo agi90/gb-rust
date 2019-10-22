@@ -142,6 +142,7 @@ pub mod memory_controller;
 pub mod ppu;
 pub mod timer_controller;
 pub mod apu;
+pub mod dma;
 
 pub mod cartridge;
 
