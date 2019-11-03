@@ -69,18 +69,15 @@ impl GLRenderer {
         let fragment_shader_src = r#"
             #version 140
 
-            uniform sampler2D tex_front;
-            uniform sampler2D tex_back;
+            uniform sampler2D tex;
             uniform mat4 palette;
 
             in vec2 v_tex_coords;
             out vec4 f_color;
 
             void main() {
-              float color_front = texture(tex_front, v_tex_coords).x;
-              float color_back = texture(tex_back, v_tex_coords).x;
-              float color = mix(color_front, color_back, 0.5);
-              f_color = palette[uint(color * 255.0 + 0.5)];
+              float color = texture(tex, v_tex_coords).x;
+              f_color = palette[uint(color * 255 + 0.5)] / 256;
             }
         "#;
 
@@ -102,16 +99,12 @@ impl GLRenderer {
                       [0.0, 0.0, 1.0, 0.0],
                       [0.0, 0.0, 0.0, 1.0]];
 
-        let mut palette = [[255.0, 247.0, 123.0, 255.0],
-                           [181.0, 174.0, 74.0,  255.0],
-                           [107.0, 105.0, 49.0,  255.0],
-                           [33.0,  32.0,  16.0,  255.0 ]];
-
-        for i in 0..4 {
-            for j in 0..4 {
-                palette[i][j] /= 256.0;
-            }
-        }
+        let palette = [
+            [255.0, 247.0, 123.0, 255.0],
+            [181.0, 174.0, 74.0, 255.0],
+            [107.0, 105.0, 49.0, 255.0],
+            [33.0, 32.0, 16.0, 255.0],
+        ];
 
         GLRenderer {
             buffer: pixel_buffer,

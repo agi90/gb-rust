@@ -176,7 +176,7 @@ impl Mbc13 {
             0x0C => days >> 8 & 0x01
                 + (if days > 511 { 0b10000000 } else { 0 }),
             _ => unreachable!(),
-        } as u8)
+        }) as u8
     }
 
     fn write_rtc(&mut self, _: u8, _: u8) {

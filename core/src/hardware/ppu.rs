@@ -34,7 +34,11 @@ pub struct Ppu {
     should_refresh: bool,
     mapper: VideoMemoryMapper,
     mode: LCDMode,
+    visible_sprites: [usize; 10],
+    visible_sprites_len: usize,
     background: [u8; SCREEN_X],
+    pixel_fifo: PixelPipeline,
+    x: usize,
 }
 
 u8_enum!{
@@ -100,7 +104,11 @@ impl Ppu {
             should_refresh: false,
             mapper: VideoMemoryMapper::new(),
             mode: LCDMode::HBlank,
+            visible_sprites: [0; 10],
+            visible_sprites_len: 0,
             background: [0; SCREEN_X],
+            pixel_fifo: PixelPipeline::new(),
+            x: 0,
         }
     }
 
@@ -127,34 +135,6 @@ impl Ppu {
         }
     }
 
-    fn raw_background_at(&self, tile_map: TileMap, x: usize, y: usize) -> u8 {
-        let offset = if tile_map == TileMap::C9800 {
-            0x1800
-        } else {
-            0x1C00
-        };
-
-        let raw_tile = self.video_ram[offset + (y / 8 as usize) * 32 + x / 8] as usize;
-
-        let tile;
-
-        let pattern_offset = if self.mapper.bg_tile_data() == BgTileData::C8000 {
-            tile = raw_tile;
-
-            0x0000
-        } else {
-            tile = if raw_tile < 0x80 {
-                raw_tile + 0x80
-            } else {
-                raw_tile - 0x80
-            };
-
-            0x0800
-        };
-
-        pattern_value(&self.video_ram, pattern_offset + tile * 16, x % 8, y % 8)
-    }
-
     fn background_color_from_raw(&self, raw: u8) -> GrayShade {
         match raw {
             0b00 => self.mapper.bg_color_00(),
@@ -163,11 +143,6 @@ impl Ppu {
             0b11 => self.mapper.bg_color_11(),
             _ => panic!(),
         }
-    }
-
-    fn background_value_at(&self, tile_map: TileMap, x: usize, y: usize) -> GrayShade {
-        let raw = self.raw_background_at(tile_map, x, y);
-        self.background_color_from_raw(raw)
     }
 
     pub fn get_screen(&self) -> &ScreenBuffer {
@@ -180,38 +155,45 @@ impl Ppu {
         result
     }
 
-    fn write_pixel(&mut self, i: usize, j: usize) {
-        assert!(i < SCREEN_Y);
-        assert!(j < SCREEN_X);
-
-        // Step 0: Blank screen
-        self.write_raw_pixel(j as usize, i as usize, GrayShade::C00);
-        self.background[j] = 0;
-
-        // Step 1: paint background
-        if self.mapper.bg_window_on() == 1 {
-            let y = (i + (self.mapper.scroll_bg_y as usize)) % BACKGROUND_Y;
-            let x = (j + (self.mapper.scroll_bg_x as usize)) % BACKGROUND_X;
-            self.background[j] = self.raw_background_at(self.mapper.bg_tile_map(), x, y);
-
-            let color = self.background_color_from_raw(self.background[j]);
-            self.write_raw_pixel(j, i, color);
+    /// Checks if the current x is the start of the window section
+    fn check_window_x(&mut self) -> bool {
+        if self.mapper.window_on() == 1 &&
+            self.mapper.bg_window_on() == 1 &&
+            self.x + 7 == self.mapper.window_x as usize &&
+                self.scanline() >= self.mapper.window_y {
+            let y = self.scanline() as usize - self.mapper.window_y as usize;
+            self.pixel_fifo.reset(0,
+                    BackgroundFetcher::new(self.window_offset(), 0, y));
+            return true;
         }
 
-        // Step 2: paint the window
-        if self.mapper.window_on() == 1
-                && self.mapper.bg_window_on() == 1 {
-            if i >= self.mapper.window_y as usize
-                    && j + 7 >= self.mapper.window_x as usize
-                    && j < BACKGROUND_X - 7 + self.mapper.window_x as usize
-                    && i < BACKGROUND_Y + self.mapper.window_y as usize {
-                let x = j - ((self.mapper.window_x as usize) - 7);
-                let y = i - (self.mapper.window_y as usize);
+        false
+    }
 
-                let pixel = self.background_value_at(self.mapper.window_tile_map(), x, y);
-                self.write_raw_pixel(j as usize, i as usize, pixel);
-            }
-        }
+    fn scanline_offset(&self, scroll_y: i16) -> usize {
+        let offset = ((self.scanline() as i16 + scroll_y) / 8) as usize
+                % (BACKGROUND_Y / 8);
+        offset * 32
+    }
+
+    fn window_offset(&self) -> usize {
+        let offset = if self.mapper.window_tile_map() == TileMap::C9800 {
+            0x1800
+        } else {
+            0x1C00
+        };
+
+        offset + self.scanline_offset(-(self.mapper.window_y as i16))
+    }
+
+    fn background_offset(&self) -> usize {
+        let offset = if self.mapper.bg_tile_map() == TileMap::C9800 {
+            0x1800
+        } else {
+            0x1C00
+        };
+
+        offset + self.scanline_offset(self.mapper.scroll_bg_y as i16)
     }
 
     fn write_raw_pixel(&mut self, x: usize, y: usize, color: GrayShade) {
@@ -351,30 +333,88 @@ impl Ppu {
 
                 interrupt = interrupt.or(self.switch_to(LCDMode::SearchingOAM));
             },
-            8 ..= 80 | 88 | 252 | 260 ..= 452 => {
-                // The ppu is running one of the modes, do nothing
+            8 ..= 76 => {
+                // The ppu is running OAM Search, do nothing
+            },
+            80 => {
+                let scanline = self.scanline() as usize;
+                let sprite_module = SpriteModule {
+                    oam_ram,
+                    video_ram: &self.video_ram,
+                    mapper: &self.mapper,
+                    background: &self.background,
+                    screen_buffer: &mut self.screen_buffer,
+                };
+
+                let (sprites, len) = sprite_module.visible_sprites(scanline);
+                self.visible_sprites = sprites;
+                self.visible_sprites_len = len;
             },
             84 => {
                 interrupt = interrupt.or(self.switch_to(LCDMode::LCDTransfer));
-            },
-            92 ..= 248 => {
-                for i in 0..4 {
-                    // This is only an approximation of what actually happens.
-                    // More information is available at:
-                    // http://blog.kevtris.org/blogfiles/Nitty%20Gritty%20Gameboy%20VRAM%20Timing.txt
-                    let scanline = self.scanline() as usize;
-                    self.write_pixel(scanline, scanline_cycle - 92 + i);
+                self.x = 0;
+                if self.mapper.bg_window_on() == 1 {
+                    let y = (self.scanline() + self.mapper.scroll_bg_y) as usize;
+                    self.pixel_fifo.reset(
+                        (self.mapper.scroll_bg_x % 8) as usize,
+                        BackgroundFetcher::new(self.background_offset(),
+                            self.mapper.scroll_bg_x as usize / 8, y));
+                    // FIXME: every CPU cycle is 2 PPU cycles
+                    for _ in 0..2 {
+                        self.pixel_fifo.step(
+                            &self.mapper,
+                            &self.video_ram, oam_ram);
+                    }
                 }
+                self.check_window_x();
             },
-            256 => {
-                interrupt = interrupt.or(self.switch_to(LCDMode::HBlank));
-                let scanline = self.scanline() as usize;
-                self.print_sprites(oam_ram, scanline);
+            88 ..= 452 => {
+                if self.mode == LCDMode::HBlank {
+                    // nothing to do
+                    return None;
+                }
+
+                if self.x >= 160 {
+                    interrupt = interrupt.or(self.switch_to(LCDMode::HBlank));
+                    let scanline = self.scanline() as usize;
+                    self.print_sprites(oam_ram, scanline);
+                }
+
+                // FIXME: every CPU cycle is 2 PPU cycles
+                for _ in 0..2 {
+                    self.fetcher_step(oam_ram);
+                }
             },
             _ => unreachable!(),
         }
 
         interrupt
+    }
+
+    fn fetcher_step(&mut self, oam_ram: &[u8]) {
+        if self.mapper.bg_window_on() != 1 {
+            self.x += 2;
+            return;
+        }
+
+        self.pixel_fifo.step(&self.mapper, &self.video_ram, oam_ram);
+
+        if !self.pixel_fifo.has_pixels() {
+            return;
+        }
+
+        for _ in 0..2 {
+            let raw = self.pixel_fifo.pop();
+            if self.x < SCREEN_X {
+              self.background[self.x] = raw;
+            }
+            let color = self.background_color_from_raw(raw);
+            self.write_raw_pixel(self.x, self.scanline() as usize, color);
+            self.x += 1;
+            if self.check_window_x() {
+                return;
+            }
+        }
     }
 
     fn print_sprites(&mut self, oam_ram: &[u8], scanline: usize) {
@@ -386,7 +426,8 @@ impl Ppu {
             screen_buffer: &mut self.screen_buffer,
         };
 
-        sprite_module.print_sprites(scanline);
+        sprite_module.print_sprites(scanline, self.visible_sprites,
+                self.visible_sprites_len);
     }
 }
 
@@ -399,7 +440,7 @@ struct SpriteModule<'a> {
 }
 
 impl <'a> SpriteModule<'a> {
-    fn print_sprites(&mut self, scanline: usize) {
+    fn visible_sprites(&self, scanline: usize) -> ([usize; 10], usize) {
         // Normally visible_sprites would be an array
         // but this code path is very hot so we need to
         // be cautios about performance.
@@ -422,6 +463,11 @@ impl <'a> SpriteModule<'a> {
         &visible_sprites[0..visible_sprites_len]
             .sort_by_key(|&id| self.sprite_x(id));
 
+        (visible_sprites, visible_sprites_len)
+    }
+
+    fn print_sprites(&mut self, scanline: usize,
+            visible_sprites: [usize; 10], visible_sprites_len: usize) {
         for x in 0..SCREEN_X {
             for i in 0..visible_sprites_len {
                 let id = visible_sprites[i];
@@ -530,6 +576,216 @@ impl <'a> SpriteModule<'a> {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum PipelineStage {
+    ReadPattern,
+    ReadTile0,
+    ReadTile1,
+    Wait,
+}
+
+const FIFO_SIZE: usize = 16;
+// Fifo queue for the Pixel Pipeline
+struct Fifo {
+    queue: [u8; FIFO_SIZE],
+    start: usize,
+    end: usize,
+    size: usize,
+}
+
+impl Fifo {
+    fn new() -> Fifo {
+        Fifo {
+            queue: [0; FIFO_SIZE],
+            start: 0,
+            end: 0,
+            size: 0,
+        }
+    }
+
+    fn reset(&mut self) {
+        self.start = 0;
+        self.end = 0;
+        self.size = 0;
+    }
+
+    fn push(&mut self, v: u8) {
+        assert!(self.size < FIFO_SIZE);
+
+        self.queue[self.end] = v;
+        self.end = (self.end + 1) % FIFO_SIZE;
+        self.size += 1;
+    }
+
+    fn pop(&mut self) -> u8 {
+        assert!(self.size > 0);
+
+        let v = self.queue[self.start];
+        self.start = (self.start + 1) % FIFO_SIZE;
+        self.size -= 1;
+        v
+    }
+
+    fn size(&self) -> usize {
+        self.size
+    }
+}
+
+struct PipelineUnit {
+    pattern: u8,
+    tile0: u8,
+    tile1: u8,
+}
+
+trait Fetcher {
+    fn tile(&self, mapper: &VideoMemoryMapper, pattern: u8,
+            video_ram: &[u8], oam_ram: &[u8], tile: usize) -> u8;
+    fn pattern(&self, video_ram: &[u8], oam_ram: &[u8]) -> u8;
+    fn next_step(&mut self);
+}
+
+struct NullFetcher;
+
+impl Fetcher for NullFetcher {
+    fn tile(&self, _: &VideoMemoryMapper, _: u8,
+            _: &[u8], _: &[u8], _: usize) -> u8 {
+        0
+    }
+    fn pattern(&self, _: &[u8], _: &[u8]) -> u8 {
+        0
+    }
+    fn next_step(&mut self) {}
+}
+
+struct BackgroundFetcher {
+    address: usize,
+    step: usize,
+    y: usize,
+}
+
+impl BackgroundFetcher {
+    fn new(address: usize, step: usize, y: usize) -> BackgroundFetcher {
+        BackgroundFetcher { address, step, y }
+    }
+}
+
+impl Fetcher for BackgroundFetcher {
+    fn tile(&self, mapper: &VideoMemoryMapper, pattern: u8,
+            video_ram: &[u8], _oam_ram: &[u8],
+            tile: usize) -> u8 {
+        let resolved_pattern;
+        let offset;
+
+        if mapper.bg_tile_data() == BgTileData::C8000 {
+            resolved_pattern = pattern as usize;
+            offset = 0x0000;
+        } else {
+            resolved_pattern = if pattern < 0x80 {
+                pattern as usize + 0x80
+            } else {
+                pattern as usize - 0x80
+            };
+            offset = 0x0800;
+        };
+
+        video_ram[offset + resolved_pattern * 16 + (self.y % 8) * 2 + tile]
+    }
+    fn pattern(&self, video_ram: &[u8], _oam_ram: &[u8]) -> u8 {
+        video_ram[self.address + self.step]
+    }
+    fn next_step(&mut self) {
+        self.step = (self.step + 1) % (BACKGROUND_X / 8);
+    }
+}
+
+struct PixelPipeline {
+    fifo: Fifo,
+    stage: PipelineStage,
+    drop: usize,
+    current: PipelineUnit,
+    fetcher: Box<dyn Fetcher>,
+}
+
+impl PixelPipeline {
+    fn new() -> PixelPipeline {
+        PixelPipeline {
+            fetcher: Box::new(NullFetcher {}),
+            fifo: Fifo::new(),
+            stage: PipelineStage::ReadPattern,
+            drop: 0,
+            current: PipelineUnit {
+                pattern: 0,
+                tile0: 0,
+                tile1: 0,
+            }
+        }
+    }
+
+    fn reset(&mut self, drop: usize, fetcher: impl Fetcher + 'static) {
+        self.drop = drop;
+        self.fifo.reset();
+        self.stage = PipelineStage::ReadPattern;
+        self.fetcher = Box::new(fetcher);
+    }
+
+    fn push_pixels(&mut self) {
+        let l = self.current.tile0;
+        let h = self.current.tile1;
+
+        for i in 0..7 {
+            self.fifo.push(((l >> (7 - i)) & 0b1) + ((h >> (6 - i)) & 0b10));
+        }
+
+        // rust doesn't like |h >> -1| so we do it manually here
+        self.fifo.push((l & 0b1) + ((h << 1) & 0b10));
+
+        while self.drop > 0 {
+            self.fifo.pop();
+            self.drop -= 1;
+        }
+    }
+
+    fn step(&mut self, mapper: &VideoMemoryMapper,
+            video_ram: &[u8], oam_ram: &[u8]) {
+        match self.stage {
+            PipelineStage::ReadPattern => {
+                self.current.pattern = self.fetcher.pattern(video_ram, oam_ram);
+                self.stage = PipelineStage::ReadTile0;
+            },
+            PipelineStage::ReadTile0 => {
+                self.current.tile0 =
+                    self.fetcher.tile(mapper, self.current.pattern, video_ram,
+                                      oam_ram, 0);
+                self.stage = PipelineStage::ReadTile1;
+            },
+            PipelineStage::ReadTile1 => {
+                self.current.tile1 =
+                    self.fetcher.tile(mapper, self.current.pattern, video_ram,
+                                      oam_ram, 1);
+                self.push_pixels();
+
+                self.fetcher.next_step();
+
+                if self.fifo.size() <= 8 {
+                    self.stage = PipelineStage::ReadPattern;
+                } else { // Queue is full, so we wait a cycle
+                    self.stage = PipelineStage::Wait;
+                }
+            },
+            PipelineStage::Wait => {
+                self.stage = PipelineStage::ReadPattern;
+            },
+        }
+    }
+
+    fn pop(&mut self) -> u8 {
+        self.fifo.pop()
+    }
+
+    fn has_pixels(&self) -> bool {
+        self.fifo.size() > 8
+    }
+}
 
 u8_enum!{
     SpritePalette {
@@ -615,4 +871,48 @@ memory_mapper!{
             ]
         ],
     },
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn fifo() {
+        let fifo_size = FIFO_SIZE as u8;
+
+        let mut fifo = Fifo::new();
+        for i in 0..fifo_size {
+            fifo.push(i);
+        }
+
+        assert_eq!(fifo.size(), FIFO_SIZE);
+        assert_eq!(fifo.pop(), 0);
+
+        assert_eq!(fifo.size(), FIFO_SIZE - 1);
+        assert_eq!(fifo.pop(), 1);
+
+        assert_eq!(fifo.size(), FIFO_SIZE - 2);
+        assert_eq!(fifo.pop(), 2);
+
+        assert_eq!(fifo.size(), FIFO_SIZE - 3);
+
+        fifo.push(99);
+        fifo.push(100);
+        fifo.push(101);
+        assert_eq!(fifo.size(), FIFO_SIZE);
+
+        for _ in 3..FIFO_SIZE {
+            fifo.pop();
+        }
+
+        assert_eq!(fifo.pop(), 99);
+        assert_eq!(fifo.size(), 2);
+
+        assert_eq!(fifo.pop(), 100);
+        assert_eq!(fifo.size(), 1);
+
+        assert_eq!(fifo.pop(), 101);
+        assert_eq!(fifo.size(), 0);
+    }
 }

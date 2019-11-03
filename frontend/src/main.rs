@@ -31,7 +31,7 @@ use std::{
 
 // TODO: This should actually be 16 but 14ms seems to be better, investigate
 // why.
-const FRAME_TARGET: time::Duration = time::Duration::from_millis(14);
+const FRAME_TARGET: time::Duration = time::Duration::from_millis(10);
 
 fn open_save_file(rom_name: &str) -> Result<File, String> {
     let mut v: Vec<&str> = rom_name.split('.').collect();
