@@ -132,17 +132,17 @@ macro_rules! memory_handler {
 }
 
 #[allow(non_snake_case)]
-pub mod opcodes;
-#[allow(non_snake_case)]
 pub mod cpu;
+#[allow(non_snake_case)]
+pub mod opcodes;
 
+pub mod apu;
+pub mod dma;
 #[allow(non_snake_case)]
 #[allow(non_camel_case_types)]
 pub mod memory_controller;
 pub mod ppu;
 pub mod timer_controller;
-pub mod apu;
-pub mod dma;
 
 pub mod cartridge;
 

@@ -1,17 +1,6 @@
-use gb::{
-    AudioBuffer,
-    NoisePattern,
-    Channel1View,
-    Channel2View,
-    Channel3View,
-    Channel4View,
-};
+use gb::{AudioBuffer, Channel1View, Channel2View, Channel3View, Channel4View, NoisePattern};
 
-use sdl2::audio::{
-    AudioCallback,
-    AudioDevice,
-    AudioSpecDesired
-};
+use sdl2::audio::{AudioCallback, AudioDevice, AudioSpecDesired};
 use std::ops::DerefMut;
 
 use sdl2;
@@ -102,14 +91,10 @@ impl AudioCallback for Sound<WhiteNoise> {
             let index = self.phase as usize;
             let bit = match self.sound.pattern {
                 NoisePattern::C15 => self.sound.sound_15_bit[index],
-                NoisePattern::C7  => self.sound.sound_7_bit[index],
+                NoisePattern::C7 => self.sound.sound_7_bit[index],
             };
 
-            let value = if bit == 1 {
-                self.volume
-            } else {
-                -self.volume
-            };
+            let value = if bit == 1 { self.volume } else { -self.volume };
 
             // The out array contains both left and right data
             // interleaved [L,R,L,R,L, ...]
@@ -196,8 +181,9 @@ fn refresh_line<T>(
     device: &mut AudioDevice<Sound<T>>,
     playing_left: bool,
     playing_right: bool,
-    frequency: f32)
-    where Sound<T>: AudioCallback
+    frequency: f32,
+) where
+    Sound<T>: AudioCallback,
 {
     if !playing_left && !playing_right {
         device.pause();
@@ -213,28 +199,29 @@ fn refresh_line<T>(
     }
 }
 
-fn init_device<T>(
-    audio_subsystem: &sdl2::AudioSubsystem,
-    sound: T) -> AudioDevice<Sound<T>>
-    where Sound<T>: AudioCallback,
+fn init_device<T>(audio_subsystem: &sdl2::AudioSubsystem, sound: T) -> AudioDevice<Sound<T>>
+where
+    Sound<T>: AudioCallback,
 {
     let desired_spec = AudioSpecDesired {
         freq: Some(44100),
-        channels: Some(2),  // mono
-        samples: Some(40)       // default sample size
+        channels: Some(2), // mono
+        samples: Some(40), // default sample size
     };
 
-    audio_subsystem.open_playback(None, &desired_spec, |spec| {
-        // initialize the audio callback
-        Sound {
-            phase_inc: 440.0 / spec.freq as f32,
-            phase: 0.0,
-            volume: 0.25,
-            left: false,
-            right: false,
-            sound: sound,
-        }
-    }).unwrap()
+    audio_subsystem
+        .open_playback(None, &desired_spec, |spec| {
+            // initialize the audio callback
+            Sound {
+                phase_inc: 440.0 / spec.freq as f32,
+                phase: 0.0,
+                volume: 0.25,
+                left: false,
+                right: false,
+                sound: sound,
+            }
+        })
+        .unwrap()
 }
 
 fn refresh_device_1(channel: &dyn Channel1View, b: &mut Sound<SquareWave>) -> f32 {
@@ -252,8 +239,8 @@ fn refresh_device_2(channel: &dyn Channel2View, b: &mut Sound<SquareWave>) -> f3
 fn refresh_device_3(channel: &dyn Channel3View, b: &mut Sound<WavePattern>) -> f32 {
     let mut pattern = [0; 32];
     for i in 0..16 {
-        pattern[i*2] =     (channel.wave_pattern()[i] & 0b11110000) >> 4;
-        pattern[i*2 + 1] =  channel.wave_pattern()[i] & 0b00001111;
+        pattern[i * 2] = (channel.wave_pattern()[i] & 0b11110000) >> 4;
+        pattern[i * 2 + 1] = channel.wave_pattern()[i] & 0b00001111;
     }
     b.sound.pattern = pattern;
     b.volume = channel.volume().to_volume() / 4.0;
@@ -272,62 +259,59 @@ impl SDLPlayer {
         let audio_subsystem = sdl_context.audio().unwrap();
 
         SDLPlayer {
-            device_1: init_device(&audio_subsystem, SquareWave {
-                wave_duty: 0.5,
-            }),
-            device_2: init_device(&audio_subsystem, SquareWave {
-                wave_duty: 0.5,
-            }),
-            device_3: init_device(&audio_subsystem, WavePattern {
-                pattern: [0; 32],
-            }),
-            device_4: init_device(&audio_subsystem, WhiteNoise {
-                sound_7_bit: generate_noise_7_bit(),
-                sound_15_bit: generate_noise_15_bit(),
-                pattern: NoisePattern::C7,
-            }),
+            device_1: init_device(&audio_subsystem, SquareWave { wave_duty: 0.5 }),
+            device_2: init_device(&audio_subsystem, SquareWave { wave_duty: 0.5 }),
+            device_3: init_device(&audio_subsystem, WavePattern { pattern: [0; 32] }),
+            device_4: init_device(
+                &audio_subsystem,
+                WhiteNoise {
+                    sound_7_bit: generate_noise_7_bit(),
+                    sound_15_bit: generate_noise_15_bit(),
+                    pattern: NoisePattern::C7,
+                },
+            ),
         }
     }
 
     pub fn refresh(&mut self, audio_buffer: &dyn AudioBuffer) {
         {
-            let freq = refresh_device_1(audio_buffer.sound_1(),
-                                        self.device_1.lock().deref_mut());
+            let freq = refresh_device_1(audio_buffer.sound_1(), self.device_1.lock().deref_mut());
             refresh_line(
                 &mut self.device_1,
                 audio_buffer.sound_1().playing_left(),
                 audio_buffer.sound_1().playing_right(),
-                freq);
+                freq,
+            );
         }
 
         {
-            let freq = refresh_device_2(audio_buffer.sound_2(),
-                                        self.device_2.lock().deref_mut());
+            let freq = refresh_device_2(audio_buffer.sound_2(), self.device_2.lock().deref_mut());
             refresh_line(
                 &mut self.device_2,
                 audio_buffer.sound_2().playing_left(),
                 audio_buffer.sound_2().playing_right(),
-                freq);
+                freq,
+            );
         }
 
         {
-            let freq = refresh_device_3(audio_buffer.sound_3(),
-                                        self.device_3.lock().deref_mut());
+            let freq = refresh_device_3(audio_buffer.sound_3(), self.device_3.lock().deref_mut());
             refresh_line(
                 &mut self.device_3,
                 audio_buffer.sound_3().playing_left(),
                 audio_buffer.sound_3().playing_right(),
-                freq);
+                freq,
+            );
         }
 
         {
-            let freq = refresh_device_4(audio_buffer.sound_4(),
-                                        self.device_4.lock().deref_mut());
+            let freq = refresh_device_4(audio_buffer.sound_4(), self.device_4.lock().deref_mut());
             refresh_line(
                 &mut self.device_4,
                 audio_buffer.sound_4().playing_left(),
                 audio_buffer.sound_4().playing_right(),
-                freq);
+                freq,
+            );
         }
     }
 }

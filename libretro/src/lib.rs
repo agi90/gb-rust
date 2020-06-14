@@ -17,24 +17,11 @@ use self::uuid::Uuid;
 
 use std::ops::{Deref, DerefMut};
 
-use gb::{
-    Emulator,
-    Interrupt,
-    GrayShade,
-    Hardware,
-    Key,
-};
+use gb::{Emulator, GrayShade, Hardware, Interrupt, Key};
 
 use libretro_backend::{
-    GameData,
-    LoadGameResult,
-    RuntimeHandle,
-    AudioVideoInfo,
-    PixelFormat,
-    Region,
-    JoypadButton,
-    CoreInfo,
-    Variables,
+    AudioVideoInfo, CoreInfo, GameData, JoypadButton, LoadGameResult, PixelFormat, Region,
+    RuntimeHandle, Variables,
 };
 
 const FREQUENCY: f64 = 44100.0; // Hz
@@ -69,8 +56,12 @@ impl EmulatorWrapper {
         Ok(())
     }
 
-    pub fn update_button(&mut self, handle: &mut RuntimeHandle,
-                         button: JoypadButton, gb_button: Key) {
+    pub fn update_button(
+        &mut self,
+        handle: &mut RuntimeHandle,
+        button: JoypadButton,
+        gb_button: Key,
+    ) {
         if handle.is_joypad_button_pressed(0, button) {
             self.cpu.key_down(gb_button);
         } else {
@@ -143,17 +134,57 @@ impl Palette {
 }
 
 const GB_POCKET_PALETTE: Palette = Palette {
-    c11: Color { a: 0xFF, r: 0x6C, g: 0x6C, b: 0x4E },
-    c10: Color { a: 0xFF, r: 0x8E, g: 0x8B, b: 0x61 },
-    c01: Color { a: 0xFF, r: 0xC3, g: 0xC4, b: 0xA5 },
-    c00: Color { a: 0xFF, r: 0xE3, g: 0xE6, b: 0xC9 },
+    c11: Color {
+        a: 0xFF,
+        r: 0x6C,
+        g: 0x6C,
+        b: 0x4E,
+    },
+    c10: Color {
+        a: 0xFF,
+        r: 0x8E,
+        g: 0x8B,
+        b: 0x61,
+    },
+    c01: Color {
+        a: 0xFF,
+        r: 0xC3,
+        g: 0xC4,
+        b: 0xA5,
+    },
+    c00: Color {
+        a: 0xFF,
+        r: 0xE3,
+        g: 0xE6,
+        b: 0xC9,
+    },
 };
 
 const DMG_PALETTE: Palette = Palette {
-    c11: Color { a: 0xFF, r: 0x2A, g: 0x45, b: 0x3B },
-    c10: Color { a: 0xFF, r: 0x36, g: 0x5D, b: 0x48 },
-    c01: Color { a: 0xFF, r: 0x57, g: 0x7C, b: 0x45 },
-    c00: Color { a: 0xFF, r: 0x7F, g: 0x86, b: 0x0F },
+    c11: Color {
+        a: 0xFF,
+        r: 0x2A,
+        g: 0x45,
+        b: 0x3B,
+    },
+    c10: Color {
+        a: 0xFF,
+        r: 0x36,
+        g: 0x5D,
+        b: 0x48,
+    },
+    c01: Color {
+        a: 0xFF,
+        r: 0x57,
+        g: 0x7C,
+        b: 0x45,
+    },
+    c00: Color {
+        a: 0xFF,
+        r: 0x7F,
+        g: 0x86,
+        b: 0x0F,
+    },
 };
 
 impl libretro_backend::Core for EmulatorWrapper {
@@ -164,10 +195,7 @@ impl libretro_backend::Core for EmulatorWrapper {
     }
 
     fn variables() -> Variables {
-        Variables::new()
-            .variable("palette",
-                      &["dmg", "gb_pocket"],
-                      "Palette")
+        Variables::new().variable("palette", &["dmg", "gb_pocket"], "Palette")
     }
 
     fn save_memory(&mut self) -> Option<&mut [u8]> {
@@ -175,12 +203,9 @@ impl libretro_backend::Core for EmulatorWrapper {
     }
 
     fn rtc_memory(&mut self) -> Option<&mut [u8]> {
-        self.cpu.handler_holder.rtc().map(
-            |v| unsafe {
-                std::slice::from_raw_parts_mut(
-                    v as *mut _ as *mut u8,
-                    std::mem::size_of::<i64>())
-            })
+        self.cpu.handler_holder.rtc().map(|v| unsafe {
+            std::slice::from_raw_parts_mut(v as *mut _ as *mut u8, std::mem::size_of::<i64>())
+        })
     }
 
     fn on_reset(&mut self) {
@@ -189,8 +214,11 @@ impl libretro_backend::Core for EmulatorWrapper {
 
     fn on_load_game(&mut self, game_data: GameData) -> LoadGameResult {
         #[cfg(feature = "profiler")]
-        PROFILER.lock().unwrap().start(
-            format!("./gb-rust-{}.profile", Uuid::new_v4())).unwrap();
+        PROFILER
+            .lock()
+            .unwrap()
+            .start(format!("./gb-rust-{}.profile", Uuid::new_v4()))
+            .unwrap();
 
         if game_data.data().is_none() {
             return LoadGameResult::Failed(game_data);
@@ -201,7 +229,12 @@ impl libretro_backend::Core for EmulatorWrapper {
         }
 
         let av = AudioVideoInfo::new()
-            .video(gb::SCREEN_X as u32, gb::SCREEN_Y as u32, 60.0, PixelFormat::ARGB8888)
+            .video(
+                gb::SCREEN_X as u32,
+                gb::SCREEN_Y as u32,
+                60.0,
+                PixelFormat::ARGB8888,
+            )
             .audio(FREQUENCY)
             .region(Region::NTSC);
 
@@ -246,12 +279,12 @@ impl libretro_backend::Core for EmulatorWrapper {
             screen.copy_from_slice(&buffer[..]);
         }
 
-        for i in 0 .. gb::SCREEN_Y {
-            for j in 0 .. gb::SCREEN_X {
+        for i in 0..gb::SCREEN_Y {
+            for j in 0..gb::SCREEN_X {
                 let color = self.palette.color(screen[i][j]);
 
                 let index = i * gb::SCREEN_X * 4 + j * 4;
-                color.write(&mut self.frame[index .. index + 4]);
+                color.write(&mut self.frame[index..index + 4]);
             }
         }
 

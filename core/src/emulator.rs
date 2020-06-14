@@ -1,7 +1,7 @@
-use hardware::cartridge::Cartridge;
-use hardware::handler_holder::GBHandlerHolder;
 use hardware::apu::NoisePattern;
+use hardware::cartridge::Cartridge;
 use hardware::cpu::Cpu;
+use hardware::handler_holder::GBHandlerHolder;
 
 const VOLUME_MAX: i16 = 32000;
 pub const AUDIO_BUFFER_SIZE: usize = 1470;
@@ -50,30 +50,30 @@ impl Emulator {
         let mut channel_1_phase = self.phase.channel_1;
         let channel_1_frequency = 131072 / (2048 - audio.sound_1().frequency());
         let channel_1_phase_inc = channel_1_frequency as f64 / self.frequency;
-        let channel_1_volume = (VOLUME_MAX as f64 * audio.sound_1().volume() as f64
-                                / 16.0 / 4.0) as i16;
+        let channel_1_volume =
+            (VOLUME_MAX as f64 * audio.sound_1().volume() as f64 / 16.0 / 4.0) as i16;
 
         let mut channel_2_phase = self.phase.channel_2;
         let channel_2_frequency = 131072 / (2048 - audio.sound_2().frequency());
         let channel_2_phase_inc = channel_2_frequency as f64 / self.frequency;
-        let channel_2_volume = (VOLUME_MAX as f64 * audio.sound_2().volume() as f64
-                                / 16.0 / 4.0) as i16;
+        let channel_2_volume =
+            (VOLUME_MAX as f64 * audio.sound_2().volume() as f64 / 16.0 / 4.0) as i16;
 
         let mut channel_3_phase = self.phase.channel_3;
         let mut channel_3_pattern = [0.0; 32];
         for i in 0..16 {
-            channel_3_pattern[i * 2]     = ((audio.sound_3().wave_pattern()[i] & 0xF0) >> 4) as f32;
+            channel_3_pattern[i * 2] = ((audio.sound_3().wave_pattern()[i] & 0xF0) >> 4) as f32;
             channel_3_pattern[i * 2 + 1] = (audio.sound_3().wave_pattern()[i] & 0x0F) as f32;
         }
 
         let channel_3_frequency = 65536 / (2048 - audio.sound_3().frequency());
-        let channel_3_volume = VOLUME_MAX as f32
-            * audio.sound_3().volume().to_volume() as f32 / 4.0;
+        let channel_3_volume =
+            VOLUME_MAX as f32 * audio.sound_3().volume().to_volume() as f32 / 4.0;
         let channel_3_phase_inc = channel_3_frequency as f64 / self.frequency;
 
         let channel_4_pattern = match audio.sound_4().pattern() {
             NoisePattern::C15 => &self.noise_15_bit[..],
-            NoisePattern::C7  => &self.noise_7_bit[..],
+            NoisePattern::C7 => &self.noise_7_bit[..],
         };
         let mut channel_4_phase = self.phase.channel_4;
         if channel_4_phase > channel_4_pattern.len() as f64 {
@@ -82,8 +82,8 @@ impl Emulator {
         }
 
         let channel_4_phase_inc = audio.sound_4().frequency() as f64 / self.frequency;
-        let channel_4_volume = (VOLUME_MAX as f64 * audio.sound_4().volume() as f64
-                                / 16.0 / 4.0) as i16;
+        let channel_4_volume =
+            (VOLUME_MAX as f64 * audio.sound_4().volume() as f64 / 16.0 / 4.0) as i16;
 
         while i < out.len() {
             let channel_1 = if channel_1_phase < audio.sound_1().wave_duty() as f64 {
@@ -99,7 +99,8 @@ impl Emulator {
             };
 
             let channel_3_index = (channel_3_phase * 32.0) as usize;
-            let channel_3 = ((channel_3_pattern[channel_3_index] - 7.0) / 8.0 * channel_3_volume) as i16;
+            let channel_3 =
+                ((channel_3_pattern[channel_3_index] - 7.0) / 8.0 * channel_3_volume) as i16;
 
             let channel_4_index = channel_4_phase as usize;
             let channel_4_bit = channel_4_pattern[channel_4_index];
@@ -109,22 +110,46 @@ impl Emulator {
                 -channel_4_volume
             };
 
-            out[i] =
-                  ((if audio.sound_1().playing_left() { channel_1 } else { 0 }) +
-                   (if audio.sound_2().playing_left() { channel_2 } else { 0 }) +
-                   (if audio.sound_3().playing_left() { channel_3 } else { 0 }) +
-                   (if audio.sound_4().playing_left() { channel_4 } else { 0 })) / 4;
+            out[i] = ((if audio.sound_1().playing_left() {
+                channel_1
+            } else {
+                0
+            }) + (if audio.sound_2().playing_left() {
+                channel_2
+            } else {
+                0
+            }) + (if audio.sound_3().playing_left() {
+                channel_3
+            } else {
+                0
+            }) + (if audio.sound_4().playing_left() {
+                channel_4
+            } else {
+                0
+            })) / 4;
 
-            out[i + 1] =
-               ((if audio.sound_1().playing_right() { channel_1 } else { 0 }) +
-                (if audio.sound_2().playing_right() { channel_2 } else { 0 }) +
-                (if audio.sound_3().playing_right() { channel_3 } else { 0 }) +
-                (if audio.sound_4().playing_right() { channel_4 } else { 0 })) / 4;
+            out[i + 1] = ((if audio.sound_1().playing_right() {
+                channel_1
+            } else {
+                0
+            }) + (if audio.sound_2().playing_right() {
+                channel_2
+            } else {
+                0
+            }) + (if audio.sound_3().playing_right() {
+                channel_3
+            } else {
+                0
+            }) + (if audio.sound_4().playing_right() {
+                channel_4
+            } else {
+                0
+            })) / 4;
 
             channel_1_phase = (channel_1_phase + channel_1_phase_inc).fract();
             channel_2_phase = (channel_2_phase + channel_2_phase_inc).fract();
             channel_3_phase = (channel_3_phase + channel_3_phase_inc).fract();
-            channel_4_phase =  channel_4_phase + channel_4_phase_inc;
+            channel_4_phase = channel_4_phase + channel_4_phase_inc;
             while channel_4_phase > channel_4_pattern.len() as f64 {
                 channel_4_phase -= channel_4_pattern.len() as f64;
             }

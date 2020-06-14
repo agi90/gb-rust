@@ -1,7 +1,7 @@
-use hardware::memory_controller::MemoryController;
 use hardware::cpu::Handler;
-use std::fmt::Debug;
+use hardware::memory_controller::MemoryController;
 use std::fmt;
+use std::fmt::Debug;
 
 #[allow(dead_code)]
 pub struct Cartridge {

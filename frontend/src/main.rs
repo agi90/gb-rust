@@ -1,13 +1,13 @@
 #[macro_use]
 extern crate glium;
-extern crate sdl2;
 extern crate image;
+extern crate sdl2;
 
 #[macro_use]
 extern crate clap;
 
-pub mod gpu;
 pub mod controller;
+pub mod gpu;
 mod sound;
 
 #[allow(dead_code)]
@@ -15,19 +15,16 @@ mod debugger;
 
 extern crate gb;
 
-use std::fs::{File, OpenOptions};
-use std::io::{Read, Write, Seek, SeekFrom};
 use image::ImageBuffer;
+use std::fs::{File, OpenOptions};
+use std::io::{Read, Seek, SeekFrom, Write};
 
-use gb::{Emulator, Cpu};
+use gb::{Cpu, Emulator};
 
-use self::controller::{Event, Controller};
+use self::controller::{Controller, Event};
 use self::debugger::Debugger;
 
-use std::{
-    thread,
-    time,
-};
+use std::{thread, time};
 
 // TODO: This should actually be 16 but 14ms seems to be better, investigate
 // why.
@@ -39,7 +36,10 @@ fn open_save_file(rom_name: &str) -> Result<File, String> {
     // let's bail.
     let ext = v.pop().unwrap();
     if ext != "gb" && ext != "gbc" {
-        return Err(format!("Invalid ROM name: '{}' filename must end with '.gb'.", rom_name));
+        return Err(format!(
+            "Invalid ROM name: '{}' filename must end with '.gb'.",
+            rom_name
+        ));
     }
 
     // Replace extension with "sav"
@@ -62,17 +62,15 @@ fn open_rom(rom_name: &str) -> Result<File, String> {
 
 // Similar to try! but for the main function
 macro_rules! bail {
-    ($expr : expr) => {
-        {
-            let result = $expr;
-            if result.is_err() {
-                println!("{}", result.unwrap_err());
-                return;
-            }
-
-            result.unwrap()
+    ($expr : expr) => {{
+        let result = $expr;
+        if result.is_err() {
+            println!("{}", result.unwrap_err());
+            return;
         }
-    }
+
+        result.unwrap()
+    }};
 }
 
 fn parse_string_at(mut address: u16, cpu: &mut Cpu) -> String {
@@ -104,19 +102,24 @@ struct Config {
 
 impl Config {
     fn from_clap(matches: clap::ArgMatches) -> Result<Config, String> {
-        let timeout = matches.value_of("timeout")
+        let timeout = matches
+            .value_of("timeout")
             .map(|t| t.parse::<usize>())
             .unwrap_or(Ok(100))
             .unwrap();
-        let mag = value_t!(matches.value_of("mag"), u32)
-            .unwrap_or(DEFAULT_MAG);
-        let commands: Vec<String> = matches.value_of("commands")
+        let mag = value_t!(matches.value_of("mag"), u32).unwrap_or(DEFAULT_MAG);
+        let commands: Vec<String> = matches
+            .value_of("commands")
             .map(|cc| cc.split(';').map(|c| c.trim().to_string()).collect())
             .unwrap_or(vec![]);
         let string_addr = if let Some(addr) = matches.value_of("string_addr") {
-            Some(u16::from_str_radix(addr, 16)
-                .map_err(|_| format!("Could not parse address '{}'. \
-    Please use format XXXX, where X is 0-F.", addr))?)
+            Some(u16::from_str_radix(addr, 16).map_err(|_| {
+                format!(
+                    "Could not parse address '{}'. \
+    Please use format XXXX, where X is 0-F.",
+                    addr
+                )
+            })?)
         } else {
             None
         };
@@ -138,7 +141,11 @@ fn save_screenshot(path: &str, screen: &gb::ScreenBuffer) -> Result<(), String> 
     let mut img = ImageBuffer::new(gb::SCREEN_X as u32, gb::SCREEN_Y as u32);
     for i in 0..gb::SCREEN_X {
         for j in 0..gb::SCREEN_Y {
-            img.put_pixel(i as u32, j as u32, image::Luma([255 - screen[j][i] as u8 * 64]));
+            img.put_pixel(
+                i as u32,
+                j as u32,
+                image::Luma([255 - screen[j][i] as u8 * 64]),
+            );
         }
     }
 
@@ -168,8 +175,10 @@ pub fn main() {
     let mut save_file = bail!(open_save_file(&config.rom_name));
 
     let mut controller = if !config.is_headless {
-        Some(Controller::new(gb::SCREEN_X as f64 * config.mag as f64,
-                             gb::SCREEN_Y as f64 * config.mag as f64))
+        Some(Controller::new(
+            gb::SCREEN_X as f64 * config.mag as f64,
+            gb::SCREEN_Y as f64 * config.mag as f64,
+        ))
     } else {
         None
     };
@@ -213,9 +222,9 @@ pub fn main() {
                     Event::Quit => break,
                     Event::Break => {
                         debugger.breakpoint(&mut emulator);
-                    },
-                    Event::ToggleSpeed => { natural_speed = !natural_speed },
-                    Event::Continue => {},
+                    }
+                    Event::ToggleSpeed => natural_speed = !natural_speed,
+                    Event::Continue => {}
                 }
 
                 c.refresh(&mut emulator);
@@ -239,8 +248,10 @@ pub fn main() {
     }
 
     if let Some(screenshot) = config.screenshot_path {
-        bail!(save_screenshot(&screenshot,
-                              emulator.cpu.handler_holder.get_screen_buffer()));
+        bail!(save_screenshot(
+            &screenshot,
+            emulator.cpu.handler_holder.get_screen_buffer()
+        ));
     }
 
     bail!(save_file.seek(SeekFrom::Start(0)));

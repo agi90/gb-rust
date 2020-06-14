@@ -1,10 +1,12 @@
 use std::ops::{Deref, DerefMut};
-use std::time::SystemTime;
 use std::time;
+use std::time::SystemTime;
 
 #[cfg(target_arch = "wasm32")]
 #[link(wasm_import_module = "imports")]
-extern { fn date_now() -> f64; }
+extern "C" {
+    fn date_now() -> f64;
+}
 
 pub trait Mbc {
     fn read(&self, address: u16) -> u8;
@@ -30,8 +32,8 @@ impl Mbc0 {
 impl Mbc for Mbc0 {
     fn read(&self, address: u16) -> u8 {
         match address {
-            0x0000 ..= 0x7FFF => self.data[address as usize],
-            0xA000 ..= 0xBFFF => self.ram[(address as usize) - 0xA000],
+            0x0000..=0x7FFF => self.data[address as usize],
+            0xA000..=0xBFFF => self.ram[(address as usize) - 0xA000],
             _ => unimplemented!(),
         }
     }
@@ -99,7 +101,8 @@ enum RamRtc {
 #[cfg(not(target_arch = "wasm32"))]
 fn now() -> u64 {
     SystemTime::now()
-        .duration_since(time::UNIX_EPOCH).unwrap()
+        .duration_since(time::UNIX_EPOCH)
+        .unwrap()
         .as_secs()
 }
 
@@ -111,7 +114,10 @@ fn now() -> u64 {
 impl Mbc13 {
     pub fn new(data: Vec<u8>, mode: MbcMode) -> Mbc13 {
         if data.len() % BANK_SIZE != 0 {
-            panic!(format!("Invalid rom size (must be an integer multiple of {})", BANK_SIZE));
+            panic!(format!(
+                "Invalid rom size (must be an integer multiple of {})",
+                BANK_SIZE
+            ));
         }
 
         Mbc13 {
@@ -173,8 +179,7 @@ impl Mbc13 {
             0x09 => (diff / 60) % 60,
             0x0A => (diff / 60 / 60) % 24,
             0x0B => (diff / 60 / 60 / 24) % 0xFF,
-            0x0C => days >> 8 & 0x01
-                + (if days > 511 { 0b10000000 } else { 0 }),
+            0x0C => days >> 8 & 0x01 + (if days > 511 { 0b10000000 } else { 0 }),
             _ => unreachable!(),
         }) as u8
     }
@@ -258,54 +263,44 @@ impl Mbc13 {
 impl Mbc for Mbc13 {
     fn read(&self, address: u16) -> u8 {
         match address {
-            0x0000 ..= 0x3FFF => self.data[address as usize],
-            0x4000 ..= 0x7FFF => self.data[address as usize + self.offset],
-            0xA000 ..= 0xBFFF => {
-                match self.mode {
-                    MbcMode::Mbc1 => self.read_ram_mbc1(address),
-                    MbcMode::Mbc3 => self.read_ram_rtc_mbc3(address),
-                }
-            }
+            0x0000..=0x3FFF => self.data[address as usize],
+            0x4000..=0x7FFF => self.data[address as usize + self.offset],
+            0xA000..=0xBFFF => match self.mode {
+                MbcMode::Mbc1 => self.read_ram_mbc1(address),
+                MbcMode::Mbc3 => self.read_ram_rtc_mbc3(address),
+            },
             _ => unimplemented!(),
         }
     }
 
     fn write(&mut self, address: u16, v: u8) {
         match address {
-            0x0000 ..= 0x1FFF => {
+            0x0000..=0x1FFF => {
                 match v & 0x0A {
                     0x00 => self.ram_enabled = false,
                     0x0A => self.ram_enabled = true,
-                    _    => {
+                    _ => {
                         // Not too sure about this, but some games write
                         // to this area other values which don't seem to
                         // do anything. TODO: test on real hardware
                     }
                 }
+            }
+            0x2000..=0x3FFF => match self.mode {
+                MbcMode::Mbc1 => self.switch_bank_mbc1(v),
+                MbcMode::Mbc3 => self.switch_bank_mbc3(v),
             },
-            0x2000 ..= 0x3FFF => {
-                match self.mode {
-                    MbcMode::Mbc1 => self.switch_bank_mbc1(v),
-                    MbcMode::Mbc3 => self.switch_bank_mbc3(v),
-                }
+            0x4000..=0x5FFF => match self.mode {
+                MbcMode::Mbc1 => self.switch_ram_bank_mbc1(v),
+                MbcMode::Mbc3 => self.switch_ram_bank_mbc3(v),
             },
-            0x4000 ..= 0x5FFF => {
-                match self.mode {
-                    MbcMode::Mbc1 => self.switch_ram_bank_mbc1(v),
-                    MbcMode::Mbc3 => self.switch_ram_bank_mbc3(v),
-                }
+            0x6000..=0x7FFF => match self.mode {
+                MbcMode::Mbc1 => unimplemented!(),
+                MbcMode::Mbc3 => self.latch_clock_data(v),
             },
-            0x6000 ..= 0x7FFF => {
-                match self.mode {
-                    MbcMode::Mbc1 => unimplemented!(),
-                    MbcMode::Mbc3 => self.latch_clock_data(v),
-                }
-            },
-            0xA000 ..= 0xBFFF => {
-                match self.mode {
-                    MbcMode::Mbc1 => self.write_ram_mbc1(address, v),
-                    MbcMode::Mbc3 => self.write_ram_rtc_mbc3(address, v),
-                }
+            0xA000..=0xBFFF => match self.mode {
+                MbcMode::Mbc1 => self.write_ram_mbc1(address, v),
+                MbcMode::Mbc3 => self.write_ram_rtc_mbc3(address, v),
             },
             _ => unimplemented!(),
         }
@@ -327,12 +322,11 @@ pub struct MemoryController {
 impl MemoryController {
     pub fn from_bytes(bytes: Vec<u8>) -> MemoryController {
         let controller = match bytes[0x147] {
-            0x00 =>
-                Box::new(Mbc0::new(bytes)) as Box<dyn Mbc>,
-            0x01 | 0x02 | 0x03 =>
-                Box::new(Mbc13::new(bytes, MbcMode::Mbc1)) as Box<dyn Mbc>,
-            0x0F | 0x10 | 0x11 | 0x12 | 0x13 =>
-                Box::new(Mbc13::new(bytes, MbcMode::Mbc3)) as Box<dyn Mbc>,
+            0x00 => Box::new(Mbc0::new(bytes)) as Box<dyn Mbc>,
+            0x01 | 0x02 | 0x03 => Box::new(Mbc13::new(bytes, MbcMode::Mbc1)) as Box<dyn Mbc>,
+            0x0F | 0x10 | 0x11 | 0x12 | 0x13 => {
+                Box::new(Mbc13::new(bytes, MbcMode::Mbc3)) as Box<dyn Mbc>
+            }
             _ => {
                 println!("Unrecognized type {:02X}", bytes[0x147]);
                 panic!();

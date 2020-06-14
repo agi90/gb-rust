@@ -1,8 +1,8 @@
-use std::num::Wrapping;
 use bitfield::Bitfield;
 use hardware::cpu;
+use std::num::Wrapping;
 
-u8_enum!{
+u8_enum! {
     ClockSelect {
         // Every X clocks
         C1024 = 0b00,
@@ -58,9 +58,9 @@ impl TimerController {
 
     fn inc_clock(&mut self) -> bool {
         let should_increment = match self.mapper.clock_select() {
-            ClockSelect::C16   => true,
-            ClockSelect::C64   => (self.clock %  4) == 0,
-            ClockSelect::C256  => (self.clock % 16) == 0,
+            ClockSelect::C16 => true,
+            ClockSelect::C64 => (self.clock % 4) == 0,
+            ClockSelect::C256 => (self.clock % 16) == 0,
             ClockSelect::C1024 => (self.clock % 64) == 0,
         };
 
@@ -88,13 +88,13 @@ impl TimerController {
 
     pub fn write_callback(&mut self, address: u16) {
         match address {
-            0xFF04 => { self.mapper.divider = 0 },
-            _ => {},
+            0xFF04 => self.mapper.divider = 0,
+            _ => {}
         }
     }
 }
 
-memory_mapper!{
+memory_mapper! {
     name: TimerMemoryMapper,
     fields: [
         0xFF04, 0b00000000, divider, 0;
@@ -112,7 +112,7 @@ memory_mapper!{
     },
 }
 
-memory_handler!{
+memory_handler! {
     parent: TimerController,
     mapper: mapper,
     callback: write_callback,

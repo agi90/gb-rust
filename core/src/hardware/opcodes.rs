@@ -478,15 +478,21 @@ fn ld_nn_A(cpu: &mut Cpu) {
     cpu.set_deref(address, result);
 }
 
-fn ld(_: u8, y: u8, _: &mut Cpu) -> u8 { y }
+fn ld(_: u8, y: u8, _: &mut Cpu) -> u8 {
+    y
+}
 
-fn ld_A_x(cpu: &mut Cpu)  {  op_A_x(ld, cpu) }
+fn ld_A_x(cpu: &mut Cpu) {
+    op_A_x(ld, cpu)
+}
 
 fn ldd(_: u8, y: u8, cpu: &mut Cpu) -> u8 {
     cpu.deref(0xFF00 + y as u16)
 }
 
-fn ld_A_FFC(cpu: &mut Cpu) { op_A_C(ldd, cpu); }
+fn ld_A_FFC(cpu: &mut Cpu) {
+    op_A_C(ldd, cpu);
+}
 
 fn ld_FFC_A(cpu: &mut Cpu) {
     let address = 0xFF00 + cpu.get_C_reg() as u16;
@@ -513,7 +519,7 @@ fn ldi_A_HL(cpu: &mut Cpu) {
     let hl = cpu.get_HL();
     cpu.set_HL(hl + 1);
     if cpu.get_debug() {
-        println!("v = {:02X}",v);
+        println!("v = {:02X}", v);
     }
     cpu.set_A_reg(v);
 }
@@ -577,7 +583,7 @@ fn ld_nn_SP(cpu: &mut Cpu) {
     let l = (cpu.get_SP() & 0xFF) as u8;
     let h = ((cpu.get_SP() & 0xFF00) >> 8) as u8;
 
-    cpu.set_deref(address,     l);
+    cpu.set_deref(address, l);
     cpu.set_deref(address + 1, h);
 }
 
@@ -680,15 +686,33 @@ fn add(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     result as u8
 }
 
-fn add_A_A(cpu: &mut Cpu)  {  op_A_A(add, cpu); }
-fn add_A_B(cpu: &mut Cpu)  {  op_A_B(add, cpu); }
-fn add_A_C(cpu: &mut Cpu)  {  op_A_C(add, cpu); }
-fn add_A_D(cpu: &mut Cpu)  {  op_A_D(add, cpu); }
-fn add_A_E(cpu: &mut Cpu)  {  op_A_E(add, cpu); }
-fn add_A_H(cpu: &mut Cpu)  {  op_A_H(add, cpu); }
-fn add_A_L(cpu: &mut Cpu)  {  op_A_L(add, cpu); }
-fn add_A_HL(cpu: &mut Cpu) { op_A_HL(add, cpu); }
-fn add_A_x(cpu: &mut Cpu)  {  op_A_x(add, cpu); }
+fn add_A_A(cpu: &mut Cpu) {
+    op_A_A(add, cpu);
+}
+fn add_A_B(cpu: &mut Cpu) {
+    op_A_B(add, cpu);
+}
+fn add_A_C(cpu: &mut Cpu) {
+    op_A_C(add, cpu);
+}
+fn add_A_D(cpu: &mut Cpu) {
+    op_A_D(add, cpu);
+}
+fn add_A_E(cpu: &mut Cpu) {
+    op_A_E(add, cpu);
+}
+fn add_A_H(cpu: &mut Cpu) {
+    op_A_H(add, cpu);
+}
+fn add_A_L(cpu: &mut Cpu) {
+    op_A_L(add, cpu);
+}
+fn add_A_HL(cpu: &mut Cpu) {
+    op_A_HL(add, cpu);
+}
+fn add_A_x(cpu: &mut Cpu) {
+    op_A_x(add, cpu);
+}
 
 fn adc(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     if cpu.get_C_flag() {
@@ -720,15 +744,33 @@ fn adc(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     }
 }
 
-fn adc_A_A(cpu: &mut Cpu)  {  op_A_A(adc, cpu); }
-fn adc_A_B(cpu: &mut Cpu)  {  op_A_B(adc, cpu); }
-fn adc_A_C(cpu: &mut Cpu)  {  op_A_C(adc, cpu); }
-fn adc_A_D(cpu: &mut Cpu)  {  op_A_D(adc, cpu); }
-fn adc_A_E(cpu: &mut Cpu)  {  op_A_E(adc, cpu); }
-fn adc_A_H(cpu: &mut Cpu)  {  op_A_H(adc, cpu); }
-fn adc_A_L(cpu: &mut Cpu)  {  op_A_L(adc, cpu); }
-fn adc_A_HL(cpu: &mut Cpu) { op_A_HL(adc, cpu); }
-fn adc_A_x(cpu: &mut Cpu)  {  op_A_x(adc, cpu); }
+fn adc_A_A(cpu: &mut Cpu) {
+    op_A_A(adc, cpu);
+}
+fn adc_A_B(cpu: &mut Cpu) {
+    op_A_B(adc, cpu);
+}
+fn adc_A_C(cpu: &mut Cpu) {
+    op_A_C(adc, cpu);
+}
+fn adc_A_D(cpu: &mut Cpu) {
+    op_A_D(adc, cpu);
+}
+fn adc_A_E(cpu: &mut Cpu) {
+    op_A_E(adc, cpu);
+}
+fn adc_A_H(cpu: &mut Cpu) {
+    op_A_H(adc, cpu);
+}
+fn adc_A_L(cpu: &mut Cpu) {
+    op_A_L(adc, cpu);
+}
+fn adc_A_HL(cpu: &mut Cpu) {
+    op_A_HL(adc, cpu);
+}
+fn adc_A_x(cpu: &mut Cpu) {
+    op_A_x(adc, cpu);
+}
 
 /* Subract two values and set relevant flags */
 fn sub(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
@@ -755,15 +797,33 @@ fn sub(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     (x as i16 - y as i16) as u8
 }
 
-fn sub_A_A(cpu: &mut Cpu)  {  op_A_A(sub, cpu); }
-fn sub_A_B(cpu: &mut Cpu)  {  op_A_B(sub, cpu); }
-fn sub_A_C(cpu: &mut Cpu)  {  op_A_C(sub, cpu); }
-fn sub_A_D(cpu: &mut Cpu)  {  op_A_D(sub, cpu); }
-fn sub_A_E(cpu: &mut Cpu)  {  op_A_E(sub, cpu); }
-fn sub_A_H(cpu: &mut Cpu)  {  op_A_H(sub, cpu); }
-fn sub_A_L(cpu: &mut Cpu)  {  op_A_L(sub, cpu); }
-fn sub_A_HL(cpu: &mut Cpu) { op_A_HL(sub, cpu); }
-fn sub_A_x(cpu: &mut Cpu)  {  op_A_x(sub, cpu); }
+fn sub_A_A(cpu: &mut Cpu) {
+    op_A_A(sub, cpu);
+}
+fn sub_A_B(cpu: &mut Cpu) {
+    op_A_B(sub, cpu);
+}
+fn sub_A_C(cpu: &mut Cpu) {
+    op_A_C(sub, cpu);
+}
+fn sub_A_D(cpu: &mut Cpu) {
+    op_A_D(sub, cpu);
+}
+fn sub_A_E(cpu: &mut Cpu) {
+    op_A_E(sub, cpu);
+}
+fn sub_A_H(cpu: &mut Cpu) {
+    op_A_H(sub, cpu);
+}
+fn sub_A_L(cpu: &mut Cpu) {
+    op_A_L(sub, cpu);
+}
+fn sub_A_HL(cpu: &mut Cpu) {
+    op_A_HL(sub, cpu);
+}
+fn sub_A_x(cpu: &mut Cpu) {
+    op_A_x(sub, cpu);
+}
 
 fn sbc(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     if cpu.get_C_flag() {
@@ -795,15 +855,33 @@ fn sbc(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     }
 }
 
-fn sbc_A_A(cpu: &mut Cpu)  {  op_A_A(sbc, cpu); }
-fn sbc_A_B(cpu: &mut Cpu)  {  op_A_B(sbc, cpu); }
-fn sbc_A_C(cpu: &mut Cpu)  {  op_A_C(sbc, cpu); }
-fn sbc_A_D(cpu: &mut Cpu)  {  op_A_D(sbc, cpu); }
-fn sbc_A_E(cpu: &mut Cpu)  {  op_A_E(sbc, cpu); }
-fn sbc_A_H(cpu: &mut Cpu)  {  op_A_H(sbc, cpu); }
-fn sbc_A_L(cpu: &mut Cpu)  {  op_A_L(sbc, cpu); }
-fn sbc_A_HL(cpu: &mut Cpu) { op_A_HL(sbc, cpu); }
-fn sbc_A_x(cpu: &mut Cpu)  {  op_A_x(sbc, cpu); }
+fn sbc_A_A(cpu: &mut Cpu) {
+    op_A_A(sbc, cpu);
+}
+fn sbc_A_B(cpu: &mut Cpu) {
+    op_A_B(sbc, cpu);
+}
+fn sbc_A_C(cpu: &mut Cpu) {
+    op_A_C(sbc, cpu);
+}
+fn sbc_A_D(cpu: &mut Cpu) {
+    op_A_D(sbc, cpu);
+}
+fn sbc_A_E(cpu: &mut Cpu) {
+    op_A_E(sbc, cpu);
+}
+fn sbc_A_H(cpu: &mut Cpu) {
+    op_A_H(sbc, cpu);
+}
+fn sbc_A_L(cpu: &mut Cpu) {
+    op_A_L(sbc, cpu);
+}
+fn sbc_A_HL(cpu: &mut Cpu) {
+    op_A_HL(sbc, cpu);
+}
+fn sbc_A_x(cpu: &mut Cpu) {
+    op_A_x(sbc, cpu);
+}
 
 /* Performs x & y and sets the relevant flags. */
 fn and(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
@@ -822,15 +900,33 @@ fn and(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     result
 }
 
-fn and_A_A(cpu: &mut Cpu)  {  op_A_A(and, cpu); }
-fn and_A_B(cpu: &mut Cpu)  {  op_A_B(and, cpu); }
-fn and_A_C(cpu: &mut Cpu)  {  op_A_C(and, cpu); }
-fn and_A_D(cpu: &mut Cpu)  {  op_A_D(and, cpu); }
-fn and_A_E(cpu: &mut Cpu)  {  op_A_E(and, cpu); }
-fn and_A_H(cpu: &mut Cpu)  {  op_A_H(and, cpu); }
-fn and_A_L(cpu: &mut Cpu)  {  op_A_L(and, cpu); }
-fn and_A_HL(cpu: &mut Cpu) { op_A_HL(and, cpu); }
-fn and_A_x(cpu: &mut Cpu)  {  op_A_x(and, cpu); }
+fn and_A_A(cpu: &mut Cpu) {
+    op_A_A(and, cpu);
+}
+fn and_A_B(cpu: &mut Cpu) {
+    op_A_B(and, cpu);
+}
+fn and_A_C(cpu: &mut Cpu) {
+    op_A_C(and, cpu);
+}
+fn and_A_D(cpu: &mut Cpu) {
+    op_A_D(and, cpu);
+}
+fn and_A_E(cpu: &mut Cpu) {
+    op_A_E(and, cpu);
+}
+fn and_A_H(cpu: &mut Cpu) {
+    op_A_H(and, cpu);
+}
+fn and_A_L(cpu: &mut Cpu) {
+    op_A_L(and, cpu);
+}
+fn and_A_HL(cpu: &mut Cpu) {
+    op_A_HL(and, cpu);
+}
+fn and_A_x(cpu: &mut Cpu) {
+    op_A_x(and, cpu);
+}
 
 /* Performs x | y and sets the relevant flags */
 fn or(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
@@ -849,15 +945,33 @@ fn or(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     result
 }
 
-fn or_A_A(cpu: &mut Cpu)  {  op_A_A(or, cpu); }
-fn or_A_B(cpu: &mut Cpu)  {  op_A_B(or, cpu); }
-fn or_A_C(cpu: &mut Cpu)  {  op_A_C(or, cpu); }
-fn or_A_D(cpu: &mut Cpu)  {  op_A_D(or, cpu); }
-fn or_A_E(cpu: &mut Cpu)  {  op_A_E(or, cpu); }
-fn or_A_H(cpu: &mut Cpu)  {  op_A_H(or, cpu); }
-fn or_A_L(cpu: &mut Cpu)  {  op_A_L(or, cpu); }
-fn or_A_HL(cpu: &mut Cpu) { op_A_HL(or, cpu); }
-fn or_A_x(cpu: &mut Cpu)  {  op_A_x(or, cpu); }
+fn or_A_A(cpu: &mut Cpu) {
+    op_A_A(or, cpu);
+}
+fn or_A_B(cpu: &mut Cpu) {
+    op_A_B(or, cpu);
+}
+fn or_A_C(cpu: &mut Cpu) {
+    op_A_C(or, cpu);
+}
+fn or_A_D(cpu: &mut Cpu) {
+    op_A_D(or, cpu);
+}
+fn or_A_E(cpu: &mut Cpu) {
+    op_A_E(or, cpu);
+}
+fn or_A_H(cpu: &mut Cpu) {
+    op_A_H(or, cpu);
+}
+fn or_A_L(cpu: &mut Cpu) {
+    op_A_L(or, cpu);
+}
+fn or_A_HL(cpu: &mut Cpu) {
+    op_A_HL(or, cpu);
+}
+fn or_A_x(cpu: &mut Cpu) {
+    op_A_x(or, cpu);
+}
 
 /* Performs x ^ y and sets the relevant flags */
 fn xor(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
@@ -876,30 +990,66 @@ fn xor(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     result
 }
 
-fn xor_A_A(cpu: &mut Cpu)  {  op_A_A(xor, cpu); }
-fn xor_A_B(cpu: &mut Cpu)  {  op_A_B(xor, cpu); }
-fn xor_A_C(cpu: &mut Cpu)  {  op_A_C(xor, cpu); }
-fn xor_A_D(cpu: &mut Cpu)  {  op_A_D(xor, cpu); }
-fn xor_A_E(cpu: &mut Cpu)  {  op_A_E(xor, cpu); }
-fn xor_A_H(cpu: &mut Cpu)  {  op_A_H(xor, cpu); }
-fn xor_A_L(cpu: &mut Cpu)  {  op_A_L(xor, cpu); }
-fn xor_A_HL(cpu: &mut Cpu) { op_A_HL(xor, cpu); }
-fn xor_A_x(cpu: &mut Cpu)  {  op_A_x(xor, cpu); }
+fn xor_A_A(cpu: &mut Cpu) {
+    op_A_A(xor, cpu);
+}
+fn xor_A_B(cpu: &mut Cpu) {
+    op_A_B(xor, cpu);
+}
+fn xor_A_C(cpu: &mut Cpu) {
+    op_A_C(xor, cpu);
+}
+fn xor_A_D(cpu: &mut Cpu) {
+    op_A_D(xor, cpu);
+}
+fn xor_A_E(cpu: &mut Cpu) {
+    op_A_E(xor, cpu);
+}
+fn xor_A_H(cpu: &mut Cpu) {
+    op_A_H(xor, cpu);
+}
+fn xor_A_L(cpu: &mut Cpu) {
+    op_A_L(xor, cpu);
+}
+fn xor_A_HL(cpu: &mut Cpu) {
+    op_A_HL(xor, cpu);
+}
+fn xor_A_x(cpu: &mut Cpu) {
+    op_A_x(xor, cpu);
+}
 
 fn cp(x: u8, y: u8, cpu: &mut Cpu) -> u8 {
     sub(x, y, cpu);
     x
 }
 
-fn cp_A_A(cpu: &mut Cpu)  {  op_A_A(cp, cpu); }
-fn cp_A_B(cpu: &mut Cpu)  {  op_A_B(cp, cpu); }
-fn cp_A_C(cpu: &mut Cpu)  {  op_A_C(cp, cpu); }
-fn cp_A_D(cpu: &mut Cpu)  {  op_A_D(cp, cpu); }
-fn cp_A_E(cpu: &mut Cpu)  {  op_A_E(cp, cpu); }
-fn cp_A_H(cpu: &mut Cpu)  {  op_A_H(cp, cpu); }
-fn cp_A_L(cpu: &mut Cpu)  {  op_A_L(cp, cpu); }
-fn cp_A_HL(cpu: &mut Cpu) { op_A_HL(cp, cpu); }
-fn cp_A_x(cpu: &mut Cpu)  {  op_A_x(cp, cpu); }
+fn cp_A_A(cpu: &mut Cpu) {
+    op_A_A(cp, cpu);
+}
+fn cp_A_B(cpu: &mut Cpu) {
+    op_A_B(cp, cpu);
+}
+fn cp_A_C(cpu: &mut Cpu) {
+    op_A_C(cp, cpu);
+}
+fn cp_A_D(cpu: &mut Cpu) {
+    op_A_D(cp, cpu);
+}
+fn cp_A_E(cpu: &mut Cpu) {
+    op_A_E(cp, cpu);
+}
+fn cp_A_H(cpu: &mut Cpu) {
+    op_A_H(cp, cpu);
+}
+fn cp_A_L(cpu: &mut Cpu) {
+    op_A_L(cp, cpu);
+}
+fn cp_A_HL(cpu: &mut Cpu) {
+    op_A_HL(cp, cpu);
+}
+fn cp_A_x(cpu: &mut Cpu) {
+    op_A_x(cp, cpu);
+}
 
 fn inc(v: u8, cpu: &mut Cpu) -> u8 {
     let result;
@@ -971,14 +1121,30 @@ fn op_HLp(func: fn(v: u8, cpu: &mut Cpu) -> u8, cpu: &mut Cpu) {
     cpu.set_deref_HL(result);
 }
 
-fn inc_A(cpu: &mut Cpu)  {  op_A(inc, cpu); }
-fn inc_B(cpu: &mut Cpu)  {  op_B(inc, cpu); }
-fn inc_C(cpu: &mut Cpu)  {  op_C(inc, cpu); }
-fn inc_D(cpu: &mut Cpu)  {  op_D(inc, cpu); }
-fn inc_E(cpu: &mut Cpu)  {  op_E(inc, cpu); }
-fn inc_H(cpu: &mut Cpu)  {  op_H(inc, cpu); }
-fn inc_L(cpu: &mut Cpu)  {  op_L(inc, cpu); }
-fn inc_HLp(cpu: &mut Cpu) { op_HLp(inc, cpu); }
+fn inc_A(cpu: &mut Cpu) {
+    op_A(inc, cpu);
+}
+fn inc_B(cpu: &mut Cpu) {
+    op_B(inc, cpu);
+}
+fn inc_C(cpu: &mut Cpu) {
+    op_C(inc, cpu);
+}
+fn inc_D(cpu: &mut Cpu) {
+    op_D(inc, cpu);
+}
+fn inc_E(cpu: &mut Cpu) {
+    op_E(inc, cpu);
+}
+fn inc_H(cpu: &mut Cpu) {
+    op_H(inc, cpu);
+}
+fn inc_L(cpu: &mut Cpu) {
+    op_L(inc, cpu);
+}
+fn inc_HLp(cpu: &mut Cpu) {
+    op_HLp(inc, cpu);
+}
 
 fn dec(v: u8, cpu: &mut Cpu) -> u8 {
     let result;
@@ -1006,14 +1172,30 @@ fn dec(v: u8, cpu: &mut Cpu) -> u8 {
     result
 }
 
-fn dec_A(cpu: &mut Cpu)  {  op_A(dec, cpu); }
-fn dec_B(cpu: &mut Cpu)  {  op_B(dec, cpu); }
-fn dec_C(cpu: &mut Cpu)  {  op_C(dec, cpu); }
-fn dec_D(cpu: &mut Cpu)  {  op_D(dec, cpu); }
-fn dec_E(cpu: &mut Cpu)  {  op_E(dec, cpu); }
-fn dec_H(cpu: &mut Cpu)  {  op_H(dec, cpu); }
-fn dec_L(cpu: &mut Cpu)  {  op_L(dec, cpu); }
-fn dec_HLp(cpu: &mut Cpu) { op_HLp(dec, cpu); }
+fn dec_A(cpu: &mut Cpu) {
+    op_A(dec, cpu);
+}
+fn dec_B(cpu: &mut Cpu) {
+    op_B(dec, cpu);
+}
+fn dec_C(cpu: &mut Cpu) {
+    op_C(dec, cpu);
+}
+fn dec_D(cpu: &mut Cpu) {
+    op_D(dec, cpu);
+}
+fn dec_E(cpu: &mut Cpu) {
+    op_E(dec, cpu);
+}
+fn dec_H(cpu: &mut Cpu) {
+    op_H(dec, cpu);
+}
+fn dec_L(cpu: &mut Cpu) {
+    op_L(dec, cpu);
+}
+fn dec_HLp(cpu: &mut Cpu) {
+    op_HLp(dec, cpu);
+}
 
 fn op_HL_X(func: fn(x: u16, y: u16, cpu: &mut Cpu) -> u16, y: u16, cpu: &mut Cpu) {
     let x = cpu.get_HL();
@@ -1064,10 +1246,18 @@ fn add_16(x: u16, y: u16, cpu: &mut Cpu) -> u16 {
     result as u16
 }
 
-fn add_HL_BC(cpu: &mut Cpu) { op_HL_BC(add_16, cpu); }
-fn add_HL_DE(cpu: &mut Cpu) { op_HL_DE(add_16, cpu); }
-fn add_HL_HL(cpu: &mut Cpu) { op_HL_HL(add_16, cpu); }
-fn add_HL_SP(cpu: &mut Cpu) { op_HL_SP(add_16, cpu); }
+fn add_HL_BC(cpu: &mut Cpu) {
+    op_HL_BC(add_16, cpu);
+}
+fn add_HL_DE(cpu: &mut Cpu) {
+    op_HL_DE(add_16, cpu);
+}
+fn add_HL_HL(cpu: &mut Cpu) {
+    op_HL_HL(add_16, cpu);
+}
+fn add_HL_SP(cpu: &mut Cpu) {
+    op_HL_SP(add_16, cpu);
+}
 
 fn op_SP_x(func: fn(x: u16, y: u8, cpu: &mut Cpu) -> u16, cpu: &mut Cpu) {
     let x = cpu.get_SP();
@@ -1139,10 +1329,18 @@ fn inc_16(x: u16, cpu: &mut Cpu) -> u16 {
     }
 }
 
-fn inc_HL(cpu: &mut Cpu) { op_HL(inc_16, cpu); }
-fn inc_DE(cpu: &mut Cpu) { op_DE(inc_16, cpu); }
-fn inc_BC(cpu: &mut Cpu) { op_BC(inc_16, cpu); }
-fn inc_SP(cpu: &mut Cpu) { op_SP(inc_16, cpu); }
+fn inc_HL(cpu: &mut Cpu) {
+    op_HL(inc_16, cpu);
+}
+fn inc_DE(cpu: &mut Cpu) {
+    op_DE(inc_16, cpu);
+}
+fn inc_BC(cpu: &mut Cpu) {
+    op_BC(inc_16, cpu);
+}
+fn inc_SP(cpu: &mut Cpu) {
+    op_SP(inc_16, cpu);
+}
 
 fn dec_16(x: u16, cpu: &mut Cpu) -> u16 {
     cpu.add_cycles(4);
@@ -1154,10 +1352,18 @@ fn dec_16(x: u16, cpu: &mut Cpu) -> u16 {
     }
 }
 
-fn dec_HL(cpu: &mut Cpu) { op_HL(dec_16, cpu); }
-fn dec_DE(cpu: &mut Cpu) { op_DE(dec_16, cpu); }
-fn dec_BC(cpu: &mut Cpu) { op_BC(dec_16, cpu); }
-fn dec_SP(cpu: &mut Cpu) { op_SP(dec_16, cpu); }
+fn dec_HL(cpu: &mut Cpu) {
+    op_HL(dec_16, cpu);
+}
+fn dec_DE(cpu: &mut Cpu) {
+    op_DE(dec_16, cpu);
+}
+fn dec_BC(cpu: &mut Cpu) {
+    op_BC(dec_16, cpu);
+}
+fn dec_SP(cpu: &mut Cpu) {
+    op_SP(dec_16, cpu);
+}
 
 // This instruction conditionally adjusts the accumulator for BCD addition
 // and subtraction operations. For addition (ADD, ADC, INC) or subtraction
@@ -1220,7 +1426,9 @@ fn daa(v: u8, cpu: &mut Cpu) -> u8 {
     result as u8
 }
 
-fn daa_A(cpu: &mut Cpu) { op_A(daa, cpu); }
+fn daa_A(cpu: &mut Cpu) {
+    op_A(daa, cpu);
+}
 
 fn cpl(x: u8, cpu: &mut Cpu) -> u8 {
     cpu.set_N_flag();
@@ -1228,7 +1436,9 @@ fn cpl(x: u8, cpu: &mut Cpu) -> u8 {
     !x
 }
 
-fn cpl_A(cpu: &mut Cpu) { op_A(cpl, cpu); }
+fn cpl_A(cpu: &mut Cpu) {
+    op_A(cpl, cpu);
+}
 
 fn ccf(cpu: &mut Cpu) {
     if cpu.get_C_flag() {
@@ -1433,11 +1643,7 @@ fn jp_HL(cpu: &mut Cpu) {
 fn jr_n(cpu: &mut Cpu) {
     let n = next_value(cpu);
 
-    let offset = if n > 0x81 {
-        n as i32 - 256
-    } else {
-        n as i32
-    };
+    let offset = if n > 0x81 { n as i32 - 256 } else { n as i32 };
 
     let next = (cpu.get_PC() as i32 + offset + 1) as u16;
 
@@ -1527,14 +1733,30 @@ fn rst_n(n: u8, cpu: &mut Cpu) {
     cpu.set_PC(n as u16);
 }
 
-fn rst_00(cpu: &mut Cpu) { rst_n(0x00, cpu); }
-fn rst_08(cpu: &mut Cpu) { rst_n(0x08, cpu); }
-fn rst_10(cpu: &mut Cpu) { rst_n(0x10, cpu); }
-fn rst_18(cpu: &mut Cpu) { rst_n(0x18, cpu); }
-fn rst_20(cpu: &mut Cpu) { rst_n(0x20, cpu); }
-fn rst_28(cpu: &mut Cpu) { rst_n(0x28, cpu); }
-fn rst_30(cpu: &mut Cpu) { rst_n(0x30, cpu); }
-fn rst_38(cpu: &mut Cpu) { rst_n(0x38, cpu); }
+fn rst_00(cpu: &mut Cpu) {
+    rst_n(0x00, cpu);
+}
+fn rst_08(cpu: &mut Cpu) {
+    rst_n(0x08, cpu);
+}
+fn rst_10(cpu: &mut Cpu) {
+    rst_n(0x10, cpu);
+}
+fn rst_18(cpu: &mut Cpu) {
+    rst_n(0x18, cpu);
+}
+fn rst_20(cpu: &mut Cpu) {
+    rst_n(0x20, cpu);
+}
+fn rst_28(cpu: &mut Cpu) {
+    rst_n(0x28, cpu);
+}
+fn rst_30(cpu: &mut Cpu) {
+    rst_n(0x30, cpu);
+}
+fn rst_38(cpu: &mut Cpu) {
+    rst_n(0x38, cpu);
+}
 
 fn ret(cpu: &mut Cpu) {
     let l = cpu.pop_SP();
@@ -1590,50 +1812,130 @@ fn swap(x: u8, cpu: &mut Cpu) -> u8 {
     result
 }
 
-fn swap_A(cpu: &mut Cpu)  {   op_A(swap, cpu); }
-fn swap_B(cpu: &mut Cpu)  {   op_B(swap, cpu); }
-fn swap_C(cpu: &mut Cpu)  {   op_C(swap, cpu); }
-fn swap_D(cpu: &mut Cpu)  {   op_D(swap, cpu); }
-fn swap_E(cpu: &mut Cpu)  {   op_E(swap, cpu); }
-fn swap_H(cpu: &mut Cpu)  {   op_H(swap, cpu); }
-fn swap_L(cpu: &mut Cpu)  {   op_L(swap, cpu); }
-fn swap_HL(cpu: &mut Cpu) { op_HLp(swap, cpu); }
+fn swap_A(cpu: &mut Cpu) {
+    op_A(swap, cpu);
+}
+fn swap_B(cpu: &mut Cpu) {
+    op_B(swap, cpu);
+}
+fn swap_C(cpu: &mut Cpu) {
+    op_C(swap, cpu);
+}
+fn swap_D(cpu: &mut Cpu) {
+    op_D(swap, cpu);
+}
+fn swap_E(cpu: &mut Cpu) {
+    op_E(swap, cpu);
+}
+fn swap_H(cpu: &mut Cpu) {
+    op_H(swap, cpu);
+}
+fn swap_L(cpu: &mut Cpu) {
+    op_L(swap, cpu);
+}
+fn swap_HL(cpu: &mut Cpu) {
+    op_HLp(swap, cpu);
+}
 
-fn rlc_A(cpu: &mut Cpu)  {   op_A(rlc, cpu); }
-fn rlc_B(cpu: &mut Cpu)  {   op_B(rlc, cpu); }
-fn rlc_C(cpu: &mut Cpu)  {   op_C(rlc, cpu); }
-fn rlc_D(cpu: &mut Cpu)  {   op_D(rlc, cpu); }
-fn rlc_E(cpu: &mut Cpu)  {   op_E(rlc, cpu); }
-fn rlc_H(cpu: &mut Cpu)  {   op_H(rlc, cpu); }
-fn rlc_L(cpu: &mut Cpu)  {   op_L(rlc, cpu); }
-fn rlc_HL(cpu: &mut Cpu) { op_HLp(rlc, cpu); }
+fn rlc_A(cpu: &mut Cpu) {
+    op_A(rlc, cpu);
+}
+fn rlc_B(cpu: &mut Cpu) {
+    op_B(rlc, cpu);
+}
+fn rlc_C(cpu: &mut Cpu) {
+    op_C(rlc, cpu);
+}
+fn rlc_D(cpu: &mut Cpu) {
+    op_D(rlc, cpu);
+}
+fn rlc_E(cpu: &mut Cpu) {
+    op_E(rlc, cpu);
+}
+fn rlc_H(cpu: &mut Cpu) {
+    op_H(rlc, cpu);
+}
+fn rlc_L(cpu: &mut Cpu) {
+    op_L(rlc, cpu);
+}
+fn rlc_HL(cpu: &mut Cpu) {
+    op_HLp(rlc, cpu);
+}
 
-fn rl_A(cpu: &mut Cpu)  {   op_A(rl, cpu); }
-fn rl_B(cpu: &mut Cpu)  {   op_B(rl, cpu); }
-fn rl_C(cpu: &mut Cpu)  {   op_C(rl, cpu); }
-fn rl_D(cpu: &mut Cpu)  {   op_D(rl, cpu); }
-fn rl_E(cpu: &mut Cpu)  {   op_E(rl, cpu); }
-fn rl_H(cpu: &mut Cpu)  {   op_H(rl, cpu); }
-fn rl_L(cpu: &mut Cpu)  {   op_L(rl, cpu); }
-fn rl_HL(cpu: &mut Cpu) { op_HLp(rl, cpu); }
+fn rl_A(cpu: &mut Cpu) {
+    op_A(rl, cpu);
+}
+fn rl_B(cpu: &mut Cpu) {
+    op_B(rl, cpu);
+}
+fn rl_C(cpu: &mut Cpu) {
+    op_C(rl, cpu);
+}
+fn rl_D(cpu: &mut Cpu) {
+    op_D(rl, cpu);
+}
+fn rl_E(cpu: &mut Cpu) {
+    op_E(rl, cpu);
+}
+fn rl_H(cpu: &mut Cpu) {
+    op_H(rl, cpu);
+}
+fn rl_L(cpu: &mut Cpu) {
+    op_L(rl, cpu);
+}
+fn rl_HL(cpu: &mut Cpu) {
+    op_HLp(rl, cpu);
+}
 
-fn rrc_A(cpu: &mut Cpu)  {   op_A(rrc, cpu); }
-fn rrc_B(cpu: &mut Cpu)  {   op_B(rrc, cpu); }
-fn rrc_C(cpu: &mut Cpu)  {   op_C(rrc, cpu); }
-fn rrc_D(cpu: &mut Cpu)  {   op_D(rrc, cpu); }
-fn rrc_E(cpu: &mut Cpu)  {   op_E(rrc, cpu); }
-fn rrc_H(cpu: &mut Cpu)  {   op_H(rrc, cpu); }
-fn rrc_L(cpu: &mut Cpu)  {   op_L(rrc, cpu); }
-fn rrc_HL(cpu: &mut Cpu) { op_HLp(rrc, cpu); }
+fn rrc_A(cpu: &mut Cpu) {
+    op_A(rrc, cpu);
+}
+fn rrc_B(cpu: &mut Cpu) {
+    op_B(rrc, cpu);
+}
+fn rrc_C(cpu: &mut Cpu) {
+    op_C(rrc, cpu);
+}
+fn rrc_D(cpu: &mut Cpu) {
+    op_D(rrc, cpu);
+}
+fn rrc_E(cpu: &mut Cpu) {
+    op_E(rrc, cpu);
+}
+fn rrc_H(cpu: &mut Cpu) {
+    op_H(rrc, cpu);
+}
+fn rrc_L(cpu: &mut Cpu) {
+    op_L(rrc, cpu);
+}
+fn rrc_HL(cpu: &mut Cpu) {
+    op_HLp(rrc, cpu);
+}
 
-fn rr_A(cpu: &mut Cpu)  {   op_A(rr, cpu); }
-fn rr_B(cpu: &mut Cpu)  {   op_B(rr, cpu); }
-fn rr_C(cpu: &mut Cpu)  {   op_C(rr, cpu); }
-fn rr_D(cpu: &mut Cpu)  {   op_D(rr, cpu); }
-fn rr_E(cpu: &mut Cpu)  {   op_E(rr, cpu); }
-fn rr_H(cpu: &mut Cpu)  {   op_H(rr, cpu); }
-fn rr_L(cpu: &mut Cpu)  {   op_L(rr, cpu); }
-fn rr_HL(cpu: &mut Cpu) { op_HLp(rr, cpu); }
+fn rr_A(cpu: &mut Cpu) {
+    op_A(rr, cpu);
+}
+fn rr_B(cpu: &mut Cpu) {
+    op_B(rr, cpu);
+}
+fn rr_C(cpu: &mut Cpu) {
+    op_C(rr, cpu);
+}
+fn rr_D(cpu: &mut Cpu) {
+    op_D(rr, cpu);
+}
+fn rr_E(cpu: &mut Cpu) {
+    op_E(rr, cpu);
+}
+fn rr_H(cpu: &mut Cpu) {
+    op_H(rr, cpu);
+}
+fn rr_L(cpu: &mut Cpu) {
+    op_L(rr, cpu);
+}
+fn rr_HL(cpu: &mut Cpu) {
+    op_HLp(rr, cpu);
+}
 
 fn sla(x: u8, cpu: &mut Cpu) -> u8 {
     let bit_7 = x >> 7;
@@ -1657,14 +1959,30 @@ fn sla(x: u8, cpu: &mut Cpu) -> u8 {
     result
 }
 
-fn sla_A(cpu: &mut Cpu)  {   op_A(sla, cpu); }
-fn sla_B(cpu: &mut Cpu)  {   op_B(sla, cpu); }
-fn sla_C(cpu: &mut Cpu)  {   op_C(sla, cpu); }
-fn sla_D(cpu: &mut Cpu)  {   op_D(sla, cpu); }
-fn sla_E(cpu: &mut Cpu)  {   op_E(sla, cpu); }
-fn sla_H(cpu: &mut Cpu)  {   op_H(sla, cpu); }
-fn sla_L(cpu: &mut Cpu)  {   op_L(sla, cpu); }
-fn sla_HL(cpu: &mut Cpu) { op_HLp(sla, cpu); }
+fn sla_A(cpu: &mut Cpu) {
+    op_A(sla, cpu);
+}
+fn sla_B(cpu: &mut Cpu) {
+    op_B(sla, cpu);
+}
+fn sla_C(cpu: &mut Cpu) {
+    op_C(sla, cpu);
+}
+fn sla_D(cpu: &mut Cpu) {
+    op_D(sla, cpu);
+}
+fn sla_E(cpu: &mut Cpu) {
+    op_E(sla, cpu);
+}
+fn sla_H(cpu: &mut Cpu) {
+    op_H(sla, cpu);
+}
+fn sla_L(cpu: &mut Cpu) {
+    op_L(sla, cpu);
+}
+fn sla_HL(cpu: &mut Cpu) {
+    op_HLp(sla, cpu);
+}
 
 fn sra(x: u8, cpu: &mut Cpu) -> u8 {
     let bit_0 = x << 7;
@@ -1688,14 +2006,30 @@ fn sra(x: u8, cpu: &mut Cpu) -> u8 {
     result
 }
 
-fn sra_A(cpu: &mut Cpu)  {   op_A(sra, cpu); }
-fn sra_B(cpu: &mut Cpu)  {   op_B(sra, cpu); }
-fn sra_C(cpu: &mut Cpu)  {   op_C(sra, cpu); }
-fn sra_D(cpu: &mut Cpu)  {   op_D(sra, cpu); }
-fn sra_E(cpu: &mut Cpu)  {   op_E(sra, cpu); }
-fn sra_H(cpu: &mut Cpu)  {   op_H(sra, cpu); }
-fn sra_L(cpu: &mut Cpu)  {   op_L(sra, cpu); }
-fn sra_HL(cpu: &mut Cpu) { op_HLp(sra, cpu); }
+fn sra_A(cpu: &mut Cpu) {
+    op_A(sra, cpu);
+}
+fn sra_B(cpu: &mut Cpu) {
+    op_B(sra, cpu);
+}
+fn sra_C(cpu: &mut Cpu) {
+    op_C(sra, cpu);
+}
+fn sra_D(cpu: &mut Cpu) {
+    op_D(sra, cpu);
+}
+fn sra_E(cpu: &mut Cpu) {
+    op_E(sra, cpu);
+}
+fn sra_H(cpu: &mut Cpu) {
+    op_H(sra, cpu);
+}
+fn sra_L(cpu: &mut Cpu) {
+    op_L(sra, cpu);
+}
+fn sra_HL(cpu: &mut Cpu) {
+    op_HLp(sra, cpu);
+}
 
 fn srl(x: u8, cpu: &mut Cpu) -> u8 {
     let bit_0 = x << 7;
@@ -1719,14 +2053,30 @@ fn srl(x: u8, cpu: &mut Cpu) -> u8 {
     result
 }
 
-fn srl_A(cpu: &mut Cpu)  {   op_A(srl, cpu); }
-fn srl_B(cpu: &mut Cpu)  {   op_B(srl, cpu); }
-fn srl_C(cpu: &mut Cpu)  {   op_C(srl, cpu); }
-fn srl_D(cpu: &mut Cpu)  {   op_D(srl, cpu); }
-fn srl_E(cpu: &mut Cpu)  {   op_E(srl, cpu); }
-fn srl_H(cpu: &mut Cpu)  {   op_H(srl, cpu); }
-fn srl_L(cpu: &mut Cpu)  {   op_L(srl, cpu); }
-fn srl_HL(cpu: &mut Cpu) { op_HLp(srl, cpu); }
+fn srl_A(cpu: &mut Cpu) {
+    op_A(srl, cpu);
+}
+fn srl_B(cpu: &mut Cpu) {
+    op_B(srl, cpu);
+}
+fn srl_C(cpu: &mut Cpu) {
+    op_C(srl, cpu);
+}
+fn srl_D(cpu: &mut Cpu) {
+    op_D(srl, cpu);
+}
+fn srl_E(cpu: &mut Cpu) {
+    op_E(srl, cpu);
+}
+fn srl_H(cpu: &mut Cpu) {
+    op_H(srl, cpu);
+}
+fn srl_L(cpu: &mut Cpu) {
+    op_L(srl, cpu);
+}
+fn srl_HL(cpu: &mut Cpu) {
+    op_HLp(srl, cpu);
+}
 
 fn bit(b: u8, x: u8, cpu: &mut Cpu) {
     let mask = match b {
@@ -1738,7 +2088,7 @@ fn bit(b: u8, x: u8, cpu: &mut Cpu) {
         5 => 0b00100000,
         6 => 0b01000000,
         7 => 0b10000000,
-        _ => panic!()
+        _ => panic!(),
     };
 
     if (mask & x) == 0 {
@@ -1791,77 +2141,205 @@ fn op_bit_HL(func: fn(b: u8, x: u8, cpu: &mut Cpu), b: u8, cpu: &mut Cpu) {
     func(b, x, cpu);
 }
 
-fn bit_0_A(cpu: &mut Cpu)  {  op_bit_A(bit, 0, cpu); }
-fn bit_0_B(cpu: &mut Cpu)  {  op_bit_B(bit, 0, cpu); }
-fn bit_0_C(cpu: &mut Cpu)  {  op_bit_C(bit, 0, cpu); }
-fn bit_0_D(cpu: &mut Cpu)  {  op_bit_D(bit, 0, cpu); }
-fn bit_0_E(cpu: &mut Cpu)  {  op_bit_E(bit, 0, cpu); }
-fn bit_0_H(cpu: &mut Cpu)  {  op_bit_H(bit, 0, cpu); }
-fn bit_0_L(cpu: &mut Cpu)  {  op_bit_L(bit, 0, cpu); }
-fn bit_0_HL(cpu: &mut Cpu) { op_bit_HL(bit, 0, cpu); }
+fn bit_0_A(cpu: &mut Cpu) {
+    op_bit_A(bit, 0, cpu);
+}
+fn bit_0_B(cpu: &mut Cpu) {
+    op_bit_B(bit, 0, cpu);
+}
+fn bit_0_C(cpu: &mut Cpu) {
+    op_bit_C(bit, 0, cpu);
+}
+fn bit_0_D(cpu: &mut Cpu) {
+    op_bit_D(bit, 0, cpu);
+}
+fn bit_0_E(cpu: &mut Cpu) {
+    op_bit_E(bit, 0, cpu);
+}
+fn bit_0_H(cpu: &mut Cpu) {
+    op_bit_H(bit, 0, cpu);
+}
+fn bit_0_L(cpu: &mut Cpu) {
+    op_bit_L(bit, 0, cpu);
+}
+fn bit_0_HL(cpu: &mut Cpu) {
+    op_bit_HL(bit, 0, cpu);
+}
 
-fn bit_1_A(cpu: &mut Cpu)  {  op_bit_A(bit, 1, cpu); }
-fn bit_1_B(cpu: &mut Cpu)  {  op_bit_B(bit, 1, cpu); }
-fn bit_1_C(cpu: &mut Cpu)  {  op_bit_C(bit, 1, cpu); }
-fn bit_1_D(cpu: &mut Cpu)  {  op_bit_D(bit, 1, cpu); }
-fn bit_1_E(cpu: &mut Cpu)  {  op_bit_E(bit, 1, cpu); }
-fn bit_1_H(cpu: &mut Cpu)  {  op_bit_H(bit, 1, cpu); }
-fn bit_1_L(cpu: &mut Cpu)  {  op_bit_L(bit, 1, cpu); }
-fn bit_1_HL(cpu: &mut Cpu) { op_bit_HL(bit, 1, cpu); }
+fn bit_1_A(cpu: &mut Cpu) {
+    op_bit_A(bit, 1, cpu);
+}
+fn bit_1_B(cpu: &mut Cpu) {
+    op_bit_B(bit, 1, cpu);
+}
+fn bit_1_C(cpu: &mut Cpu) {
+    op_bit_C(bit, 1, cpu);
+}
+fn bit_1_D(cpu: &mut Cpu) {
+    op_bit_D(bit, 1, cpu);
+}
+fn bit_1_E(cpu: &mut Cpu) {
+    op_bit_E(bit, 1, cpu);
+}
+fn bit_1_H(cpu: &mut Cpu) {
+    op_bit_H(bit, 1, cpu);
+}
+fn bit_1_L(cpu: &mut Cpu) {
+    op_bit_L(bit, 1, cpu);
+}
+fn bit_1_HL(cpu: &mut Cpu) {
+    op_bit_HL(bit, 1, cpu);
+}
 
-fn bit_2_A(cpu: &mut Cpu)  {  op_bit_A(bit, 2, cpu); }
-fn bit_2_B(cpu: &mut Cpu)  {  op_bit_B(bit, 2, cpu); }
-fn bit_2_C(cpu: &mut Cpu)  {  op_bit_C(bit, 2, cpu); }
-fn bit_2_D(cpu: &mut Cpu)  {  op_bit_D(bit, 2, cpu); }
-fn bit_2_E(cpu: &mut Cpu)  {  op_bit_E(bit, 2, cpu); }
-fn bit_2_H(cpu: &mut Cpu)  {  op_bit_H(bit, 2, cpu); }
-fn bit_2_L(cpu: &mut Cpu)  {  op_bit_L(bit, 2, cpu); }
-fn bit_2_HL(cpu: &mut Cpu) { op_bit_HL(bit, 2, cpu); }
+fn bit_2_A(cpu: &mut Cpu) {
+    op_bit_A(bit, 2, cpu);
+}
+fn bit_2_B(cpu: &mut Cpu) {
+    op_bit_B(bit, 2, cpu);
+}
+fn bit_2_C(cpu: &mut Cpu) {
+    op_bit_C(bit, 2, cpu);
+}
+fn bit_2_D(cpu: &mut Cpu) {
+    op_bit_D(bit, 2, cpu);
+}
+fn bit_2_E(cpu: &mut Cpu) {
+    op_bit_E(bit, 2, cpu);
+}
+fn bit_2_H(cpu: &mut Cpu) {
+    op_bit_H(bit, 2, cpu);
+}
+fn bit_2_L(cpu: &mut Cpu) {
+    op_bit_L(bit, 2, cpu);
+}
+fn bit_2_HL(cpu: &mut Cpu) {
+    op_bit_HL(bit, 2, cpu);
+}
 
-fn bit_3_A(cpu: &mut Cpu)  {  op_bit_A(bit, 3, cpu); }
-fn bit_3_B(cpu: &mut Cpu)  {  op_bit_B(bit, 3, cpu); }
-fn bit_3_C(cpu: &mut Cpu)  {  op_bit_C(bit, 3, cpu); }
-fn bit_3_D(cpu: &mut Cpu)  {  op_bit_D(bit, 3, cpu); }
-fn bit_3_E(cpu: &mut Cpu)  {  op_bit_E(bit, 3, cpu); }
-fn bit_3_H(cpu: &mut Cpu)  {  op_bit_H(bit, 3, cpu); }
-fn bit_3_L(cpu: &mut Cpu)  {  op_bit_L(bit, 3, cpu); }
-fn bit_3_HL(cpu: &mut Cpu) { op_bit_HL(bit, 3, cpu); }
+fn bit_3_A(cpu: &mut Cpu) {
+    op_bit_A(bit, 3, cpu);
+}
+fn bit_3_B(cpu: &mut Cpu) {
+    op_bit_B(bit, 3, cpu);
+}
+fn bit_3_C(cpu: &mut Cpu) {
+    op_bit_C(bit, 3, cpu);
+}
+fn bit_3_D(cpu: &mut Cpu) {
+    op_bit_D(bit, 3, cpu);
+}
+fn bit_3_E(cpu: &mut Cpu) {
+    op_bit_E(bit, 3, cpu);
+}
+fn bit_3_H(cpu: &mut Cpu) {
+    op_bit_H(bit, 3, cpu);
+}
+fn bit_3_L(cpu: &mut Cpu) {
+    op_bit_L(bit, 3, cpu);
+}
+fn bit_3_HL(cpu: &mut Cpu) {
+    op_bit_HL(bit, 3, cpu);
+}
 
-fn bit_4_A(cpu: &mut Cpu)  {  op_bit_A(bit, 4, cpu); }
-fn bit_4_B(cpu: &mut Cpu)  {  op_bit_B(bit, 4, cpu); }
-fn bit_4_C(cpu: &mut Cpu)  {  op_bit_C(bit, 4, cpu); }
-fn bit_4_D(cpu: &mut Cpu)  {  op_bit_D(bit, 4, cpu); }
-fn bit_4_E(cpu: &mut Cpu)  {  op_bit_E(bit, 4, cpu); }
-fn bit_4_H(cpu: &mut Cpu)  {  op_bit_H(bit, 4, cpu); }
-fn bit_4_L(cpu: &mut Cpu)  {  op_bit_L(bit, 4, cpu); }
-fn bit_4_HL(cpu: &mut Cpu) { op_bit_HL(bit, 4, cpu); }
+fn bit_4_A(cpu: &mut Cpu) {
+    op_bit_A(bit, 4, cpu);
+}
+fn bit_4_B(cpu: &mut Cpu) {
+    op_bit_B(bit, 4, cpu);
+}
+fn bit_4_C(cpu: &mut Cpu) {
+    op_bit_C(bit, 4, cpu);
+}
+fn bit_4_D(cpu: &mut Cpu) {
+    op_bit_D(bit, 4, cpu);
+}
+fn bit_4_E(cpu: &mut Cpu) {
+    op_bit_E(bit, 4, cpu);
+}
+fn bit_4_H(cpu: &mut Cpu) {
+    op_bit_H(bit, 4, cpu);
+}
+fn bit_4_L(cpu: &mut Cpu) {
+    op_bit_L(bit, 4, cpu);
+}
+fn bit_4_HL(cpu: &mut Cpu) {
+    op_bit_HL(bit, 4, cpu);
+}
 
-fn bit_5_A(cpu: &mut Cpu)  {  op_bit_A(bit, 5, cpu); }
-fn bit_5_B(cpu: &mut Cpu)  {  op_bit_B(bit, 5, cpu); }
-fn bit_5_C(cpu: &mut Cpu)  {  op_bit_C(bit, 5, cpu); }
-fn bit_5_D(cpu: &mut Cpu)  {  op_bit_D(bit, 5, cpu); }
-fn bit_5_E(cpu: &mut Cpu)  {  op_bit_E(bit, 5, cpu); }
-fn bit_5_H(cpu: &mut Cpu)  {  op_bit_H(bit, 5, cpu); }
-fn bit_5_L(cpu: &mut Cpu)  {  op_bit_L(bit, 5, cpu); }
-fn bit_5_HL(cpu: &mut Cpu) { op_bit_HL(bit, 5, cpu); }
+fn bit_5_A(cpu: &mut Cpu) {
+    op_bit_A(bit, 5, cpu);
+}
+fn bit_5_B(cpu: &mut Cpu) {
+    op_bit_B(bit, 5, cpu);
+}
+fn bit_5_C(cpu: &mut Cpu) {
+    op_bit_C(bit, 5, cpu);
+}
+fn bit_5_D(cpu: &mut Cpu) {
+    op_bit_D(bit, 5, cpu);
+}
+fn bit_5_E(cpu: &mut Cpu) {
+    op_bit_E(bit, 5, cpu);
+}
+fn bit_5_H(cpu: &mut Cpu) {
+    op_bit_H(bit, 5, cpu);
+}
+fn bit_5_L(cpu: &mut Cpu) {
+    op_bit_L(bit, 5, cpu);
+}
+fn bit_5_HL(cpu: &mut Cpu) {
+    op_bit_HL(bit, 5, cpu);
+}
 
-fn bit_6_A(cpu: &mut Cpu)  {  op_bit_A(bit, 6, cpu); }
-fn bit_6_B(cpu: &mut Cpu)  {  op_bit_B(bit, 6, cpu); }
-fn bit_6_C(cpu: &mut Cpu)  {  op_bit_C(bit, 6, cpu); }
-fn bit_6_D(cpu: &mut Cpu)  {  op_bit_D(bit, 6, cpu); }
-fn bit_6_E(cpu: &mut Cpu)  {  op_bit_E(bit, 6, cpu); }
-fn bit_6_H(cpu: &mut Cpu)  {  op_bit_H(bit, 6, cpu); }
-fn bit_6_L(cpu: &mut Cpu)  {  op_bit_L(bit, 6, cpu); }
-fn bit_6_HL(cpu: &mut Cpu) { op_bit_HL(bit, 6, cpu); }
+fn bit_6_A(cpu: &mut Cpu) {
+    op_bit_A(bit, 6, cpu);
+}
+fn bit_6_B(cpu: &mut Cpu) {
+    op_bit_B(bit, 6, cpu);
+}
+fn bit_6_C(cpu: &mut Cpu) {
+    op_bit_C(bit, 6, cpu);
+}
+fn bit_6_D(cpu: &mut Cpu) {
+    op_bit_D(bit, 6, cpu);
+}
+fn bit_6_E(cpu: &mut Cpu) {
+    op_bit_E(bit, 6, cpu);
+}
+fn bit_6_H(cpu: &mut Cpu) {
+    op_bit_H(bit, 6, cpu);
+}
+fn bit_6_L(cpu: &mut Cpu) {
+    op_bit_L(bit, 6, cpu);
+}
+fn bit_6_HL(cpu: &mut Cpu) {
+    op_bit_HL(bit, 6, cpu);
+}
 
-fn bit_7_A(cpu: &mut Cpu)  {  op_bit_A(bit, 7, cpu); }
-fn bit_7_B(cpu: &mut Cpu)  {  op_bit_B(bit, 7, cpu); }
-fn bit_7_C(cpu: &mut Cpu)  {  op_bit_C(bit, 7, cpu); }
-fn bit_7_D(cpu: &mut Cpu)  {  op_bit_D(bit, 7, cpu); }
-fn bit_7_E(cpu: &mut Cpu)  {  op_bit_E(bit, 7, cpu); }
-fn bit_7_H(cpu: &mut Cpu)  {  op_bit_H(bit, 7, cpu); }
-fn bit_7_L(cpu: &mut Cpu)  {  op_bit_L(bit, 7, cpu); }
-fn bit_7_HL(cpu: &mut Cpu) { op_bit_HL(bit, 7, cpu); }
+fn bit_7_A(cpu: &mut Cpu) {
+    op_bit_A(bit, 7, cpu);
+}
+fn bit_7_B(cpu: &mut Cpu) {
+    op_bit_B(bit, 7, cpu);
+}
+fn bit_7_C(cpu: &mut Cpu) {
+    op_bit_C(bit, 7, cpu);
+}
+fn bit_7_D(cpu: &mut Cpu) {
+    op_bit_D(bit, 7, cpu);
+}
+fn bit_7_E(cpu: &mut Cpu) {
+    op_bit_E(bit, 7, cpu);
+}
+fn bit_7_H(cpu: &mut Cpu) {
+    op_bit_H(bit, 7, cpu);
+}
+fn bit_7_L(cpu: &mut Cpu) {
+    op_bit_L(bit, 7, cpu);
+}
+fn bit_7_HL(cpu: &mut Cpu) {
+    op_bit_HL(bit, 7, cpu);
+}
 
 fn set(b: u8, x: u8, _: &mut Cpu) -> u8 {
     let mask = match b {
@@ -1873,7 +2351,7 @@ fn set(b: u8, x: u8, _: &mut Cpu) -> u8 {
         5 => 0b00100000,
         6 => 0b01000000,
         7 => 0b10000000,
-        _ => panic!()
+        _ => panic!(),
     };
 
     mask | x
@@ -1927,77 +2405,205 @@ fn op_set_HL(func: fn(b: u8, x: u8, cpu: &mut Cpu) -> u8, b: u8, cpu: &mut Cpu) 
     cpu.set_deref_HL(result);
 }
 
-fn set_0_A(cpu: &mut Cpu)  {  op_set_A(set, 0, cpu); }
-fn set_0_B(cpu: &mut Cpu)  {  op_set_B(set, 0, cpu); }
-fn set_0_C(cpu: &mut Cpu)  {  op_set_C(set, 0, cpu); }
-fn set_0_D(cpu: &mut Cpu)  {  op_set_D(set, 0, cpu); }
-fn set_0_E(cpu: &mut Cpu)  {  op_set_E(set, 0, cpu); }
-fn set_0_H(cpu: &mut Cpu)  {  op_set_H(set, 0, cpu); }
-fn set_0_L(cpu: &mut Cpu)  {  op_set_L(set, 0, cpu); }
-fn set_0_HL(cpu: &mut Cpu) { op_set_HL(set, 0, cpu); }
+fn set_0_A(cpu: &mut Cpu) {
+    op_set_A(set, 0, cpu);
+}
+fn set_0_B(cpu: &mut Cpu) {
+    op_set_B(set, 0, cpu);
+}
+fn set_0_C(cpu: &mut Cpu) {
+    op_set_C(set, 0, cpu);
+}
+fn set_0_D(cpu: &mut Cpu) {
+    op_set_D(set, 0, cpu);
+}
+fn set_0_E(cpu: &mut Cpu) {
+    op_set_E(set, 0, cpu);
+}
+fn set_0_H(cpu: &mut Cpu) {
+    op_set_H(set, 0, cpu);
+}
+fn set_0_L(cpu: &mut Cpu) {
+    op_set_L(set, 0, cpu);
+}
+fn set_0_HL(cpu: &mut Cpu) {
+    op_set_HL(set, 0, cpu);
+}
 
-fn set_1_A(cpu: &mut Cpu)  {  op_set_A(set, 1, cpu); }
-fn set_1_B(cpu: &mut Cpu)  {  op_set_B(set, 1, cpu); }
-fn set_1_C(cpu: &mut Cpu)  {  op_set_C(set, 1, cpu); }
-fn set_1_D(cpu: &mut Cpu)  {  op_set_D(set, 1, cpu); }
-fn set_1_E(cpu: &mut Cpu)  {  op_set_E(set, 1, cpu); }
-fn set_1_H(cpu: &mut Cpu)  {  op_set_H(set, 1, cpu); }
-fn set_1_L(cpu: &mut Cpu)  {  op_set_L(set, 1, cpu); }
-fn set_1_HL(cpu: &mut Cpu) { op_set_HL(set, 1, cpu); }
+fn set_1_A(cpu: &mut Cpu) {
+    op_set_A(set, 1, cpu);
+}
+fn set_1_B(cpu: &mut Cpu) {
+    op_set_B(set, 1, cpu);
+}
+fn set_1_C(cpu: &mut Cpu) {
+    op_set_C(set, 1, cpu);
+}
+fn set_1_D(cpu: &mut Cpu) {
+    op_set_D(set, 1, cpu);
+}
+fn set_1_E(cpu: &mut Cpu) {
+    op_set_E(set, 1, cpu);
+}
+fn set_1_H(cpu: &mut Cpu) {
+    op_set_H(set, 1, cpu);
+}
+fn set_1_L(cpu: &mut Cpu) {
+    op_set_L(set, 1, cpu);
+}
+fn set_1_HL(cpu: &mut Cpu) {
+    op_set_HL(set, 1, cpu);
+}
 
-fn set_2_A(cpu: &mut Cpu)  {  op_set_A(set, 2, cpu); }
-fn set_2_B(cpu: &mut Cpu)  {  op_set_B(set, 2, cpu); }
-fn set_2_C(cpu: &mut Cpu)  {  op_set_C(set, 2, cpu); }
-fn set_2_D(cpu: &mut Cpu)  {  op_set_D(set, 2, cpu); }
-fn set_2_E(cpu: &mut Cpu)  {  op_set_E(set, 2, cpu); }
-fn set_2_H(cpu: &mut Cpu)  {  op_set_H(set, 2, cpu); }
-fn set_2_L(cpu: &mut Cpu)  {  op_set_L(set, 2, cpu); }
-fn set_2_HL(cpu: &mut Cpu) { op_set_HL(set, 2, cpu); }
+fn set_2_A(cpu: &mut Cpu) {
+    op_set_A(set, 2, cpu);
+}
+fn set_2_B(cpu: &mut Cpu) {
+    op_set_B(set, 2, cpu);
+}
+fn set_2_C(cpu: &mut Cpu) {
+    op_set_C(set, 2, cpu);
+}
+fn set_2_D(cpu: &mut Cpu) {
+    op_set_D(set, 2, cpu);
+}
+fn set_2_E(cpu: &mut Cpu) {
+    op_set_E(set, 2, cpu);
+}
+fn set_2_H(cpu: &mut Cpu) {
+    op_set_H(set, 2, cpu);
+}
+fn set_2_L(cpu: &mut Cpu) {
+    op_set_L(set, 2, cpu);
+}
+fn set_2_HL(cpu: &mut Cpu) {
+    op_set_HL(set, 2, cpu);
+}
 
-fn set_3_A(cpu: &mut Cpu)  {  op_set_A(set, 3, cpu); }
-fn set_3_B(cpu: &mut Cpu)  {  op_set_B(set, 3, cpu); }
-fn set_3_C(cpu: &mut Cpu)  {  op_set_C(set, 3, cpu); }
-fn set_3_D(cpu: &mut Cpu)  {  op_set_D(set, 3, cpu); }
-fn set_3_E(cpu: &mut Cpu)  {  op_set_E(set, 3, cpu); }
-fn set_3_H(cpu: &mut Cpu)  {  op_set_H(set, 3, cpu); }
-fn set_3_L(cpu: &mut Cpu)  {  op_set_L(set, 3, cpu); }
-fn set_3_HL(cpu: &mut Cpu) { op_set_HL(set, 3, cpu); }
+fn set_3_A(cpu: &mut Cpu) {
+    op_set_A(set, 3, cpu);
+}
+fn set_3_B(cpu: &mut Cpu) {
+    op_set_B(set, 3, cpu);
+}
+fn set_3_C(cpu: &mut Cpu) {
+    op_set_C(set, 3, cpu);
+}
+fn set_3_D(cpu: &mut Cpu) {
+    op_set_D(set, 3, cpu);
+}
+fn set_3_E(cpu: &mut Cpu) {
+    op_set_E(set, 3, cpu);
+}
+fn set_3_H(cpu: &mut Cpu) {
+    op_set_H(set, 3, cpu);
+}
+fn set_3_L(cpu: &mut Cpu) {
+    op_set_L(set, 3, cpu);
+}
+fn set_3_HL(cpu: &mut Cpu) {
+    op_set_HL(set, 3, cpu);
+}
 
-fn set_4_A(cpu: &mut Cpu)  {  op_set_A(set, 4, cpu); }
-fn set_4_B(cpu: &mut Cpu)  {  op_set_B(set, 4, cpu); }
-fn set_4_C(cpu: &mut Cpu)  {  op_set_C(set, 4, cpu); }
-fn set_4_D(cpu: &mut Cpu)  {  op_set_D(set, 4, cpu); }
-fn set_4_E(cpu: &mut Cpu)  {  op_set_E(set, 4, cpu); }
-fn set_4_H(cpu: &mut Cpu)  {  op_set_H(set, 4, cpu); }
-fn set_4_L(cpu: &mut Cpu)  {  op_set_L(set, 4, cpu); }
-fn set_4_HL(cpu: &mut Cpu) { op_set_HL(set, 4, cpu); }
+fn set_4_A(cpu: &mut Cpu) {
+    op_set_A(set, 4, cpu);
+}
+fn set_4_B(cpu: &mut Cpu) {
+    op_set_B(set, 4, cpu);
+}
+fn set_4_C(cpu: &mut Cpu) {
+    op_set_C(set, 4, cpu);
+}
+fn set_4_D(cpu: &mut Cpu) {
+    op_set_D(set, 4, cpu);
+}
+fn set_4_E(cpu: &mut Cpu) {
+    op_set_E(set, 4, cpu);
+}
+fn set_4_H(cpu: &mut Cpu) {
+    op_set_H(set, 4, cpu);
+}
+fn set_4_L(cpu: &mut Cpu) {
+    op_set_L(set, 4, cpu);
+}
+fn set_4_HL(cpu: &mut Cpu) {
+    op_set_HL(set, 4, cpu);
+}
 
-fn set_5_A(cpu: &mut Cpu)  {  op_set_A(set, 5, cpu); }
-fn set_5_B(cpu: &mut Cpu)  {  op_set_B(set, 5, cpu); }
-fn set_5_C(cpu: &mut Cpu)  {  op_set_C(set, 5, cpu); }
-fn set_5_D(cpu: &mut Cpu)  {  op_set_D(set, 5, cpu); }
-fn set_5_E(cpu: &mut Cpu)  {  op_set_E(set, 5, cpu); }
-fn set_5_H(cpu: &mut Cpu)  {  op_set_H(set, 5, cpu); }
-fn set_5_L(cpu: &mut Cpu)  {  op_set_L(set, 5, cpu); }
-fn set_5_HL(cpu: &mut Cpu) { op_set_HL(set, 5, cpu); }
+fn set_5_A(cpu: &mut Cpu) {
+    op_set_A(set, 5, cpu);
+}
+fn set_5_B(cpu: &mut Cpu) {
+    op_set_B(set, 5, cpu);
+}
+fn set_5_C(cpu: &mut Cpu) {
+    op_set_C(set, 5, cpu);
+}
+fn set_5_D(cpu: &mut Cpu) {
+    op_set_D(set, 5, cpu);
+}
+fn set_5_E(cpu: &mut Cpu) {
+    op_set_E(set, 5, cpu);
+}
+fn set_5_H(cpu: &mut Cpu) {
+    op_set_H(set, 5, cpu);
+}
+fn set_5_L(cpu: &mut Cpu) {
+    op_set_L(set, 5, cpu);
+}
+fn set_5_HL(cpu: &mut Cpu) {
+    op_set_HL(set, 5, cpu);
+}
 
-fn set_6_A(cpu: &mut Cpu)  {  op_set_A(set, 6, cpu); }
-fn set_6_B(cpu: &mut Cpu)  {  op_set_B(set, 6, cpu); }
-fn set_6_C(cpu: &mut Cpu)  {  op_set_C(set, 6, cpu); }
-fn set_6_D(cpu: &mut Cpu)  {  op_set_D(set, 6, cpu); }
-fn set_6_E(cpu: &mut Cpu)  {  op_set_E(set, 6, cpu); }
-fn set_6_H(cpu: &mut Cpu)  {  op_set_H(set, 6, cpu); }
-fn set_6_L(cpu: &mut Cpu)  {  op_set_L(set, 6, cpu); }
-fn set_6_HL(cpu: &mut Cpu) { op_set_HL(set, 6, cpu); }
+fn set_6_A(cpu: &mut Cpu) {
+    op_set_A(set, 6, cpu);
+}
+fn set_6_B(cpu: &mut Cpu) {
+    op_set_B(set, 6, cpu);
+}
+fn set_6_C(cpu: &mut Cpu) {
+    op_set_C(set, 6, cpu);
+}
+fn set_6_D(cpu: &mut Cpu) {
+    op_set_D(set, 6, cpu);
+}
+fn set_6_E(cpu: &mut Cpu) {
+    op_set_E(set, 6, cpu);
+}
+fn set_6_H(cpu: &mut Cpu) {
+    op_set_H(set, 6, cpu);
+}
+fn set_6_L(cpu: &mut Cpu) {
+    op_set_L(set, 6, cpu);
+}
+fn set_6_HL(cpu: &mut Cpu) {
+    op_set_HL(set, 6, cpu);
+}
 
-fn set_7_A(cpu: &mut Cpu)  {  op_set_A(set, 7, cpu); }
-fn set_7_B(cpu: &mut Cpu)  {  op_set_B(set, 7, cpu); }
-fn set_7_C(cpu: &mut Cpu)  {  op_set_C(set, 7, cpu); }
-fn set_7_D(cpu: &mut Cpu)  {  op_set_D(set, 7, cpu); }
-fn set_7_E(cpu: &mut Cpu)  {  op_set_E(set, 7, cpu); }
-fn set_7_H(cpu: &mut Cpu)  {  op_set_H(set, 7, cpu); }
-fn set_7_L(cpu: &mut Cpu)  {  op_set_L(set, 7, cpu); }
-fn set_7_HL(cpu: &mut Cpu) { op_set_HL(set, 7, cpu); }
+fn set_7_A(cpu: &mut Cpu) {
+    op_set_A(set, 7, cpu);
+}
+fn set_7_B(cpu: &mut Cpu) {
+    op_set_B(set, 7, cpu);
+}
+fn set_7_C(cpu: &mut Cpu) {
+    op_set_C(set, 7, cpu);
+}
+fn set_7_D(cpu: &mut Cpu) {
+    op_set_D(set, 7, cpu);
+}
+fn set_7_E(cpu: &mut Cpu) {
+    op_set_E(set, 7, cpu);
+}
+fn set_7_H(cpu: &mut Cpu) {
+    op_set_H(set, 7, cpu);
+}
+fn set_7_L(cpu: &mut Cpu) {
+    op_set_L(set, 7, cpu);
+}
+fn set_7_HL(cpu: &mut Cpu) {
+    op_set_HL(set, 7, cpu);
+}
 
 fn reset(b: u8, x: u8, _: &mut Cpu) -> u8 {
     let mask = match b {
@@ -2009,83 +2615,211 @@ fn reset(b: u8, x: u8, _: &mut Cpu) -> u8 {
         5 => 0b11011111,
         6 => 0b10111111,
         7 => 0b01111111,
-        _ => panic!()
+        _ => panic!(),
     };
 
     mask & x
 }
 
-fn reset_0_A(cpu: &mut Cpu)  {  op_set_A(reset, 0, cpu); }
-fn reset_0_B(cpu: &mut Cpu)  {  op_set_B(reset, 0, cpu); }
-fn reset_0_C(cpu: &mut Cpu)  {  op_set_C(reset, 0, cpu); }
-fn reset_0_D(cpu: &mut Cpu)  {  op_set_D(reset, 0, cpu); }
-fn reset_0_E(cpu: &mut Cpu)  {  op_set_E(reset, 0, cpu); }
-fn reset_0_H(cpu: &mut Cpu)  {  op_set_H(reset, 0, cpu); }
-fn reset_0_L(cpu: &mut Cpu)  {  op_set_L(reset, 0, cpu); }
-fn reset_0_HL(cpu: &mut Cpu) { op_set_HL(reset, 0, cpu); }
+fn reset_0_A(cpu: &mut Cpu) {
+    op_set_A(reset, 0, cpu);
+}
+fn reset_0_B(cpu: &mut Cpu) {
+    op_set_B(reset, 0, cpu);
+}
+fn reset_0_C(cpu: &mut Cpu) {
+    op_set_C(reset, 0, cpu);
+}
+fn reset_0_D(cpu: &mut Cpu) {
+    op_set_D(reset, 0, cpu);
+}
+fn reset_0_E(cpu: &mut Cpu) {
+    op_set_E(reset, 0, cpu);
+}
+fn reset_0_H(cpu: &mut Cpu) {
+    op_set_H(reset, 0, cpu);
+}
+fn reset_0_L(cpu: &mut Cpu) {
+    op_set_L(reset, 0, cpu);
+}
+fn reset_0_HL(cpu: &mut Cpu) {
+    op_set_HL(reset, 0, cpu);
+}
 
-fn reset_1_A(cpu: &mut Cpu)  {  op_set_A(reset, 1, cpu); }
-fn reset_1_B(cpu: &mut Cpu)  {  op_set_B(reset, 1, cpu); }
-fn reset_1_C(cpu: &mut Cpu)  {  op_set_C(reset, 1, cpu); }
-fn reset_1_D(cpu: &mut Cpu)  {  op_set_D(reset, 1, cpu); }
-fn reset_1_E(cpu: &mut Cpu)  {  op_set_E(reset, 1, cpu); }
-fn reset_1_H(cpu: &mut Cpu)  {  op_set_H(reset, 1, cpu); }
-fn reset_1_L(cpu: &mut Cpu)  {  op_set_L(reset, 1, cpu); }
-fn reset_1_HL(cpu: &mut Cpu) { op_set_HL(reset, 1, cpu); }
+fn reset_1_A(cpu: &mut Cpu) {
+    op_set_A(reset, 1, cpu);
+}
+fn reset_1_B(cpu: &mut Cpu) {
+    op_set_B(reset, 1, cpu);
+}
+fn reset_1_C(cpu: &mut Cpu) {
+    op_set_C(reset, 1, cpu);
+}
+fn reset_1_D(cpu: &mut Cpu) {
+    op_set_D(reset, 1, cpu);
+}
+fn reset_1_E(cpu: &mut Cpu) {
+    op_set_E(reset, 1, cpu);
+}
+fn reset_1_H(cpu: &mut Cpu) {
+    op_set_H(reset, 1, cpu);
+}
+fn reset_1_L(cpu: &mut Cpu) {
+    op_set_L(reset, 1, cpu);
+}
+fn reset_1_HL(cpu: &mut Cpu) {
+    op_set_HL(reset, 1, cpu);
+}
 
-fn reset_2_A(cpu: &mut Cpu)  {  op_set_A(reset, 2, cpu); }
-fn reset_2_B(cpu: &mut Cpu)  {  op_set_B(reset, 2, cpu); }
-fn reset_2_C(cpu: &mut Cpu)  {  op_set_C(reset, 2, cpu); }
-fn reset_2_D(cpu: &mut Cpu)  {  op_set_D(reset, 2, cpu); }
-fn reset_2_E(cpu: &mut Cpu)  {  op_set_E(reset, 2, cpu); }
-fn reset_2_H(cpu: &mut Cpu)  {  op_set_H(reset, 2, cpu); }
-fn reset_2_L(cpu: &mut Cpu)  {  op_set_L(reset, 2, cpu); }
-fn reset_2_HL(cpu: &mut Cpu) { op_set_HL(reset, 2, cpu); }
+fn reset_2_A(cpu: &mut Cpu) {
+    op_set_A(reset, 2, cpu);
+}
+fn reset_2_B(cpu: &mut Cpu) {
+    op_set_B(reset, 2, cpu);
+}
+fn reset_2_C(cpu: &mut Cpu) {
+    op_set_C(reset, 2, cpu);
+}
+fn reset_2_D(cpu: &mut Cpu) {
+    op_set_D(reset, 2, cpu);
+}
+fn reset_2_E(cpu: &mut Cpu) {
+    op_set_E(reset, 2, cpu);
+}
+fn reset_2_H(cpu: &mut Cpu) {
+    op_set_H(reset, 2, cpu);
+}
+fn reset_2_L(cpu: &mut Cpu) {
+    op_set_L(reset, 2, cpu);
+}
+fn reset_2_HL(cpu: &mut Cpu) {
+    op_set_HL(reset, 2, cpu);
+}
 
-fn reset_3_A(cpu: &mut Cpu)  {  op_set_A(reset, 3, cpu); }
-fn reset_3_B(cpu: &mut Cpu)  {  op_set_B(reset, 3, cpu); }
-fn reset_3_C(cpu: &mut Cpu)  {  op_set_C(reset, 3, cpu); }
-fn reset_3_D(cpu: &mut Cpu)  {  op_set_D(reset, 3, cpu); }
-fn reset_3_E(cpu: &mut Cpu)  {  op_set_E(reset, 3, cpu); }
-fn reset_3_H(cpu: &mut Cpu)  {  op_set_H(reset, 3, cpu); }
-fn reset_3_L(cpu: &mut Cpu)  {  op_set_L(reset, 3, cpu); }
-fn reset_3_HL(cpu: &mut Cpu) { op_set_HL(reset, 3, cpu); }
+fn reset_3_A(cpu: &mut Cpu) {
+    op_set_A(reset, 3, cpu);
+}
+fn reset_3_B(cpu: &mut Cpu) {
+    op_set_B(reset, 3, cpu);
+}
+fn reset_3_C(cpu: &mut Cpu) {
+    op_set_C(reset, 3, cpu);
+}
+fn reset_3_D(cpu: &mut Cpu) {
+    op_set_D(reset, 3, cpu);
+}
+fn reset_3_E(cpu: &mut Cpu) {
+    op_set_E(reset, 3, cpu);
+}
+fn reset_3_H(cpu: &mut Cpu) {
+    op_set_H(reset, 3, cpu);
+}
+fn reset_3_L(cpu: &mut Cpu) {
+    op_set_L(reset, 3, cpu);
+}
+fn reset_3_HL(cpu: &mut Cpu) {
+    op_set_HL(reset, 3, cpu);
+}
 
-fn reset_4_A(cpu: &mut Cpu)  {  op_set_A(reset, 4, cpu); }
-fn reset_4_B(cpu: &mut Cpu)  {  op_set_B(reset, 4, cpu); }
-fn reset_4_C(cpu: &mut Cpu)  {  op_set_C(reset, 4, cpu); }
-fn reset_4_D(cpu: &mut Cpu)  {  op_set_D(reset, 4, cpu); }
-fn reset_4_E(cpu: &mut Cpu)  {  op_set_E(reset, 4, cpu); }
-fn reset_4_H(cpu: &mut Cpu)  {  op_set_H(reset, 4, cpu); }
-fn reset_4_L(cpu: &mut Cpu)  {  op_set_L(reset, 4, cpu); }
-fn reset_4_HL(cpu: &mut Cpu) { op_set_HL(reset, 4, cpu); }
+fn reset_4_A(cpu: &mut Cpu) {
+    op_set_A(reset, 4, cpu);
+}
+fn reset_4_B(cpu: &mut Cpu) {
+    op_set_B(reset, 4, cpu);
+}
+fn reset_4_C(cpu: &mut Cpu) {
+    op_set_C(reset, 4, cpu);
+}
+fn reset_4_D(cpu: &mut Cpu) {
+    op_set_D(reset, 4, cpu);
+}
+fn reset_4_E(cpu: &mut Cpu) {
+    op_set_E(reset, 4, cpu);
+}
+fn reset_4_H(cpu: &mut Cpu) {
+    op_set_H(reset, 4, cpu);
+}
+fn reset_4_L(cpu: &mut Cpu) {
+    op_set_L(reset, 4, cpu);
+}
+fn reset_4_HL(cpu: &mut Cpu) {
+    op_set_HL(reset, 4, cpu);
+}
 
-fn reset_5_A(cpu: &mut Cpu)  {  op_set_A(reset, 5, cpu); }
-fn reset_5_B(cpu: &mut Cpu)  {  op_set_B(reset, 5, cpu); }
-fn reset_5_C(cpu: &mut Cpu)  {  op_set_C(reset, 5, cpu); }
-fn reset_5_D(cpu: &mut Cpu)  {  op_set_D(reset, 5, cpu); }
-fn reset_5_E(cpu: &mut Cpu)  {  op_set_E(reset, 5, cpu); }
-fn reset_5_H(cpu: &mut Cpu)  {  op_set_H(reset, 5, cpu); }
-fn reset_5_L(cpu: &mut Cpu)  {  op_set_L(reset, 5, cpu); }
-fn reset_5_HL(cpu: &mut Cpu) { op_set_HL(reset, 5, cpu); }
+fn reset_5_A(cpu: &mut Cpu) {
+    op_set_A(reset, 5, cpu);
+}
+fn reset_5_B(cpu: &mut Cpu) {
+    op_set_B(reset, 5, cpu);
+}
+fn reset_5_C(cpu: &mut Cpu) {
+    op_set_C(reset, 5, cpu);
+}
+fn reset_5_D(cpu: &mut Cpu) {
+    op_set_D(reset, 5, cpu);
+}
+fn reset_5_E(cpu: &mut Cpu) {
+    op_set_E(reset, 5, cpu);
+}
+fn reset_5_H(cpu: &mut Cpu) {
+    op_set_H(reset, 5, cpu);
+}
+fn reset_5_L(cpu: &mut Cpu) {
+    op_set_L(reset, 5, cpu);
+}
+fn reset_5_HL(cpu: &mut Cpu) {
+    op_set_HL(reset, 5, cpu);
+}
 
-fn reset_6_A(cpu: &mut Cpu)  {  op_set_A(reset, 6, cpu); }
-fn reset_6_B(cpu: &mut Cpu)  {  op_set_B(reset, 6, cpu); }
-fn reset_6_C(cpu: &mut Cpu)  {  op_set_C(reset, 6, cpu); }
-fn reset_6_D(cpu: &mut Cpu)  {  op_set_D(reset, 6, cpu); }
-fn reset_6_E(cpu: &mut Cpu)  {  op_set_E(reset, 6, cpu); }
-fn reset_6_H(cpu: &mut Cpu)  {  op_set_H(reset, 6, cpu); }
-fn reset_6_L(cpu: &mut Cpu)  {  op_set_L(reset, 6, cpu); }
-fn reset_6_HL(cpu: &mut Cpu) { op_set_HL(reset, 6, cpu); }
+fn reset_6_A(cpu: &mut Cpu) {
+    op_set_A(reset, 6, cpu);
+}
+fn reset_6_B(cpu: &mut Cpu) {
+    op_set_B(reset, 6, cpu);
+}
+fn reset_6_C(cpu: &mut Cpu) {
+    op_set_C(reset, 6, cpu);
+}
+fn reset_6_D(cpu: &mut Cpu) {
+    op_set_D(reset, 6, cpu);
+}
+fn reset_6_E(cpu: &mut Cpu) {
+    op_set_E(reset, 6, cpu);
+}
+fn reset_6_H(cpu: &mut Cpu) {
+    op_set_H(reset, 6, cpu);
+}
+fn reset_6_L(cpu: &mut Cpu) {
+    op_set_L(reset, 6, cpu);
+}
+fn reset_6_HL(cpu: &mut Cpu) {
+    op_set_HL(reset, 6, cpu);
+}
 
-fn reset_7_A(cpu: &mut Cpu)  {  op_set_A(reset, 7, cpu); }
-fn reset_7_B(cpu: &mut Cpu)  {  op_set_B(reset, 7, cpu); }
-fn reset_7_C(cpu: &mut Cpu)  {  op_set_C(reset, 7, cpu); }
-fn reset_7_D(cpu: &mut Cpu)  {  op_set_D(reset, 7, cpu); }
-fn reset_7_E(cpu: &mut Cpu)  {  op_set_E(reset, 7, cpu); }
-fn reset_7_H(cpu: &mut Cpu)  {  op_set_H(reset, 7, cpu); }
-fn reset_7_L(cpu: &mut Cpu)  {  op_set_L(reset, 7, cpu); }
-fn reset_7_HL(cpu: &mut Cpu) { op_set_HL(reset, 7, cpu); }
+fn reset_7_A(cpu: &mut Cpu) {
+    op_set_A(reset, 7, cpu);
+}
+fn reset_7_B(cpu: &mut Cpu) {
+    op_set_B(reset, 7, cpu);
+}
+fn reset_7_C(cpu: &mut Cpu) {
+    op_set_C(reset, 7, cpu);
+}
+fn reset_7_D(cpu: &mut Cpu) {
+    op_set_D(reset, 7, cpu);
+}
+fn reset_7_E(cpu: &mut Cpu) {
+    op_set_E(reset, 7, cpu);
+}
+fn reset_7_H(cpu: &mut Cpu) {
+    op_set_H(reset, 7, cpu);
+}
+fn reset_7_L(cpu: &mut Cpu) {
+    op_set_L(reset, 7, cpu);
+}
+fn reset_7_HL(cpu: &mut Cpu) {
+    op_set_HL(reset, 7, cpu);
+}
 
 op_codes!(
     // ===========================

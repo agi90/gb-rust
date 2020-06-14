@@ -1,19 +1,9 @@
-use sound::SDLPlayer;
-use glium::glutin::{
-    ContextBuilder,
-    ElementState,
-    EventsLoop,
-    VirtualKeyCode,
-};
-use glium::glutin::dpi::LogicalSize;
 use glium::backend::glutin::Display;
+use glium::glutin::dpi::LogicalSize;
+use glium::glutin::{ContextBuilder, ElementState, EventsLoop, VirtualKeyCode};
+use sound::SDLPlayer;
 
-use gb::{
-    Emulator,
-    Hardware,
-    Interrupt,
-    Key,
-};
+use gb::{Emulator, Hardware, Interrupt, Key};
 
 use gpu::renderer::GLRenderer;
 
@@ -41,9 +31,8 @@ impl Controller {
         let window_builder = glium::glutin::WindowBuilder::new()
             .with_title("gb-rust")
             .with_dimensions(LogicalSize::new(x, y));
-        let mut display = Display::new(window_builder,
-                ContextBuilder::new(),
-                &events_loop).unwrap();
+        let mut display =
+            Display::new(window_builder, ContextBuilder::new(), &events_loop).unwrap();
         let renderer = GLRenderer::new(&mut display);
 
         Controller {
@@ -71,51 +60,57 @@ impl Controller {
 
     fn handle_event(event: glutin::Event, emulator: &mut Emulator) -> Event {
         match event {
-            glutin::Event::WindowEvent{window_id: _, event: window_event} => {
-                match window_event {
-                    glutin::WindowEvent::CloseRequested =>
-                        return Event::Quit,
-                    glutin::WindowEvent::KeyboardInput{device_id: _, input: keyboard_input} => {
-                        if keyboard_input.state == ElementState::Pressed {
-                            match keyboard_input.virtual_keycode {
-                                Some(VirtualKeyCode::F1) => {
-                                    return Event::Break;
-                                },
-                                Some(VirtualKeyCode::F2) => {
-                                    return Event::ToggleSpeed;
-                                },
-                                _ => {},
+            glutin::Event::WindowEvent {
+                window_id: _,
+                event: window_event,
+            } => match window_event {
+                glutin::WindowEvent::CloseRequested => return Event::Quit,
+                glutin::WindowEvent::KeyboardInput {
+                    device_id: _,
+                    input: keyboard_input,
+                } => {
+                    if keyboard_input.state == ElementState::Pressed {
+                        match keyboard_input.virtual_keycode {
+                            Some(VirtualKeyCode::F1) => {
+                                return Event::Break;
                             }
+                            Some(VirtualKeyCode::F2) => {
+                                return Event::ToggleSpeed;
+                            }
+                            _ => {}
                         }
+                    }
 
-                        let key = keyboard_input.virtual_keycode.and_then(|k| match k {
-                            VirtualKeyCode::Left  => Some(Key::Left),
-                            VirtualKeyCode::Right => Some(Key::Right),
-                            VirtualKeyCode::Up    => Some(Key::Up),
-                            VirtualKeyCode::Down  => Some(Key::Down),
-                            VirtualKeyCode::A     => Some(Key::A),
-                            VirtualKeyCode::S     => Some(Key::B),
-                            VirtualKeyCode::D     => Some(Key::Start),
-                            VirtualKeyCode::F     => Some(Key::Select),
-                            _ => None,
-                        });
+                    let key = keyboard_input.virtual_keycode.and_then(|k| match k {
+                        VirtualKeyCode::Left => Some(Key::Left),
+                        VirtualKeyCode::Right => Some(Key::Right),
+                        VirtualKeyCode::Up => Some(Key::Up),
+                        VirtualKeyCode::Down => Some(Key::Down),
+                        VirtualKeyCode::A => Some(Key::A),
+                        VirtualKeyCode::S => Some(Key::B),
+                        VirtualKeyCode::D => Some(Key::Start),
+                        VirtualKeyCode::F => Some(Key::Select),
+                        _ => None,
+                    });
 
-                        if let Some(k) = key {
-                            match keyboard_input.state {
-                                ElementState::Pressed => { emulator.cpu.key_down(k) },
-                                ElementState::Released => { emulator.cpu.key_up(k) },
-                            }
-                            emulator.cpu.interrupt(Interrupt::Joypad);
-                        };
-                    },
-                    _ => {},
+                    if let Some(k) = key {
+                        match keyboard_input.state {
+                            ElementState::Pressed => emulator.cpu.key_down(k),
+                            ElementState::Released => emulator.cpu.key_up(k),
+                        }
+                        emulator.cpu.interrupt(Interrupt::Joypad);
+                    };
                 }
+                _ => {}
             },
-            glutin::Event::DeviceEvent{device_id: _, event: device_event} => {
+            glutin::Event::DeviceEvent {
+                device_id: _,
+                event: device_event,
+            } => {
                 match device_event {
                     _ => {}
                 };
-            },
+            }
             _ => {}
         }
 

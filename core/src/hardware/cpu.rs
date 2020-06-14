@@ -1,8 +1,8 @@
-pub use hardware::opcodes::OpCode;
-use hardware::handler_holder::Key;
 use hardware::apu::AudioBuffer;
-use hardware::timer_controller::TimerController;
+use hardware::handler_holder::Key;
+pub use hardware::opcodes::OpCode;
 use hardware::ppu::ScreenBuffer;
+use hardware::timer_controller::TimerController;
 
 use std::cell::RefCell;
 
@@ -15,7 +15,7 @@ pub const CYCLES_PER_STEP: usize = 2;
 pub enum CpuState {
     Running,
     Halt,
-    Stop
+    Stop,
 }
 
 pub trait Hardware {
@@ -63,22 +63,21 @@ pub struct Cpu {
     address_breakpoint: RefCell<bool>,
 }
 
-
 /** Each Handler will handle a specific region of memory
-  in write/read access. */
+in write/read access. */
 pub trait Handler {
     fn read(&self, address: u16) -> u8;
     fn write(&mut self, address: u16, v: u8);
 }
 
 /** This interface is used to decouple memory access
-  and the CPU */
+and the CPU */
 pub trait MapperHolder {
     fn get_handler_read(&self, address: u16) -> &dyn Handler;
     fn get_handler_write(&mut self, address: u16) -> &mut dyn Handler;
 }
 
-pub trait HandlerHolder : MapperHolder {
+pub trait HandlerHolder: MapperHolder {
     fn key_down(&mut self, key: Key);
     fn key_up(&mut self, key: Key);
     fn get_screen_buffer(&self) -> &ScreenBuffer;
@@ -189,9 +188,8 @@ impl Cpu {
         }
 
         match address {
-            0xFF04 ..= 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.read(address),
-            _ => self.handler_holder.get_handler_read(address)
-                     .read(address)
+            0xFF04..=0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.read(address),
+            _ => self.handler_holder.get_handler_read(address).read(address),
         }
     }
 
@@ -205,9 +203,8 @@ impl Cpu {
 
         self.add_cycles(4);
         match address {
-            0xFF04 ..= 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.read(address),
-            _ => self.handler_holder.get_handler_read(address)
-                     .read(address)
+            0xFF04..=0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.read(address),
+            _ => self.handler_holder.get_handler_read(address).read(address),
         }
     }
 
@@ -220,9 +217,11 @@ impl Cpu {
         }
 
         match address {
-            0xFF04 ..= 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.write(address, v),
-            _ => self.handler_holder.get_handler_write(address)
-                     .write(address, v),
+            0xFF04..=0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.write(address, v),
+            _ => self
+                .handler_holder
+                .get_handler_write(address)
+                .write(address, v),
         }
     }
 
@@ -236,9 +235,11 @@ impl Cpu {
 
         self.add_cycles(4);
         match address {
-            0xFF04 ..= 0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.write(address, v),
-            _ => self.handler_holder.get_handler_write(address)
-                     .write(address, v),
+            0xFF04..=0xFF07 | 0xFF0F | 0xFFFF => self.interrupt_handler.write(address, v),
+            _ => self
+                .handler_holder
+                .get_handler_write(address)
+                .write(address, v),
         }
     }
 
@@ -252,26 +253,60 @@ impl Cpu {
         self.watch_addresses.clear();
     }
 
-    pub fn set_Z_flag(&mut self) { self.Z_flag = true }
-    pub fn set_N_flag(&mut self) { self.N_flag = true }
-    pub fn set_H_flag(&mut self) { self.H_flag = true }
-    pub fn set_C_flag(&mut self) { self.C_flag = true }
+    pub fn set_Z_flag(&mut self) {
+        self.Z_flag = true
+    }
+    pub fn set_N_flag(&mut self) {
+        self.N_flag = true
+    }
+    pub fn set_H_flag(&mut self) {
+        self.H_flag = true
+    }
+    pub fn set_C_flag(&mut self) {
+        self.C_flag = true
+    }
 
-    pub fn reset_Z(&mut self) { self.Z_flag = false }
-    pub fn reset_N(&mut self) { self.N_flag = false }
-    pub fn reset_H(&mut self) { self.H_flag = false }
-    pub fn reset_C(&mut self) { self.C_flag = false }
+    pub fn reset_Z(&mut self) {
+        self.Z_flag = false
+    }
+    pub fn reset_N(&mut self) {
+        self.N_flag = false
+    }
+    pub fn reset_H(&mut self) {
+        self.H_flag = false
+    }
+    pub fn reset_C(&mut self) {
+        self.C_flag = false
+    }
 
-    pub fn get_Z_flag(&self) -> bool { self.Z_flag }
-    pub fn get_N_flag(&self) -> bool { self.N_flag }
-    pub fn get_H_flag(&self) -> bool { self.H_flag }
-    pub fn get_C_flag(&self) -> bool { self.C_flag }
+    pub fn get_Z_flag(&self) -> bool {
+        self.Z_flag
+    }
+    pub fn get_N_flag(&self) -> bool {
+        self.N_flag
+    }
+    pub fn get_H_flag(&self) -> bool {
+        self.H_flag
+    }
+    pub fn get_C_flag(&self) -> bool {
+        self.C_flag
+    }
 
-    pub fn set_A_reg(&mut self, v: u8) { self.A_reg = v }
-    pub fn set_B_reg(&mut self, v: u8) { self.B_reg = v }
-    pub fn set_C_reg(&mut self, v: u8) { self.C_reg = v }
-    pub fn set_D_reg(&mut self, v: u8) { self.D_reg = v }
-    pub fn set_E_reg(&mut self, v: u8) { self.E_reg = v }
+    pub fn set_A_reg(&mut self, v: u8) {
+        self.A_reg = v
+    }
+    pub fn set_B_reg(&mut self, v: u8) {
+        self.B_reg = v
+    }
+    pub fn set_C_reg(&mut self, v: u8) {
+        self.C_reg = v
+    }
+    pub fn set_D_reg(&mut self, v: u8) {
+        self.D_reg = v
+    }
+    pub fn set_E_reg(&mut self, v: u8) {
+        self.E_reg = v
+    }
 
     pub fn set_F_reg(&mut self, v: u8) {
         self.Z_flag = (v & 0b10000000) > 0;
@@ -280,27 +315,49 @@ impl Cpu {
         self.C_flag = (v & 0b00010000) > 0;
     }
 
-    pub fn set_H_reg(&mut self, v: u8) { self.H_reg = v }
-    pub fn set_L_reg(&mut self, v: u8) { self.L_reg = v }
-
-    pub fn get_A_reg(&self) -> u8 { self.A_reg }
-    pub fn get_B_reg(&self) -> u8 { self.B_reg }
-    pub fn get_C_reg(&self) -> u8 { self.C_reg }
-    pub fn get_D_reg(&self) -> u8 { self.D_reg }
-    pub fn get_E_reg(&self) -> u8 { self.E_reg }
-
-    pub fn get_F_reg(&self) -> u8 {
-        (if self.Z_flag { 0b10000000 } else { 0 }) +
-        (if self.N_flag { 0b01000000 } else { 0 }) +
-        (if self.H_flag { 0b00100000 } else { 0 }) +
-        (if self.C_flag { 0b00010000 } else { 0 })
+    pub fn set_H_reg(&mut self, v: u8) {
+        self.H_reg = v
+    }
+    pub fn set_L_reg(&mut self, v: u8) {
+        self.L_reg = v
     }
 
-    pub fn get_H_reg(&self) -> u8 { self.H_reg }
-    pub fn get_L_reg(&self) -> u8 { self.L_reg }
+    pub fn get_A_reg(&self) -> u8 {
+        self.A_reg
+    }
+    pub fn get_B_reg(&self) -> u8 {
+        self.B_reg
+    }
+    pub fn get_C_reg(&self) -> u8 {
+        self.C_reg
+    }
+    pub fn get_D_reg(&self) -> u8 {
+        self.D_reg
+    }
+    pub fn get_E_reg(&self) -> u8 {
+        self.E_reg
+    }
 
-    pub fn set_state(&mut self, state: CpuState) { self.state = state }
-    pub fn get_state(&self) -> &CpuState { &self.state }
+    pub fn get_F_reg(&self) -> u8 {
+        (if self.Z_flag { 0b10000000 } else { 0 })
+            + (if self.N_flag { 0b01000000 } else { 0 })
+            + (if self.H_flag { 0b00100000 } else { 0 })
+            + (if self.C_flag { 0b00010000 } else { 0 })
+    }
+
+    pub fn get_H_reg(&self) -> u8 {
+        self.H_reg
+    }
+    pub fn get_L_reg(&self) -> u8 {
+        self.L_reg
+    }
+
+    pub fn set_state(&mut self, state: CpuState) {
+        self.state = state
+    }
+    pub fn get_state(&self) -> &CpuState {
+        &self.state
+    }
 
     pub fn disable_interrupts(&mut self) {
         self.interrupt_handler.disable();
@@ -325,12 +382,16 @@ impl Cpu {
         self.L_reg = v as u8;
     }
 
-    pub fn get_SP(&self) -> u16 { self.SP_reg }
+    pub fn get_SP(&self) -> u16 {
+        self.SP_reg
+    }
     pub fn set_SP(&mut self, v: u16) {
         self.SP_reg = v
     }
 
-    pub fn get_PC(&self) -> u16 { self.PC_reg }
+    pub fn get_PC(&self) -> u16 {
+        self.PC_reg
+    }
     pub fn inc_PC(&mut self) {
         self.PC_reg += 1;
     }
@@ -350,7 +411,8 @@ impl Cpu {
         self.interrupt_handler.cpu_step();
         self.handler_holder.cpu_step();
 
-        self.handler_holder.check_interrupts()
+        self.handler_holder
+            .check_interrupts()
             .map(|i| self.interrupt_handler.add_interrupt(i));
     }
 
@@ -364,7 +426,9 @@ impl Cpu {
         }
     }
 
-    pub fn get_cycles(&self) -> usize { self.cycles }
+    pub fn get_cycles(&self) -> usize {
+        self.cycles
+    }
 
     fn interrupt(&mut self, interrupt: Interrupt) {
         self.interrupt_handler.disable();
@@ -378,8 +442,8 @@ impl Cpu {
 
         let address = match interrupt {
             Interrupt::VBlank => 0x0040,
-            Interrupt::Stat   => 0x0048,
-            Interrupt::Timer  => 0x0050,
+            Interrupt::Stat => 0x0048,
+            Interrupt::Timer => 0x0050,
             Interrupt::Joypad => 0x0060,
         };
 
@@ -387,15 +451,29 @@ impl Cpu {
         self.reset_call_set_PC();
     }
 
-    pub fn get_debug(&self) -> bool { self.debug }
-    pub fn set_debug(&mut self, debug: bool) { self.debug = debug }
+    pub fn get_debug(&self) -> bool {
+        self.debug
+    }
+    pub fn set_debug(&mut self, debug: bool) {
+        self.debug = debug
+    }
 
-    pub fn did_call_set_PC(&self) -> bool { self.called_set_PC }
-    pub fn reset_call_set_PC(&mut self) { self.called_set_PC = false }
+    pub fn did_call_set_PC(&self) -> bool {
+        self.called_set_PC
+    }
+    pub fn reset_call_set_PC(&mut self) {
+        self.called_set_PC = false
+    }
 
-    pub fn get_BC(&self) -> u16 { ((self.B_reg as u16) << 8) + (self.C_reg as u16) }
-    pub fn get_DE(&self) -> u16 { ((self.D_reg as u16) << 8) + (self.E_reg as u16) }
-    pub fn get_HL(&self) -> u16 { ((self.H_reg as u16) << 8) + (self.L_reg as u16) }
+    pub fn get_BC(&self) -> u16 {
+        ((self.B_reg as u16) << 8) + (self.C_reg as u16)
+    }
+    pub fn get_DE(&self) -> u16 {
+        ((self.D_reg as u16) << 8) + (self.E_reg as u16)
+    }
+    pub fn get_HL(&self) -> u16 {
+        ((self.H_reg as u16) << 8) + (self.L_reg as u16)
+    }
 
     pub fn deref_PC(&mut self) -> u8 {
         let pc = self.get_PC();
@@ -432,8 +510,12 @@ impl Cpu {
         self.set_deref(address, v);
     }
 
-    pub fn inc_SP(&mut self) { self.SP_reg += 1; }
-    fn dec_SP(&mut self) { self.SP_reg -= 1; }
+    pub fn inc_SP(&mut self) {
+        self.SP_reg += 1;
+    }
+    fn dec_SP(&mut self) {
+        self.SP_reg -= 1;
+    }
 
     pub fn push_SP(&mut self, v: u8) {
         self.dec_SP();
@@ -502,7 +584,7 @@ impl Cpu {
 enum InterruptStatus {
     Disabled,
     Enabling,
-    Enabled
+    Enabled,
 }
 
 struct InterruptHandler {
@@ -548,7 +630,7 @@ impl InterruptHandler {
     pub fn read(&self, address: u16) -> u8 {
         match address {
             0xFF0F | 0xFFFF => self.register.read(address),
-            0xFF04 ..= 0xFF07 => self.timer_controller.read(address),
+            0xFF04..=0xFF07 => self.timer_controller.read(address),
             _ => panic!(),
         }
     }
@@ -556,22 +638,20 @@ impl InterruptHandler {
     pub fn write(&mut self, address: u16, v: u8) {
         match address {
             0xFF0F | 0xFFFF => self.register.write(address, v),
-            0xFF04 ..= 0xFF07 => self.timer_controller.write(address, v),
+            0xFF04..=0xFF07 => self.timer_controller.write(address, v),
             _ => panic!(),
         }
     }
 
     pub fn cpu_step(&mut self) {
-        self.timer_controller.cpu_step()
+        self.timer_controller
+            .cpu_step()
             .map(|i| self.add_interrupt(i));
     }
 
     /// Checks weather an interrupt is queued up (even if it could be disabled)
     pub fn has_interrupts(&self) -> bool {
-        self.register.v_blank
-            || self.register.stat
-            || self.register.timer
-            || self.register.joypad
+        self.register.v_blank || self.register.stat || self.register.timer || self.register.joypad
     }
 
     pub fn get_interrupt(&mut self) -> Option<Interrupt> {
@@ -581,11 +661,13 @@ impl InterruptHandler {
                 // Interrupts take 1 instruction to be enabled
                 self.enabled = InterruptStatus::Enabled;
                 false
-            },
+            }
             InterruptStatus::Enabled => true,
         };
 
-        if !is_enabled { return None; }
+        if !is_enabled {
+            return None;
+        }
 
         if self.register.v_blank_enabled && self.register.v_blank {
             self.register.v_blank = false;
@@ -647,7 +729,7 @@ impl InterruptRegister {
         match address {
             0xFF0F => self.read_interrupt(),
             0xFFFF => self.read_enabled(),
-            _      => panic!(),
+            _ => panic!(),
         }
     }
 
@@ -655,39 +737,39 @@ impl InterruptRegister {
         match address {
             0xFF0F => self.write_interrupt(v),
             0xFFFF => self.write_enabled(v),
-            _      => panic!(),
+            _ => panic!(),
         }
     }
 
     fn read_enabled(&self) -> u8 {
-        (if self.v_blank_enabled { 0b00000001 } else { 0 }) +
-        (if self.stat_enabled    { 0b00000010 } else { 0 }) +
-        (if self.timer_enabled   { 0b00000100 } else { 0 }) +
-        (if self.serial_enabled  { 0b00001000 } else { 0 }) +
-        (if self.joypad_enabled  { 0b00010000 } else { 0 })
+        (if self.v_blank_enabled { 0b00000001 } else { 0 })
+            + (if self.stat_enabled { 0b00000010 } else { 0 })
+            + (if self.timer_enabled { 0b00000100 } else { 0 })
+            + (if self.serial_enabled { 0b00001000 } else { 0 })
+            + (if self.joypad_enabled { 0b00010000 } else { 0 })
     }
 
     fn write_enabled(&mut self, v: u8) {
         self.v_blank_enabled = (v & 0b00000001) > 0;
-        self.stat_enabled    = (v & 0b00000010) > 0;
-        self.timer_enabled   = (v & 0b00000100) > 0;
-        self.serial_enabled  = (v & 0b00001000) > 0;
-        self.joypad_enabled  = (v & 0b00010000) > 0;
+        self.stat_enabled = (v & 0b00000010) > 0;
+        self.timer_enabled = (v & 0b00000100) > 0;
+        self.serial_enabled = (v & 0b00001000) > 0;
+        self.joypad_enabled = (v & 0b00010000) > 0;
     }
 
     fn read_interrupt(&self) -> u8 {
-        (if self.v_blank { 0b00000001 } else { 0 }) +
-        (if self.stat    { 0b00000010 } else { 0 }) +
-        (if self.timer   { 0b00000100 } else { 0 }) +
-        (if self.serial  { 0b00001000 } else { 0 }) +
-        (if self.joypad  { 0b00010000 } else { 0 })
+        (if self.v_blank { 0b00000001 } else { 0 })
+            + (if self.stat { 0b00000010 } else { 0 })
+            + (if self.timer { 0b00000100 } else { 0 })
+            + (if self.serial { 0b00001000 } else { 0 })
+            + (if self.joypad { 0b00010000 } else { 0 })
     }
 
     fn write_interrupt(&mut self, v: u8) {
-       self.v_blank = (v & 0b00000001) > 0;
-       self.stat    = (v & 0b00000010) > 0;
-       self.timer   = (v & 0b00000100) > 0;
-       self.serial  = (v & 0b00001000) > 0;
-       self.joypad  = (v & 0b00010000) > 0;
+        self.v_blank = (v & 0b00000001) > 0;
+        self.stat = (v & 0b00000010) > 0;
+        self.timer = (v & 0b00000100) > 0;
+        self.serial = (v & 0b00001000) > 0;
+        self.joypad = (v & 0b00010000) > 0;
     }
 }

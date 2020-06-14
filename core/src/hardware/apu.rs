@@ -1,18 +1,17 @@
 /** This file is mostly based on http://gbdev.gg8.se/wiki/articles/Gameboy_sound_hardware */
-
 use bitfield::Bitfield;
 use hardware::cpu;
 use hardware::cpu::Handler;
 use std::convert::From;
 
-u8_enum!{
+u8_enum! {
     SoundStatus {
         SoundOff = 0b0,
         SoundOn = 0b1,
     }
 }
 
-u8_enum!{
+u8_enum! {
     WavePattern {
         C12 = 0b00,
         C25 = 0b01,
@@ -21,7 +20,7 @@ u8_enum!{
     }
 }
 
-u8_enum!{
+u8_enum! {
     OutputLevel {
         Mute          = 0b00,
         WavePattern   = 0b01,
@@ -74,8 +73,8 @@ macro_rules! all_channels {
 impl OutputLevel {
     pub fn to_volume(&self) -> f32 {
         match self {
-            &OutputLevel::Mute          => 0.0,
-            &OutputLevel::WavePattern   => 1.0,
+            &OutputLevel::Mute => 0.0,
+            &OutputLevel::WavePattern => 1.0,
             &OutputLevel::RightShifted2 => 0.5,
             &OutputLevel::RightShifted4 => 0.25,
         }
@@ -83,8 +82,8 @@ impl OutputLevel {
 
     pub fn to_u8(&self) -> u8 {
         match self {
-            &OutputLevel::Mute          => 0,
-            &OutputLevel::WavePattern   => 1,
+            &OutputLevel::Mute => 0,
+            &OutputLevel::WavePattern => 1,
             &OutputLevel::RightShifted2 => 2,
             &OutputLevel::RightShifted4 => 3,
         }
@@ -101,14 +100,14 @@ impl OutputLevel {
     }
 }
 
-u8_enum!{
+u8_enum! {
     SweepDirection {
         Down = 0b0,
         Up = 0b1,
     }
 }
 
-u8_enum!{
+u8_enum! {
     ToneSweepDirection {
         Up = 0b0,
         Down = 0b1,
@@ -119,12 +118,12 @@ impl ToneSweepDirection {
     fn to_sign(self) -> i64 {
         match self {
             ToneSweepDirection::Down => -1,
-            ToneSweepDirection::Up   =>  1,
+            ToneSweepDirection::Up => 1,
         }
     }
 }
 
-u8_enum!{
+u8_enum! {
     NoisePattern {
         C15 = 0b0,
         C7  = 0b1,
@@ -158,8 +157,12 @@ trait VolumeSweep {
 }
 
 impl VolumeSweep for AudioLine<SweepWaveDuty> {
-    fn volume(&self) -> u8 { self.sound.volume }
-    fn set_volume(&mut self, v: u8) { self.sound.volume = v; }
+    fn volume(&self) -> u8 {
+        self.sound.volume
+    }
+    fn set_volume(&mut self, v: u8) {
+        self.sound.volume = v;
+    }
 }
 
 impl TriggerEvent for AudioLine<SweepWaveDuty> {
@@ -230,8 +233,12 @@ impl TriggerEvent for AudioLine<WaveDuty> {
 }
 
 impl VolumeSweep for AudioLine<WaveDuty> {
-    fn volume(&self) -> u8 { self.sound.volume }
-    fn set_volume(&mut self, v: u8) { self.sound.volume = v; }
+    fn volume(&self) -> u8 {
+        self.sound.volume
+    }
+    fn set_volume(&mut self, v: u8) {
+        self.sound.volume = v;
+    }
 }
 
 struct Noise {
@@ -252,8 +259,12 @@ impl TriggerEvent for AudioLine<Noise> {
 }
 
 impl VolumeSweep for AudioLine<Noise> {
-    fn volume(&self) -> u8 { self.sound.volume }
-    fn set_volume(&mut self, v: u8) { self.sound.volume = v; }
+    fn volume(&self) -> u8 {
+        self.sound.volume
+    }
+    fn set_volume(&mut self, v: u8) {
+        self.sound.volume = v;
+    }
 }
 
 struct Wave {
@@ -274,7 +285,9 @@ impl TriggerEvent for AudioLine<Wave> {
 }
 
 impl VolumeSweep for AudioLine<Wave> {
-    fn volume(&self) -> u8 { self.sound.volume.to_u8() }
+    fn volume(&self) -> u8 {
+        self.sound.volume.to_u8()
+    }
     fn set_volume(&mut self, v: u8) {
         self.sound.volume = OutputLevel::from_u8(v);
     }
@@ -298,8 +311,10 @@ struct AudioLine<T> {
     sound: T,
 }
 
-impl <T> AudioLine<T>
-    where AudioLine<T> : TriggerEvent {
+impl<T> AudioLine<T>
+where
+    AudioLine<T>: TriggerEvent,
+{
     pub fn new(id: usize, sound: T) -> AudioLine<T> {
         AudioLine {
             id: id,
@@ -347,7 +362,7 @@ pub trait AudioLineView {
     fn frequency(&self) -> u64;
 }
 
-impl <T> AudioLineView for AudioLine<T> {
+impl<T> AudioLineView for AudioLine<T> {
     fn playing_left(&self) -> bool {
         self.playing_left
     }
@@ -379,16 +394,16 @@ pub trait PatternView {
     fn pattern(&self) -> NoisePattern;
 }
 
-pub trait Channel1View : WaveDutyView + VolumeView + AudioLineView {}
+pub trait Channel1View: WaveDutyView + VolumeView + AudioLineView {}
 impl<T> Channel1View for T where T: WaveDutyView + VolumeView + AudioLineView {}
 
-pub trait Channel2View : WaveDutyView + VolumeView + AudioLineView {}
+pub trait Channel2View: WaveDutyView + VolumeView + AudioLineView {}
 impl<T> Channel2View for T where T: WaveDutyView + VolumeView + AudioLineView {}
 
-pub trait Channel3View : WavePatternView + OutputLevelView + AudioLineView {}
+pub trait Channel3View: WavePatternView + OutputLevelView + AudioLineView {}
 impl<T> Channel3View for T where T: WavePatternView + OutputLevelView + AudioLineView {}
 
-pub trait Channel4View : PatternView + VolumeView + AudioLineView {}
+pub trait Channel4View: PatternView + VolumeView + AudioLineView {}
 impl<T> Channel4View for T where T: PatternView + VolumeView + AudioLineView {}
 
 impl VolumeView for AudioLine<WaveDuty> {
@@ -514,12 +529,13 @@ impl<'a> LineMapper for Line1Mapper<'a> {
         self.mapper.sound_1_volume()
     }
     fn frequency(&self) -> u64 {
-        self.mapper.sound_1_frequency_low as u64 +
-            ((self.mapper.sound_1_frequency_high() as u64) << 8)
+        self.mapper.sound_1_frequency_low as u64
+            + ((self.mapper.sound_1_frequency_high() as u64) << 8)
     }
     fn set_frequency(&mut self, frequency: u64) {
         self.mapper.sound_1_frequency_low = (frequency & 0xFF) as u8;
-        self.mapper.set_sound_1_frequency_high((frequency & 0x700 >> 8) as u8);
+        self.mapper
+            .set_sound_1_frequency_high((frequency & 0x700 >> 8) as u8);
     }
     fn sweep_period(&self) -> u8 {
         self.mapper.sound_1_sweep_period()
@@ -531,8 +547,7 @@ impl<'a> LineMapper for Line1Mapper<'a> {
         self.mapper.sound_1_consecutive() > 0
     }
     fn dac_off(&self) -> bool {
-        self.mapper.sound_1_volume() == 0
-            && self.mapper.sound_1_direction() == SweepDirection::Down
+        self.mapper.sound_1_volume() == 0 && self.mapper.sound_1_direction() == SweepDirection::Down
     }
     fn write(&mut self, address: u16, v: u8) {
         self.mapper.write(address, v);
@@ -557,8 +572,8 @@ impl<'a> LineMapper for Line3Mapper<'a> {
         self.mapper.sound_3_output_level().to_u8()
     }
     fn frequency(&self) -> u64 {
-        self.mapper.sound_3_frequency_low as u64 +
-            ((self.mapper.sound_3_frequency_high() as u64) << 8)
+        self.mapper.sound_3_frequency_low as u64
+            + ((self.mapper.sound_3_frequency_high() as u64) << 8)
     }
     fn set_frequency(&mut self, _: u64) {
         panic!();
@@ -597,8 +612,8 @@ impl<'a> LineMapper for Line2Mapper<'a> {
         self.mapper.sound_2_volume()
     }
     fn frequency(&self) -> u64 {
-        self.mapper.sound_2_frequency_low as u64 +
-            ((self.mapper.sound_2_frequency_high() as u64) << 8)
+        self.mapper.sound_2_frequency_low as u64
+            + ((self.mapper.sound_2_frequency_high() as u64) << 8)
     }
     fn set_frequency(&mut self, _: u64) {
         panic!();
@@ -613,8 +628,7 @@ impl<'a> LineMapper for Line2Mapper<'a> {
         self.mapper.sound_2_consecutive() > 0
     }
     fn dac_off(&self) -> bool {
-        self.mapper.sound_2_volume() == 0
-            && self.mapper.sound_2_direction() == SweepDirection::Down
+        self.mapper.sound_2_volume() == 0 && self.mapper.sound_2_direction() == SweepDirection::Down
     }
     fn write(&mut self, address: u16, v: u8) {
         self.mapper.write(address, v);
@@ -661,8 +675,7 @@ impl<'a> LineMapper for Line4Mapper<'a> {
         self.mapper.sound_4_consecutive() > 0
     }
     fn dac_off(&self) -> bool {
-        self.mapper.sound_4_volume() == 0
-            && self.mapper.sound_4_direction() == SweepDirection::Down
+        self.mapper.sound_4_volume() == 0 && self.mapper.sound_4_direction() == SweepDirection::Down
     }
     fn write(&mut self, address: u16, v: u8) {
         self.mapper.write(address, v);
@@ -676,7 +689,7 @@ impl<'a> LineMapper for Line4Mapper<'a> {
 }
 
 fn update_playing<T>(line: &mut dyn LineMapper, sound: &mut AudioLine<T>) {
-    sound.playing_left  = sound.on && line.playing_left();
+    sound.playing_left = sound.on && line.playing_left();
     sound.playing_right = sound.on && line.playing_right();
 }
 
@@ -685,14 +698,18 @@ fn update_frequency<T>(mapper: &mut dyn LineMapper, sound: &mut AudioLine<T>) {
 }
 
 fn update_dac<T>(line: &mut dyn LineMapper, sound: &mut AudioLine<T>)
-        where AudioLine<T>: TriggerEvent {
+where
+    AudioLine<T>: TriggerEvent,
+{
     if line.dac_off() {
         sound.turn_off();
     }
 }
 
 fn update_length<T>(line: &mut dyn LineMapper, sound: &mut AudioLine<T>)
-    where AudioLine<T> : TriggerEvent {
+where
+    AudioLine<T>: TriggerEvent,
+{
     if !line.consecutive() {
         return;
     }
@@ -707,7 +724,9 @@ fn update_length<T>(line: &mut dyn LineMapper, sound: &mut AudioLine<T>)
 }
 
 fn update_volume<T>(line: &mut dyn LineMapper, sound: &mut AudioLine<T>)
-    where AudioLine<T> : VolumeSweep {
+where
+    AudioLine<T>: VolumeSweep,
+{
     let sweep = line.envelope_sweep();
     if sweep == 0 {
         return;
@@ -717,7 +736,7 @@ fn update_volume<T>(line: &mut dyn LineMapper, sound: &mut AudioLine<T>)
     let direction = line.direction();
 
     let is_sweep_completed = match direction {
-        SweepDirection::Up   => volume == 0xF,
+        SweepDirection::Up => volume == 0xF,
         SweepDirection::Down => volume == 0x0,
     };
 
@@ -731,7 +750,7 @@ fn update_volume<T>(line: &mut dyn LineMapper, sound: &mut AudioLine<T>)
 
     if sound.envelope_counter == 0 && sweep > 0 && !is_sweep_completed {
         let new_volume = match direction {
-            SweepDirection::Up   => volume + 1,
+            SweepDirection::Up => volume + 1,
             SweepDirection::Down => volume - 1,
         };
 
@@ -740,9 +759,13 @@ fn update_volume<T>(line: &mut dyn LineMapper, sound: &mut AudioLine<T>)
     }
 }
 
-fn trigger_event<T>(sound: &mut AudioLine<T>, line_mapper: &mut dyn LineMapper,
-                    frame_sequencer: &FrameSequencer)
-    where AudioLine<T>: TriggerEvent + VolumeSweep {
+fn trigger_event<T>(
+    sound: &mut AudioLine<T>,
+    line_mapper: &mut dyn LineMapper,
+    frame_sequencer: &FrameSequencer,
+) where
+    AudioLine<T>: TriggerEvent + VolumeSweep,
+{
     sound.on = true;
     update_playing(line_mapper, sound);
 
@@ -769,9 +792,10 @@ fn trigger_event<T>(sound: &mut AudioLine<T>, line_mapper: &mut dyn LineMapper,
 }
 
 fn extra_length_check<T>(sound: &mut AudioLine<T>, frame_sequencer: &FrameSequencer)
-    where AudioLine<T> : TriggerEvent {
-    let extra_check = sound.counter > 0
-        && !frame_sequencer.next_step_clocks_length();
+where
+    AudioLine<T>: TriggerEvent,
+{
+    let extra_check = sound.counter > 0 && !frame_sequencer.next_step_clocks_length();
 
     if extra_check {
         sound.counter -= 1;
@@ -782,9 +806,15 @@ fn extra_length_check<T>(sound: &mut AudioLine<T>, frame_sequencer: &FrameSequen
 }
 
 /** Behavior for writing to the NRx4 register. */
-fn write_nrx4<T>(sound: &mut AudioLine<T>, mapper: &mut dyn LineMapper,
-              frame_sequencer: &FrameSequencer, address: u16, v: u8)
-    where AudioLine<T>: TriggerEvent + VolumeSweep {
+fn write_nrx4<T>(
+    sound: &mut AudioLine<T>,
+    mapper: &mut dyn LineMapper,
+    frame_sequencer: &FrameSequencer,
+    address: u16,
+    v: u8,
+) where
+    AudioLine<T>: TriggerEvent + VolumeSweep,
+{
     let turns_length_on = !mapper.consecutive() && v & 0b01000000 > 0;
 
     mapper.write(address, v);
@@ -812,7 +842,6 @@ struct FrameSequencer {
     step: u8,
 }
 
-
 /*
  * From: http://gbdev.gg8.se/wiki/articles/Gameboy_sound_hardware#Frame_Sequencer
  * The frame sequencer generates low frequency clocks for the modulation units.
@@ -834,10 +863,7 @@ struct FrameSequencer {
  */
 impl FrameSequencer {
     pub fn new() -> FrameSequencer {
-        let mut s = FrameSequencer {
-            cycles: 0,
-            step: 0,
-        };
+        let mut s = FrameSequencer { cycles: 0, step: 0 };
 
         s.reset();
         s
@@ -896,30 +922,42 @@ impl SoundController {
             frame_sequencer: FrameSequencer::new(),
             mapper: SoundMemoryMapper::new(),
             buffer: GbAudioBuffer {
-                sound_1: AudioLine::new(1, SweepWaveDuty {
-                    volume: 0,
-                    wave_duty: 0.5,
-                    shadow_frequency: 0,
-                    sweep: Sweep {
-                        counter: 0,
-                        enabled: false,
-                        shift: 0,
-                        down_computed_since_reset: false,
+                sound_1: AudioLine::new(
+                    1,
+                    SweepWaveDuty {
+                        volume: 0,
+                        wave_duty: 0.5,
+                        shadow_frequency: 0,
+                        sweep: Sweep {
+                            counter: 0,
+                            enabled: false,
+                            shift: 0,
+                            down_computed_since_reset: false,
+                        },
                     },
-                }),
-                sound_2: AudioLine::new(2, WaveDuty {
-                    volume: 0,
-                    wave_duty: 0.5,
-                }),
-                sound_3: AudioLine::new(3, Wave {
-                    volume: OutputLevel::Mute,
-                    wave_pattern: [0; 16],
-                }),
-                sound_4: AudioLine::new(4, Noise {
-                    volume: 0,
-                    pattern: NoisePattern::C7,
-                }),
-            }
+                ),
+                sound_2: AudioLine::new(
+                    2,
+                    WaveDuty {
+                        volume: 0,
+                        wave_duty: 0.5,
+                    },
+                ),
+                sound_3: AudioLine::new(
+                    3,
+                    Wave {
+                        volume: OutputLevel::Mute,
+                        wave_pattern: [0; 16],
+                    },
+                ),
+                sound_4: AudioLine::new(
+                    4,
+                    Noise {
+                        volume: 0,
+                        pattern: NoisePattern::C7,
+                    },
+                ),
+            },
         }
     }
 
@@ -938,7 +976,7 @@ impl SoundController {
                 SequencerEvent::LengthSweep => {
                     self.update_length();
                     self.update_sweep();
-                },
+                }
                 SequencerEvent::Volume => self.update_volume(),
             }
         }
@@ -954,11 +992,7 @@ impl SoundController {
                 return;
             }
 
-            sound.sweep.counter = if period > 0 {
-                period
-            } else {
-                8
-            };
+            sound.sweep.counter = if period > 0 { period } else { 8 };
 
             if !sound.sweep.enabled {
                 return;
@@ -966,9 +1000,13 @@ impl SoundController {
         }
 
         if period > 0 {
-            let mut line_mapper = Line1Mapper{ mapper: &mut self.mapper };
+            let mut line_mapper = Line1Mapper {
+                mapper: &mut self.mapper,
+            };
             self.buffer.sound_1.update_frequency(true, &mut line_mapper);
-            self.buffer.sound_1.update_frequency(false, &mut line_mapper);
+            self.buffer
+                .sound_1
+                .update_frequency(false, &mut line_mapper);
         }
     }
 
@@ -987,60 +1025,58 @@ impl SoundController {
             0xFF10 => {
                 let sweep = &mut self.buffer.sound_1.sound.sweep;
                 sweep.shift = self.mapper.sound_1_sweep_shift() as i64;
-            },
+            }
             0xFF11 => {
-                self.buffer.sound_1.sound.wave_duty =
-                    self.mapper.sound_1_pattern().to_wave_duty();
+                self.buffer.sound_1.sound.wave_duty = self.mapper.sound_1_pattern().to_wave_duty();
                 self.buffer.sound_1.counter = 64 - self.mapper.sound_1_length() as i64;
-            },
+            }
             0xFF12 => {
                 channel_1!(self, update_dac);
-            },
+            }
             0xFF13 | 0xFF14 => {
                 channel_1!(self, update_frequency);
-            },
+            }
             0xFF16 => {
-                self.buffer.sound_2.sound.wave_duty =
-                    self.mapper.sound_2_pattern().to_wave_duty();
+                self.buffer.sound_2.sound.wave_duty = self.mapper.sound_2_pattern().to_wave_duty();
                 self.buffer.sound_2.counter = 64 - self.mapper.sound_2_length() as i64;
-            },
+            }
             0xFF17 => {
                 channel_2!(self, update_dac);
-            },
+            }
             0xFF18 | 0xFF19 => {
                 channel_2!(self, update_frequency);
-            },
+            }
             0xFF1A => {
                 channel_3!(self, update_dac);
             }
             0xFF1B => {
                 self.buffer.sound_3.counter = 256 - self.mapper.sound_3_length as i64;
-            },
+            }
             0xFF1C => {
                 self.buffer.sound_3.sound.volume = self.mapper.sound_3_output_level();
-            },
+            }
             0xFF1D | 0xFF1E => {
                 channel_3!(self, update_frequency);
             }
             0xFF20 => {
                 self.buffer.sound_4.counter = 64 - self.mapper.sound_4_length() as i64;
-            },
+            }
             0xFF21 => {
                 channel_4!(self, update_dac);
-            },
+            }
             0xFF22 => {
                 channel_4!(self, update_frequency);
                 self.buffer.sound_4.sound.pattern = self.mapper.sound_4_step();
-            },
+            }
             0xFF24 => {
                 // TODO: handle all channels
-            },
+            }
             0xFF25 => {
                 all_channels!(self, update_playing);
-            },
+            }
             0xFF26 => {
                 self.master_status = self.mapper.master_status() == SoundStatus::SoundOn;
-            },
+            }
             _ => {}
         }
     }
@@ -1071,7 +1107,7 @@ impl SoundController {
             for address in 0xFF10..0xFF30 {
                 match address {
                     // NR52 and length are not affected by power in the DMG
-                    0xFF26 | 0xFF1B | 0xFF20 => {},
+                    0xFF26 | 0xFF1B | 0xFF20 => {}
                     0xFF11 => *self.mapper.sound_1_wave_pattern &= 0b00111111,
                     0xFF16 => *self.mapper.sound_2_wave_pattern &= 0b00111111,
                     _ => self.write(address, 0x00),
@@ -1090,15 +1126,31 @@ impl Handler for SoundController {
     fn read(&self, address: u16) -> u8 {
         match address {
             0xFF26 => {
-                let v = (if self.master_status { 0b10000000 } else { 0 }) +
-                (if self.buffer.sound_1.on { 0b00000001 } else { 0 }) +
-                (if self.buffer.sound_2.on { 0b00000010 } else { 0 }) +
-                (if self.buffer.sound_3.on { 0b00000100 } else { 0 }) +
-                (if self.buffer.sound_4.on { 0b00001000 } else { 0 });
+                let v = (if self.master_status { 0b10000000 } else { 0 })
+                    + (if self.buffer.sound_1.on {
+                        0b00000001
+                    } else {
+                        0
+                    })
+                    + (if self.buffer.sound_2.on {
+                        0b00000010
+                    } else {
+                        0
+                    })
+                    + (if self.buffer.sound_3.on {
+                        0b00000100
+                    } else {
+                        0
+                    })
+                    + (if self.buffer.sound_4.on {
+                        0b00001000
+                    } else {
+                        0
+                    });
 
                 v | 0b01110000
-            },
-            0xFF30 ..= 0xFF3F => self.buffer.sound_3.sound.wave_pattern[address as usize - 0xFF30],
+            }
+            0xFF30..=0xFF3F => self.buffer.sound_3.sound.wave_pattern[address as usize - 0xFF30],
             _ => self.mapper.read(address),
         }
     }
@@ -1122,41 +1174,64 @@ impl Handler for SoundController {
         match address {
             0xFF10 => {
                 if v & 0b00001000 == 0
-                        && self.buffer.sound_1.sound.sweep.down_computed_since_reset
-                        && self.mapper.sound_1_sweep_direction() == ToneSweepDirection::Down {
+                    && self.buffer.sound_1.sound.sweep.down_computed_since_reset
+                    && self.mapper.sound_1_sweep_direction() == ToneSweepDirection::Down
+                {
                     // The sweep direction is changing, and we have computed at least one
                     // sweep since it was enabled, in this case the sound channel is disabled
                     // immediately.
                     self.buffer.sound_1.turn_off();
                 }
                 self.mapper.write(address, v);
-            },
+            }
             0xFF14 => {
-                write_nrx4(&mut self.buffer.sound_1,
-                           &mut Line1Mapper{ mapper: &mut self.mapper },
-                           &self.frame_sequencer,
-                           address, v);
-            },
+                write_nrx4(
+                    &mut self.buffer.sound_1,
+                    &mut Line1Mapper {
+                        mapper: &mut self.mapper,
+                    },
+                    &self.frame_sequencer,
+                    address,
+                    v,
+                );
+            }
             0xFF19 => {
-                write_nrx4(&mut self.buffer.sound_2,
-                           &mut Line2Mapper{ mapper: &mut self.mapper },
-                           &self.frame_sequencer,
-                           address, v);
-            },
+                write_nrx4(
+                    &mut self.buffer.sound_2,
+                    &mut Line2Mapper {
+                        mapper: &mut self.mapper,
+                    },
+                    &self.frame_sequencer,
+                    address,
+                    v,
+                );
+            }
             0xFF1E => {
-                write_nrx4(&mut self.buffer.sound_3,
-                           &mut Line3Mapper{ mapper: &mut self.mapper },
-                           &self.frame_sequencer,
-                           address, v);
-            },
+                write_nrx4(
+                    &mut self.buffer.sound_3,
+                    &mut Line3Mapper {
+                        mapper: &mut self.mapper,
+                    },
+                    &self.frame_sequencer,
+                    address,
+                    v,
+                );
+            }
             0xFF23 => {
-                write_nrx4(&mut self.buffer.sound_4,
-                           &mut Line4Mapper{ mapper: &mut self.mapper },
-                           &self.frame_sequencer,
-                           address, v);
-            },
+                write_nrx4(
+                    &mut self.buffer.sound_4,
+                    &mut Line4Mapper {
+                        mapper: &mut self.mapper,
+                    },
+                    &self.frame_sequencer,
+                    address,
+                    v,
+                );
+            }
             0xFF26 => self.write_nr52(v),
-            0xFF30 ..= 0xFF3F => self.buffer.sound_3.sound.wave_pattern[address as usize - 0xFF30] = v,
+            0xFF30..=0xFF3F => {
+                self.buffer.sound_3.sound.wave_pattern[address as usize - 0xFF30] = v
+            }
             _ => {
                 self.mapper.write(address, v);
             }
@@ -1165,7 +1240,7 @@ impl Handler for SoundController {
     }
 }
 
-memory_mapper!{
+memory_mapper! {
     name: SoundMemoryMapper,
     fields: [
         0xFF13, 0xFF, sound_1_frequency_low, 0;

@@ -1,12 +1,9 @@
-use std::process;
 use std::collections::HashSet;
-use std::io::Write;
 use std::io;
+use std::io::Write;
+use std::process;
 
-use gb::{
-    Emulator,
-    OpCode,
-};
+use gb::{Emulator, OpCode};
 
 pub struct Debugger {
     stepping: bool,
@@ -19,25 +16,27 @@ pub struct Debugger {
 fn print_cpu_status(emulator: &Emulator, watches: &HashSet<u16>) {
     let cpu = &emulator.cpu;
 
-    println!("[Z,N,H,C] = [{},{},{},{}]",
-             cpu.get_Z_flag(),
-             cpu.get_N_flag(),
-             cpu.get_H_flag(),
-             cpu.get_C_flag());
+    println!(
+        "[Z,N,H,C] = [{},{},{},{}]",
+        cpu.get_Z_flag(),
+        cpu.get_N_flag(),
+        cpu.get_H_flag(),
+        cpu.get_C_flag()
+    );
 
-    println!("A = ${:02X}",   cpu.get_A_reg());
-    println!("B = ${:02X}",   cpu.get_B_reg());
-    println!("C = ${:02X}",   cpu.get_C_reg());
-    println!("D = ${:02X}",   cpu.get_D_reg());
-    println!("E = ${:02X}",   cpu.get_E_reg());
-    println!("F = ${:02X}",   cpu.get_F_reg());
-    println!("H = ${:02X}",   cpu.get_H_reg());
-    println!("L = ${:02X}",   cpu.get_L_reg());
-    println!("PC = ${:02X}",  cpu.get_PC());
-    println!("SP = ${:02X}",  cpu.get_SP());
-    println!("IF = ${:02X}",  cpu.deref_debug(0xFFFF));
-    println!("IE = ${:02X}",  cpu.deref_debug(0xFF0F));
-    println!("state = {:?}",  cpu.get_state());
+    println!("A = ${:02X}", cpu.get_A_reg());
+    println!("B = ${:02X}", cpu.get_B_reg());
+    println!("C = ${:02X}", cpu.get_C_reg());
+    println!("D = ${:02X}", cpu.get_D_reg());
+    println!("E = ${:02X}", cpu.get_E_reg());
+    println!("F = ${:02X}", cpu.get_F_reg());
+    println!("H = ${:02X}", cpu.get_H_reg());
+    println!("L = ${:02X}", cpu.get_L_reg());
+    println!("PC = ${:02X}", cpu.get_PC());
+    println!("SP = ${:02X}", cpu.get_SP());
+    println!("IF = ${:02X}", cpu.deref_debug(0xFFFF));
+    println!("IE = ${:02X}", cpu.deref_debug(0xFF0F));
+    println!("state = {:?}", cpu.get_state());
     println!("cycles = {:?}", cpu.get_cycles());
     println!("$FF05 = {:02X}", cpu.deref_debug(0xFF05));
     if watches.len() > 0 {
@@ -48,10 +47,18 @@ fn print_cpu_status(emulator: &Emulator, watches: &HashSet<u16>) {
     }
 
     println!("=== STACK ===");
-    println!("${:04X} = {:02X}", cpu.get_SP(),     cpu.deref_debug(cpu.get_SP()));
+    println!(
+        "${:04X} = {:02X}",
+        cpu.get_SP(),
+        cpu.deref_debug(cpu.get_SP())
+    );
 
     if cpu.get_SP() != 0xFFFF && cpu.get_SP() != 0xDFFF {
-        println!("${:04X} = {:02X}", cpu.get_SP() + 1, cpu.deref_debug(cpu.get_SP() + 1));
+        println!(
+            "${:04X} = {:02X}",
+            cpu.get_SP() + 1,
+            cpu.deref_debug(cpu.get_SP() + 1)
+        );
     }
     println!("");
 }
@@ -98,66 +105,75 @@ impl Debugger {
         match command {
             "l" | "list" => {
                 for op in self.op_breakpoints.clone() {
-                    println!("Breakpoint for opcode {}",
-                             OpCode::from_byte(op, false).to_string());
+                    println!(
+                        "Breakpoint for opcode {}",
+                        OpCode::from_byte(op, false).to_string()
+                    );
                 }
                 for address in self.address_breakpoints.clone() {
                     println!("Breakpoint for address {:04X}", address);
                 }
-            },
+            }
             "clear" => {
                 self.op_breakpoints.clear();
                 self.address_breakpoints.clear();
                 emulator.cpu.clear_watch();
-            },
+            }
             "c" | "continue" => {
                 self.stepping = false;
                 emulator.cpu.set_debug(false);
                 println!("Continuing.");
 
                 return Ok(true);
-            },
+            }
             "d" => {
                 self.stepping = false;
 
                 return Ok(true);
-            },
+            }
             "s" | "step" => {
                 return Ok(true);
-            },
+            }
             "q" | "quit" => {
                 println!("Quitting.");
                 process::exit(0);
-            },
+            }
             "h" | "help" => {
                 print_help();
-            },
+            }
             _ => {
                 return Err(());
-            },
+            }
         }
 
         Ok(false)
     }
 
-    pub fn handle_binary(&mut self, command: &str, arg: &str, emulator: &mut Emulator) -> Result<bool, ()> {
+    pub fn handle_binary(
+        &mut self,
+        command: &str,
+        arg: &str,
+        emulator: &mut Emulator,
+    ) -> Result<bool, ()> {
         match command {
             "bo" => {
                 let op = to_value(arg)?;
-                println!("Breakpoint for opcode {}",
-                         OpCode::from_byte(op, false).to_string());
+                println!(
+                    "Breakpoint for opcode {}",
+                    OpCode::from_byte(op, false).to_string()
+                );
                 self.op_breakpoints.insert(op);
-            },
+            }
             "ba" => {
                 let address = to_address(arg)?;
                 println!("Breakpoint for address {:04X}", address);
                 self.address_breakpoints.insert(address);
-            },
+            }
             "bm" => {
                 let address = to_address(arg)?;
                 println!("Breakpoint for memory access at address {:04X}", address);
                 emulator.cpu.watch(address);
-            },
+            }
             "p" | "print" => {
                 if arg == "cpu" {
                     print_cpu_status(emulator, &self.watches);
@@ -165,27 +181,35 @@ impl Debugger {
                     let address = to_address(arg)?;
                     println!("${:04X}={:02X}", address, emulator.cpu.deref_debug(address));
                 }
-            },
+            }
             "po" => {
                 let address = to_address(arg)?;
-                println!("${:04X} = {}", address,
-                         OpCode::from_byte(emulator.cpu.deref_debug(address), false).to_string());
-            },
+                println!(
+                    "${:04X} = {}",
+                    address,
+                    OpCode::from_byte(emulator.cpu.deref_debug(address), false).to_string()
+                );
+            }
             "w" | "watch" => {
                 let address = to_address(arg)?;
                 println!("Adding {:04X} to the watch list.", address);
                 self.watches.insert(address);
-            },
+            }
             _ => {
                 return Err(());
-            },
+            }
         }
 
         Ok(false)
     }
 
-    pub fn handle_trinary(&mut self, command: &str, arg1: &str, arg2: &str,
-                          emulator: &mut Emulator) -> Result<bool, ()> {
+    pub fn handle_trinary(
+        &mut self,
+        command: &str,
+        arg1: &str,
+        arg2: &str,
+        emulator: &mut Emulator,
+    ) -> Result<bool, ()> {
         match command {
             "s" | "set" => {
                 let address = to_address(arg1)?;
@@ -193,10 +217,10 @@ impl Debugger {
 
                 println!("Setting ${:04X}={:02X}h", address, v);
                 emulator.cpu.set_deref_debug(address, v);
-            },
+            }
             _ => {
                 return Err(());
-            },
+            }
         }
 
         Ok(false)
@@ -216,9 +240,10 @@ impl Debugger {
         let address = emulator.cpu.get_PC();
         let op = emulator.cpu.deref_debug(address);
 
-        if !self.address_breakpoints.contains(&address) &&
-                !self.op_breakpoints.contains(&op) &&
-                !emulator.cpu.address_breakpoint() {
+        if !self.address_breakpoints.contains(&address)
+            && !self.op_breakpoints.contains(&op)
+            && !emulator.cpu.address_breakpoint()
+        {
             return;
         }
 
@@ -238,8 +263,7 @@ impl Debugger {
             print!(">");
             io::stdout().flush().unwrap();
             io::stdin().read_line(&mut input).unwrap();
-            input = input.replace("\n", "")
-                .replace("\r", "");
+            input = input.replace("\n", "").replace("\r", "");
 
             if input != "" {
                 self.last_command = input.clone();
@@ -252,13 +276,13 @@ impl Debugger {
                 Err(error_string) => {
                     println!("Error: {}", error_string);
                     print_help();
-                },
+                }
                 Ok(true) => {
                     break;
-                },
+                }
                 Ok(false) => {
                     println!("");
-                },
+                }
             }
         }
     }
@@ -266,8 +290,7 @@ impl Debugger {
     // We don't want to expose the result value to the external world since it's part of the
     // debugger internals.
     pub fn exec(&mut self, command: &str, emulator: &mut Emulator) -> Result<(), String> {
-        self.exec_private(command, emulator)
-            .map(|_| ())
+        self.exec_private(command, emulator).map(|_| ())
     }
 
     fn exec_private(&mut self, command: &str, emulator: &mut Emulator) -> Result<bool, String> {

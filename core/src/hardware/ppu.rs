@@ -1,8 +1,8 @@
-use hardware::cpu;
 use bitfield::Bitfield;
+use hardware::cpu;
 
 /* Represents a shade of gray */
-u8_enum!{
+u8_enum! {
     GrayShade {
         C00 = 0,
         C01 = 1,
@@ -41,7 +41,7 @@ pub struct Ppu {
     x: usize,
 }
 
-u8_enum!{
+u8_enum! {
     LCDMode {
         HBlank = 0,
         VBlank = 1,
@@ -56,29 +56,29 @@ fn pattern_value(video_ram: &[u8], offset: usize, x: usize, y: usize) -> u8 {
     let h = video_ram[offset + (y * 2) + 1];
 
     match x {
-          7 =>  (0b00000001 & l)       + ((0b00000001 & h) << 1),
-          6 => ((0b00000010 & l) >> 1) + ((0b00000010 & h)     ),
-          5 => ((0b00000100 & l) >> 2) + ((0b00000100 & h) >> 1),
-          4 => ((0b00001000 & l) >> 3) + ((0b00001000 & h) >> 2),
-          3 => ((0b00010000 & l) >> 4) + ((0b00010000 & h) >> 3),
-          2 => ((0b00100000 & l) >> 5) + ((0b00100000 & h) >> 4),
-          1 => ((0b01000000 & l) >> 6) + ((0b01000000 & h) >> 5),
-          0 => ((0b10000000 & l) >> 7) + ((0b10000000 & h) >> 6),
-          _ => unreachable!(),
+        7 => (0b00000001 & l) + ((0b00000001 & h) << 1),
+        6 => ((0b00000010 & l) >> 1) + (0b00000010 & h),
+        5 => ((0b00000100 & l) >> 2) + ((0b00000100 & h) >> 1),
+        4 => ((0b00001000 & l) >> 3) + ((0b00001000 & h) >> 2),
+        3 => ((0b00010000 & l) >> 4) + ((0b00010000 & h) >> 3),
+        2 => ((0b00100000 & l) >> 5) + ((0b00100000 & h) >> 4),
+        1 => ((0b01000000 & l) >> 6) + ((0b01000000 & h) >> 5),
+        0 => ((0b10000000 & l) >> 7) + ((0b10000000 & h) >> 6),
+        _ => unreachable!(),
     }
 }
 
 impl cpu::Handler for Ppu {
     fn read(&self, address: u16) -> u8 {
         match address {
-            0x8000 ..= 0x9FFF => self.read_ram(address),
+            0x8000..=0x9FFF => self.read_ram(address),
             _ => self.mapper.read(address),
         }
     }
 
     fn write(&mut self, address: u16, v: u8) {
         match address {
-            0x8000 ..= 0x9FFF => self.write_ram(address, v),
+            0x8000..=0x9FFF => self.write_ram(address, v),
             0xFF41 => self.write_stat(v),
             _ => self.mapper.write(address, v),
         }
@@ -130,8 +130,8 @@ impl Ppu {
                     self.set_mode(LCDMode::HBlank);
                     self.mapper.lcd_y_coordinate = 0;
                 }
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 
@@ -157,13 +157,14 @@ impl Ppu {
 
     /// Checks if the current x is the start of the window section
     fn check_window_x(&mut self) -> bool {
-        if self.mapper.window_on() == 1 &&
-            self.mapper.bg_window_on() == 1 &&
-            self.x + 7 == self.mapper.window_x as usize &&
-                self.scanline() >= self.mapper.window_y {
+        if self.mapper.window_on() == 1
+            && self.mapper.bg_window_on() == 1
+            && self.x + 7 == self.mapper.window_x as usize
+            && self.scanline() >= self.mapper.window_y
+        {
             let y = self.scanline() as usize - self.mapper.window_y as usize;
-            self.pixel_fifo.reset(0,
-                    BackgroundFetcher::new(self.window_offset(), 0, y));
+            self.pixel_fifo
+                .reset(0, BackgroundFetcher::new(self.window_offset(), 0, y));
             return true;
         }
 
@@ -171,8 +172,7 @@ impl Ppu {
     }
 
     fn scanline_offset(&self, scroll_y: i16) -> usize {
-        let offset = ((self.scanline() as i16 + scroll_y) / 8) as usize
-                % (BACKGROUND_Y / 8);
+        let offset = ((self.scanline() as i16 + scroll_y) / 8) as usize % (BACKGROUND_Y / 8);
         offset * 32
     }
 
@@ -234,9 +234,9 @@ impl Ppu {
     fn switch_to(&mut self, mode: LCDMode) -> Option<cpu::Interrupt> {
         let enabled = match mode {
             LCDMode::SearchingOAM => self.mapper.oam_interrupt() == 1,
-            LCDMode::HBlank       => self.mapper.h_blank_interrupt() == 1,
-            LCDMode::VBlank       => self.mapper.v_blank_interrupt() == 1,
-            LCDMode::LCDTransfer  => false,
+            LCDMode::HBlank => self.mapper.h_blank_interrupt() == 1,
+            LCDMode::VBlank => self.mapper.v_blank_interrupt() == 1,
+            LCDMode::LCDTransfer => false,
         };
 
         self.set_mode(mode);
@@ -253,8 +253,9 @@ impl Ppu {
     }
 
     fn update_scanline(&mut self) {
-        assert!(self.scanline() == 153 ||
-            self.scanline() + 1 == (self.cycles / SCANLINE_CYCLES) as u8);
+        assert!(
+            self.scanline() == 153 || self.scanline() + 1 == (self.cycles / SCANLINE_CYCLES) as u8
+        );
 
         // Beginning of the scanline, we need to update LY
         self.mapper.lcd_y_coordinate = (self.cycles / SCANLINE_CYCLES) as u8;
@@ -286,10 +287,10 @@ impl Ppu {
                 }
 
                 return interrupt;
-            },
-            8 ..= 452 => {
+            }
+            8..=452 => {
                 // VBlank running, nothing to do
-            },
+            }
             _ => unreachable!(),
         }
 
@@ -332,10 +333,10 @@ impl Ppu {
                 }
 
                 interrupt = interrupt.or(self.switch_to(LCDMode::SearchingOAM));
-            },
-            8 ..= 76 => {
+            }
+            8..=76 => {
                 // The ppu is running OAM Search, do nothing
-            },
+            }
             80 => {
                 let scanline = self.scanline() as usize;
                 let sprite_module = SpriteModule {
@@ -349,7 +350,7 @@ impl Ppu {
                 let (sprites, len) = sprite_module.visible_sprites(scanline);
                 self.visible_sprites = sprites;
                 self.visible_sprites_len = len;
-            },
+            }
             84 => {
                 interrupt = interrupt.or(self.switch_to(LCDMode::LCDTransfer));
                 self.x = 0;
@@ -357,18 +358,20 @@ impl Ppu {
                     let y = (self.scanline() + self.mapper.scroll_bg_y) as usize;
                     self.pixel_fifo.reset(
                         (self.mapper.scroll_bg_x % 8) as usize,
-                        BackgroundFetcher::new(self.background_offset(),
-                            self.mapper.scroll_bg_x as usize / 8, y));
+                        BackgroundFetcher::new(
+                            self.background_offset(),
+                            self.mapper.scroll_bg_x as usize / 8,
+                            y,
+                        ),
+                    );
                     // FIXME: every CPU cycle is 2 PPU cycles
                     for _ in 0..2 {
-                        self.pixel_fifo.step(
-                            &self.mapper,
-                            &self.video_ram, oam_ram);
+                        self.pixel_fifo.step(&self.mapper, &self.video_ram, oam_ram);
                     }
                 }
                 self.check_window_x();
-            },
-            88 ..= 452 => {
+            }
+            88..=452 => {
                 if self.mode == LCDMode::HBlank {
                     // nothing to do
                     return None;
@@ -384,7 +387,7 @@ impl Ppu {
                 for _ in 0..2 {
                     self.fetcher_step(oam_ram);
                 }
-            },
+            }
             _ => unreachable!(),
         }
 
@@ -426,8 +429,7 @@ impl Ppu {
             screen_buffer: &mut self.screen_buffer,
         };
 
-        sprite_module.print_sprites(scanline, self.visible_sprites,
-                self.visible_sprites_len);
+        sprite_module.print_sprites(scanline, self.visible_sprites, self.visible_sprites_len);
     }
 }
 
@@ -439,7 +441,7 @@ struct SpriteModule<'a> {
     screen_buffer: &'a mut ScreenBuffer,
 }
 
-impl <'a> SpriteModule<'a> {
+impl<'a> SpriteModule<'a> {
     fn visible_sprites(&self, scanline: usize) -> ([usize; 10], usize) {
         // Normally visible_sprites would be an array
         // but this code path is very hot so we need to
@@ -460,14 +462,17 @@ impl <'a> SpriteModule<'a> {
             visible_sprites_len += 1;
         }
 
-        &visible_sprites[0..visible_sprites_len]
-            .sort_by_key(|&id| self.sprite_x(id));
+        &visible_sprites[0..visible_sprites_len].sort_by_key(|&id| self.sprite_x(id));
 
         (visible_sprites, visible_sprites_len)
     }
 
-    fn print_sprites(&mut self, scanline: usize,
-            visible_sprites: [usize; 10], visible_sprites_len: usize) {
+    fn print_sprites(
+        &mut self,
+        scanline: usize,
+        visible_sprites: [usize; 10],
+        visible_sprites_len: usize,
+    ) {
         for x in 0..SCREEN_X {
             for i in 0..visible_sprites_len {
                 let id = visible_sprites[i];
@@ -478,16 +483,17 @@ impl <'a> SpriteModule<'a> {
                 let flags = self.sprite_flags(id);
 
                 let color = self.sprite_value_at(
-                        id,
-                        x + 8 - self.sprite_x(id),
-                        scanline + 16 - self.sprite_y(id));
+                    id,
+                    x + 8 - self.sprite_x(id),
+                    scanline + 16 - self.sprite_y(id),
+                );
 
                 if color != GrayShade::Transparent {
                     if !flags.below_bg || self.background[x] == 0 {
-                            if x < SCREEN_X && scanline < SCREEN_Y {
-                                self.screen_buffer[scanline][x] = color;
-                            }
+                        if x < SCREEN_X && scanline < SCREEN_Y {
+                            self.screen_buffer[scanline][x] = color;
                         }
+                    }
                     break;
                 }
             }
@@ -514,17 +520,21 @@ impl <'a> SpriteModule<'a> {
         let v = self.oam_ram[id * 4 + 3];
 
         SpriteFlags {
-            below_bg:    v & (0b10000000) > 0,
-            y_flip:      v & (0b01000000) > 0,
-            x_flip:      v & (0b00100000) > 0,
-            palette:  if v & (0b00010000) > 0 { SpritePalette::C1 } else { SpritePalette::C0 },
+            below_bg: v & (0b10000000) > 0,
+            y_flip: v & (0b01000000) > 0,
+            x_flip: v & (0b00100000) > 0,
+            palette: if v & (0b00010000) > 0 {
+                SpritePalette::C1
+            } else {
+                SpritePalette::C0
+            },
         }
     }
 
     fn is_sprite_visible(&self, id: usize, scanline: usize) -> bool {
         let y = self.sprite_y(id);
         match self.mapper.sprite_size() {
-            SpriteSize::C8by8 =>  scanline + 16 >= y && scanline + 8 < y,
+            SpriteSize::C8by8 => scanline + 16 >= y && scanline + 8 < y,
             SpriteSize::C8by16 => scanline + 16 >= y && scanline < y,
         }
     }
@@ -539,39 +549,37 @@ impl <'a> SpriteModule<'a> {
 
         let x = if flags.x_flip { 7 - x } else { x };
 
-        let y = if !flags.y_flip { y } else {
+        let y = if !flags.y_flip {
+            y
+        } else {
             match self.mapper.sprite_size() {
-                SpriteSize::C8by8  =>  7 - y,
+                SpriteSize::C8by8 => 7 - y,
                 SpriteSize::C8by16 => 15 - y,
             }
         };
 
         let tile_index = match self.mapper.sprite_size() {
-            SpriteSize::C8by8  => self.sprite_tile_index(id),
+            SpriteSize::C8by8 => self.sprite_tile_index(id),
             SpriteSize::C8by16 => self.sprite_tile_index(id) & 0xFE,
         };
 
         let color = pattern_value(&self.video_ram, tile_index * 16, x, y);
 
         match &flags.palette {
-            &SpritePalette::C0 => {
-                match color {
-                    0b00 => GrayShade::Transparent,
-                    0b01 => self.mapper.obp0_palette_01(),
-                    0b10 => self.mapper.obp0_palette_10(),
-                    0b11 => self.mapper.obp0_palette_11(),
-                    _ => unreachable!(),
-                }
+            &SpritePalette::C0 => match color {
+                0b00 => GrayShade::Transparent,
+                0b01 => self.mapper.obp0_palette_01(),
+                0b10 => self.mapper.obp0_palette_10(),
+                0b11 => self.mapper.obp0_palette_11(),
+                _ => unreachable!(),
             },
-            &SpritePalette::C1 => {
-                match color {
-                    0b00 => GrayShade::Transparent,
-                    0b01 => self.mapper.obp1_palette_01(),
-                    0b10 => self.mapper.obp1_palette_10(),
-                    0b11 => self.mapper.obp1_palette_11(),
-                    _ => unreachable!(),
-                }
-            }
+            &SpritePalette::C1 => match color {
+                0b00 => GrayShade::Transparent,
+                0b01 => self.mapper.obp1_palette_01(),
+                0b10 => self.mapper.obp1_palette_10(),
+                0b11 => self.mapper.obp1_palette_11(),
+                _ => unreachable!(),
+            },
         }
     }
 }
@@ -638,8 +646,14 @@ struct PipelineUnit {
 }
 
 trait Fetcher {
-    fn tile(&self, mapper: &VideoMemoryMapper, pattern: u8,
-            video_ram: &[u8], oam_ram: &[u8], tile: usize) -> u8;
+    fn tile(
+        &self,
+        mapper: &VideoMemoryMapper,
+        pattern: u8,
+        video_ram: &[u8],
+        oam_ram: &[u8],
+        tile: usize,
+    ) -> u8;
     fn pattern(&self, video_ram: &[u8], oam_ram: &[u8]) -> u8;
     fn next_step(&mut self);
 }
@@ -647,8 +661,7 @@ trait Fetcher {
 struct NullFetcher;
 
 impl Fetcher for NullFetcher {
-    fn tile(&self, _: &VideoMemoryMapper, _: u8,
-            _: &[u8], _: &[u8], _: usize) -> u8 {
+    fn tile(&self, _: &VideoMemoryMapper, _: u8, _: &[u8], _: &[u8], _: usize) -> u8 {
         0
     }
     fn pattern(&self, _: &[u8], _: &[u8]) -> u8 {
@@ -670,9 +683,14 @@ impl BackgroundFetcher {
 }
 
 impl Fetcher for BackgroundFetcher {
-    fn tile(&self, mapper: &VideoMemoryMapper, pattern: u8,
-            video_ram: &[u8], _oam_ram: &[u8],
-            tile: usize) -> u8 {
+    fn tile(
+        &self,
+        mapper: &VideoMemoryMapper,
+        pattern: u8,
+        video_ram: &[u8],
+        _oam_ram: &[u8],
+        tile: usize,
+    ) -> u8 {
         let resolved_pattern;
         let offset;
 
@@ -717,7 +735,7 @@ impl PixelPipeline {
                 pattern: 0,
                 tile0: 0,
                 tile1: 0,
-            }
+            },
         }
     }
 
@@ -733,7 +751,8 @@ impl PixelPipeline {
         let h = self.current.tile1;
 
         for i in 0..7 {
-            self.fifo.push(((l >> (7 - i)) & 0b1) + ((h >> (6 - i)) & 0b10));
+            self.fifo
+                .push(((l >> (7 - i)) & 0b1) + ((h >> (6 - i)) & 0b10));
         }
 
         // rust doesn't like |h >> -1| so we do it manually here
@@ -745,36 +764,36 @@ impl PixelPipeline {
         }
     }
 
-    fn step(&mut self, mapper: &VideoMemoryMapper,
-            video_ram: &[u8], oam_ram: &[u8]) {
+    fn step(&mut self, mapper: &VideoMemoryMapper, video_ram: &[u8], oam_ram: &[u8]) {
         match self.stage {
             PipelineStage::ReadPattern => {
                 self.current.pattern = self.fetcher.pattern(video_ram, oam_ram);
                 self.stage = PipelineStage::ReadTile0;
-            },
+            }
             PipelineStage::ReadTile0 => {
                 self.current.tile0 =
-                    self.fetcher.tile(mapper, self.current.pattern, video_ram,
-                                      oam_ram, 0);
+                    self.fetcher
+                        .tile(mapper, self.current.pattern, video_ram, oam_ram, 0);
                 self.stage = PipelineStage::ReadTile1;
-            },
+            }
             PipelineStage::ReadTile1 => {
                 self.current.tile1 =
-                    self.fetcher.tile(mapper, self.current.pattern, video_ram,
-                                      oam_ram, 1);
+                    self.fetcher
+                        .tile(mapper, self.current.pattern, video_ram, oam_ram, 1);
                 self.push_pixels();
 
                 self.fetcher.next_step();
 
                 if self.fifo.size() <= 8 {
                     self.stage = PipelineStage::ReadPattern;
-                } else { // Queue is full, so we wait a cycle
+                } else {
+                    // Queue is full, so we wait a cycle
                     self.stage = PipelineStage::Wait;
                 }
-            },
+            }
             PipelineStage::Wait => {
                 self.stage = PipelineStage::ReadPattern;
-            },
+            }
         }
     }
 
@@ -787,14 +806,14 @@ impl PixelPipeline {
     }
 }
 
-u8_enum!{
+u8_enum! {
     SpritePalette {
         C0 = 0b0,
         C1 = 0b1,
     }
 }
 
-u8_enum!{
+u8_enum! {
     TileMap {
         // Area $9800 - $9BFF
         C9800 = 0b0,
@@ -803,7 +822,7 @@ u8_enum!{
     }
 }
 
-u8_enum!{
+u8_enum! {
     BgTileData {
         // Area $8800 - 97FF
         C8800 = 0b0,
@@ -812,7 +831,7 @@ u8_enum!{
     }
 }
 
-u8_enum!{
+u8_enum! {
     SpriteSize {
         // 8 by 8 sprite
         C8by8 = 0b0,
@@ -821,7 +840,7 @@ u8_enum!{
     }
 }
 
-memory_mapper!{
+memory_mapper! {
     name: VideoMemoryMapper,
     fields: [
         0xFF42, 0b00000000, scroll_bg_y, 0;

@@ -1,11 +1,11 @@
 use glium;
-use glium::{DrawParameters, Surface, VertexBuffer, IndexBuffer};
+use glium::backend::Facade;
 use glium::index::PrimitiveType;
 use glium::texture::pixel_buffer::PixelBuffer;
-use glium::texture::{ MipmapsOption, UncompressedFloatFormat };
 use glium::texture::texture2d::Texture2d;
+use glium::texture::{MipmapsOption, UncompressedFloatFormat};
 use glium::uniforms::{MagnifySamplerFilter, MinifySamplerFilter};
-use glium::backend::Facade;
+use glium::{DrawParameters, IndexBuffer, Surface, VertexBuffer};
 
 use gb::ScreenBuffer;
 
@@ -30,8 +30,8 @@ pub struct GLRenderer {
 
 #[derive(Copy, Clone)]
 pub struct Vertex {
-  position: [f32; 2],
-  tex_coords: [f32; 2]
+    position: [f32; 2],
+    tex_coords: [f32; 2],
 }
 
 implement_vertex!(Vertex, position, tex_coords);
@@ -39,16 +39,29 @@ implement_vertex!(Vertex, position, tex_coords);
 impl GLRenderer {
     pub fn new(display: &mut dyn Facade) -> GLRenderer {
         let vertexes = [
-            Vertex { position: [-1.0, -1.0], tex_coords: [0.0,          TEX_OFFSET_Y] },
-            Vertex { position: [-1.0,  1.0], tex_coords: [0.0,          0.0] },
-            Vertex { position: [ 1.0,  1.0], tex_coords: [TEX_OFFSET_X, 0.0] },
-            Vertex { position: [ 1.0, -1.0], tex_coords: [TEX_OFFSET_X, TEX_OFFSET_Y] }
+            Vertex {
+                position: [-1.0, -1.0],
+                tex_coords: [0.0, TEX_OFFSET_Y],
+            },
+            Vertex {
+                position: [-1.0, 1.0],
+                tex_coords: [0.0, 0.0],
+            },
+            Vertex {
+                position: [1.0, 1.0],
+                tex_coords: [TEX_OFFSET_X, 0.0],
+            },
+            Vertex {
+                position: [1.0, -1.0],
+                tex_coords: [TEX_OFFSET_X, TEX_OFFSET_Y],
+            },
         ];
 
         let vertex_buffer = VertexBuffer::immutable(display, &vertexes).unwrap();
 
-        let index_buffer = (IndexBuffer::immutable(
-                display, PrimitiveType::TriangleStrip, &[1u16, 2, 0, 3])).unwrap();
+        let index_buffer =
+            (IndexBuffer::immutable(display, PrimitiveType::TriangleStrip, &[1u16, 2, 0, 3]))
+                .unwrap();
 
         let vertex_shader_src = r#"
             #version 140
@@ -81,23 +94,27 @@ impl GLRenderer {
             }
         "#;
 
-        let program = glium::Program::from_source(
-            display,
-            vertex_shader_src,
-            fragment_shader_src,
-            None).unwrap();
+        let program =
+            glium::Program::from_source(display, vertex_shader_src, fragment_shader_src, None)
+                .unwrap();
 
         let pixel_buffer = PixelBuffer::new_empty(display, 160 * 144);
 
-        let texture = Texture2d::empty_with_format(display,
-                                                   UncompressedFloatFormat::U8,
-                                                   MipmapsOption::NoMipmap,
-                                                   TEXTURE_WIDTH, TEXTURE_HEIGHT).unwrap();
+        let texture = Texture2d::empty_with_format(
+            display,
+            UncompressedFloatFormat::U8,
+            MipmapsOption::NoMipmap,
+            TEXTURE_WIDTH,
+            TEXTURE_HEIGHT,
+        )
+        .unwrap();
 
-        let matrix = [[1.0, 0.0, 0.0, 0.0],
-                      [0.0, 1.0, 0.0, 0.0],
-                      [0.0, 0.0, 1.0, 0.0],
-                      [0.0, 0.0, 0.0, 1.0]];
+        let matrix = [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ];
 
         let palette = [
             [255.0, 247.0, 123.0, 255.0],
@@ -118,8 +135,12 @@ impl GLRenderer {
     }
 
     fn update_pixels(&mut self) {
-      self.texture.main_level().raw_upload_from_pixel_buffer(
-        self.buffer.as_slice(), 0..160, 0..144, 0 .. 1);
+        self.texture.main_level().raw_upload_from_pixel_buffer(
+            self.buffer.as_slice(),
+            0..160,
+            0..144,
+            0..1,
+        );
     }
 
     pub fn refresh(&mut self, frame: &mut glium::Frame, pixels: &ScreenBuffer) {
@@ -146,10 +167,18 @@ impl GLRenderer {
         };
 
         let params = DrawParameters {
-            .. Default::default()
+            ..Default::default()
         };
 
         frame.clear_color(0.0, 0.0, 0.0, 1.0);
-        frame.draw(&self.vertex_buffer, &self.index_buffer, &self.program, &uniforms, &params).unwrap();
+        frame
+            .draw(
+                &self.vertex_buffer,
+                &self.index_buffer,
+                &self.program,
+                &uniforms,
+                &params,
+            )
+            .unwrap();
     }
 }

@@ -1,25 +1,14 @@
-extern {
-}
+extern "C" {}
 
 extern crate gb;
 
-use std::ptr;
+use std::ffi::CString;
 use std::mem;
-use std::ffi::{
-    CString,
-};
-use std::os::raw::{
-    c_char,
-    c_void,
-};
+use std::os::raw::{c_char, c_void};
+use std::ptr;
 use std::slice;
 
-use gb::{
-    Emulator,
-    Interrupt,
-    Hardware,
-    Key,
-};
+use gb::{Emulator, Hardware, Interrupt, Key};
 
 fn store_frame(screen: &gb::ScreenBuffer, data: &mut [u8]) {
     for i in 0..gb::SCREEN_X {
@@ -57,23 +46,29 @@ pub extern "C" fn alloc(size: usize) -> *mut c_void {
 
 #[no_mangle]
 pub extern "C" fn dealloc(ptr: *mut c_void, cap: usize) {
-    unsafe  {
+    unsafe {
         let _buf = Vec::from_raw_parts(ptr, 0, cap);
     }
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn main_loop() {
-    if EMULATOR.is_none() || GAMEPAD.len() == 0 || SOUND == ptr::null_mut()
-        || SCREEN == ptr::null_mut() {
+    if EMULATOR.is_none()
+        || GAMEPAD.len() == 0
+        || SOUND == ptr::null_mut()
+        || SCREEN == ptr::null_mut()
+    {
         return;
     }
 
     let sound = slice::from_raw_parts_mut(SOUND as *mut i16, 1470);
-    let screen = slice::from_raw_parts_mut(SCREEN as *mut u8,
-                                           gb::SCREEN_X * gb::SCREEN_Y * 3);
-    main_loop_internal(EMULATOR.as_mut().unwrap(),
-        screen, sound, &GamepadStatus::from_raw(GAMEPAD));
+    let screen = slice::from_raw_parts_mut(SCREEN as *mut u8, gb::SCREEN_X * gb::SCREEN_Y * 3);
+    main_loop_internal(
+        EMULATOR.as_mut().unwrap(),
+        screen,
+        sound,
+        &GamepadStatus::from_raw(GAMEPAD),
+    );
 }
 
 impl GamepadStatus {
@@ -99,8 +94,12 @@ fn update_button(emulator: &mut Emulator, button: Key, pressed: bool) {
     }
 }
 
-fn main_loop_internal(emulator: &mut Emulator, screen: &mut [u8],
-                      sound: &mut [i16], gamepad: &GamepadStatus) {
+fn main_loop_internal(
+    emulator: &mut Emulator,
+    screen: &mut [u8],
+    sound: &mut [i16],
+    gamepad: &GamepadStatus,
+) {
     update_button(emulator, Key::A, gamepad.a);
     update_button(emulator, Key::B, gamepad.b);
     update_button(emulator, Key::Select, gamepad.select);
@@ -118,8 +117,7 @@ fn main_loop_internal(emulator: &mut Emulator, screen: &mut [u8],
         }
     }
 
-    store_frame(emulator.cpu.handler_holder.get_screen_buffer(),
-                screen);
+    store_frame(emulator.cpu.handler_holder.get_screen_buffer(), screen);
 
     emulator.generate_sound_into(sound);
 }
@@ -139,9 +137,14 @@ pub fn copy_save_internal(emulator: &mut Emulator, save: &mut [u8]) {
 }
 
 #[no_mangle]
-pub fn init(data: *mut u8, data_size: isize, save_data: *mut u8,
-            screen_data: *mut u8, sound_data: *mut u8,
-            gamepad_data: *mut u8) -> *mut c_char {
+pub fn init(
+    data: *mut u8,
+    data_size: isize,
+    save_data: *mut u8,
+    screen_data: *mut u8,
+    sound_data: *mut u8,
+    gamepad_data: *mut u8,
+) -> *mut c_char {
     unsafe {
         let bytes = slice::from_raw_parts(data, data_size as usize);
         let mut emulator = Emulator::from_data(&bytes, 44100.00).unwrap();
@@ -158,11 +161,7 @@ pub fn init(data: *mut u8, data_size: isize, save_data: *mut u8,
         GAMEPAD = slice::from_raw_parts_mut(gamepad_data, 8);
     }
 
-    CString::new("OK")
-        .unwrap()
-        .into_raw()
+    CString::new("OK").unwrap().into_raw()
 }
 
-fn main() {
-}
-
+fn main() {}

@@ -1,13 +1,7 @@
-use hardware::cpu::{
-    Cpu,
-    MapperHolder,
-    Handler,
-    HandlerHolder,
-    Interrupt
-};
-use hardware::opcodes::OpCode;
-use hardware::ppu::{ScreenBuffer, GrayShade};
 use hardware::apu::*;
+use hardware::cpu::{Cpu, Handler, HandlerHolder, Interrupt, MapperHolder};
+use hardware::opcodes::OpCode;
+use hardware::ppu::{GrayShade, ScreenBuffer};
 
 use hardware::handler_holder::Key;
 
@@ -16,33 +10,49 @@ use std::num::Wrapping;
 struct MockChannel;
 
 impl VolumeView for MockChannel {
-    fn volume(&self) -> u8 { 0 }
+    fn volume(&self) -> u8 {
+        0
+    }
 }
 
 impl OutputLevelView for MockChannel {
-    fn volume(&self) -> OutputLevel { OutputLevel::Mute }
+    fn volume(&self) -> OutputLevel {
+        OutputLevel::Mute
+    }
 }
 
 impl WaveDutyView for MockChannel {
-    fn wave_duty(&self) -> f32 { 0.0 }
+    fn wave_duty(&self) -> f32 {
+        0.0
+    }
 }
 
 impl WavePatternView for MockChannel {
-    fn wave_pattern(&self) -> &[u8] { EMPTY_ARRAY }
+    fn wave_pattern(&self) -> &[u8] {
+        EMPTY_ARRAY
+    }
 }
 
 impl PatternView for MockChannel {
-    fn pattern(&self) -> NoisePattern { NoisePattern::C15 }
+    fn pattern(&self) -> NoisePattern {
+        NoisePattern::C15
+    }
 }
 
 impl AudioLineView for MockChannel {
-    fn playing_left(&self) -> bool { false }
-    fn playing_right(&self) -> bool { false }
-    fn frequency(&self) -> u64 { 0 }
+    fn playing_left(&self) -> bool {
+        false
+    }
+    fn playing_right(&self) -> bool {
+        false
+    }
+    fn frequency(&self) -> u64 {
+        0
+    }
 }
 
-const EMPTY_ARRAY : &'static [u8] = &[];
-const MOCK_CHANNEL : &'static MockChannel = &MockChannel {};
+const EMPTY_ARRAY: &'static [u8] = &[];
+const MOCK_CHANNEL: &'static MockChannel = &MockChannel {};
 
 struct MockHandlerHolder {
     memory: [u8; 512],
@@ -54,10 +64,18 @@ struct MockHandlerHolder {
 struct MockAudioBuffer;
 
 impl AudioBuffer for MockAudioBuffer {
-    fn sound_1(&self) -> &dyn Channel1View { MOCK_CHANNEL }
-    fn sound_2(&self) -> &dyn Channel2View { MOCK_CHANNEL }
-    fn sound_3(&self) -> &dyn Channel3View { MOCK_CHANNEL }
-    fn sound_4(&self) -> &dyn Channel4View { MOCK_CHANNEL }
+    fn sound_1(&self) -> &dyn Channel1View {
+        MOCK_CHANNEL
+    }
+    fn sound_2(&self) -> &dyn Channel2View {
+        MOCK_CHANNEL
+    }
+    fn sound_3(&self) -> &dyn Channel3View {
+        MOCK_CHANNEL
+    }
+    fn sound_4(&self) -> &dyn Channel4View {
+        MOCK_CHANNEL
+    }
 }
 
 impl MockHandlerHolder {
@@ -65,7 +83,7 @@ impl MockHandlerHolder {
         MockHandlerHolder {
             memory: [0; 512],
             screen_buffer: [[GrayShade::C00; 160]; 144],
-            audio_buffer: MockAudioBuffer{},
+            audio_buffer: MockAudioBuffer {},
             data: [0],
         }
     }
@@ -93,19 +111,27 @@ impl MapperHolder for MockHandlerHolder {
 
 impl HandlerHolder for MockHandlerHolder {
     fn cpu_step(&mut self) {}
-    fn check_interrupts(&mut self) -> Option<Interrupt> { None }
+    fn check_interrupts(&mut self) -> Option<Interrupt> {
+        None
+    }
     fn key_down(&mut self, _: Key) {}
     fn key_up(&mut self, _: Key) {}
     fn get_screen_buffer(&self) -> &ScreenBuffer {
         &self.screen_buffer
     }
-    fn should_refresh(&mut self) -> bool { false }
+    fn should_refresh(&mut self) -> bool {
+        false
+    }
     fn get_audio_buffer(&self) -> &dyn AudioBuffer {
         &self.audio_buffer
     }
     fn reset(&mut self) {}
-    fn ram(&mut self) -> &mut [u8] { &mut self.data }
-    fn rtc(&mut self) -> Option<&mut u64> { None }
+    fn ram(&mut self) -> &mut [u8] {
+        &mut self.data
+    }
+    fn rtc(&mut self) -> Option<&mut u64> {
+        None
+    }
 }
 
 fn reset_all_registers(cpu: &mut Cpu) {
@@ -242,17 +268,17 @@ fn test_pop_XY() {
             0xC1 => {
                 assert_eq!(cpu.get_B_reg(), 0x01);
                 assert_eq!(cpu.get_C_reg(), 0xF0);
-            },
+            }
             // POP DE
             0xD1 => {
                 assert_eq!(cpu.get_D_reg(), 0x01);
                 assert_eq!(cpu.get_E_reg(), 0xF0);
-            },
+            }
             // POP HL
             0xE1 => {
                 assert_eq!(cpu.get_H_reg(), 0x01);
                 assert_eq!(cpu.get_L_reg(), 0xF0);
-            },
+            }
             // POP AF
             0xF1 => {
                 assert_eq!(cpu.get_A_reg(), 0x01);
@@ -281,17 +307,17 @@ fn test_push_XY() {
             0xC5 => {
                 cpu.set_B_reg(0x01);
                 cpu.set_C_reg(0xF0);
-            },
+            }
             // PUSH DE
             0xD5 => {
                 cpu.set_D_reg(0x01);
                 cpu.set_E_reg(0xF0);
-            },
+            }
             // PUSH HL
             0xE5 => {
                 cpu.set_H_reg(0x01);
                 cpu.set_L_reg(0xF0);
-            },
+            }
             // PUSH AF
             0xF5 => {
                 cpu.set_A_reg(0x01);
@@ -311,13 +337,13 @@ fn test_push_XY() {
 
 #[test]
 fn test_add_n() {
-    add_n(0xF8, 0xF8,  true,  true, false);
-    add_n(0x08, 0x08,  true, false, false);
-    add_n(0x0F, 0x01,  true, false, false);
+    add_n(0xF8, 0xF8, true, true, false);
+    add_n(0x08, 0x08, true, false, false);
+    add_n(0x0F, 0x01, true, false, false);
     add_n(0xF0, 0x01, false, false, false);
     add_n(0x00, 0x00, false, false, true);
-    add_n(0xFF, 0x01,  true,  true, true);
-    add_n(0x01, 0xFF,  true,  true, true);
+    add_n(0xFF, 0x01, true, true, true);
+    add_n(0x01, 0xFF, true, true, true);
     add_n(0x00, 0xFF, false, false, false);
 }
 
@@ -352,7 +378,7 @@ fn test_adc_half_carry() {
 
 #[test]
 fn test_add_A_X() {
-    for a in 0x80 .. 0x88 {
+    for a in 0x80..0x88 {
         let mut handler = MockHandlerHolder::new();
         handler.memory[0x0000] = a;
         handler.memory[0x0001] = 0x08;
@@ -393,7 +419,7 @@ fn test_add_A_X() {
             0x86 => 0x09,
             // ADC A, A
             0x87 => 0x02,
-            _    => panic!(),
+            _ => panic!(),
         };
 
         cpu.next_instruction();
@@ -407,7 +433,7 @@ fn test_add_A_X() {
 
 #[test]
 fn test_adc_A_X() {
-    for a in 0x88 .. 0x90 {
+    for a in 0x88..0x90 {
         for carry_flag in [false, true].into_iter() {
             let mut handler = MockHandlerHolder::new();
             handler.memory[0x0000] = a;
@@ -455,7 +481,7 @@ fn test_adc_A_X() {
                 0x8E => 0x09,
                 // ADC A, A
                 0x8F => 0x02,
-                _    => panic!(),
+                _ => panic!(),
             } + (if *carry_flag { 1 } else { 0 });
 
             cpu.next_instruction();
@@ -470,7 +496,7 @@ fn test_adc_A_X() {
 #[test]
 fn test_ld_X_Y() {
     // From LD B,B to LD A,A
-    for a in 0x40 .. 0x80 {
+    for a in 0x40..0x80 {
         if a == 0x76 {
             // 0x76 is HALT
             continue;
@@ -492,16 +518,14 @@ fn test_ld_X_Y() {
         cpu.set_PC(0x0000);
         cpu.reset_call_set_PC();
 
-
         // This is testing (HL) so we need to set up HL to point
         // inside the memory
         match a {
-            0x46 | 0x56 | 0x66 | 0x4E | 0x5E | 0x6E |
-                0x70 ..= 0x75 | 0x77 | 0x7E => {
-                    cpu.set_H_reg(0x00);
-                    cpu.set_L_reg(0x08);
+            0x46 | 0x56 | 0x66 | 0x4E | 0x5E | 0x6E | 0x70..=0x75 | 0x77 | 0x7E => {
+                cpu.set_H_reg(0x00);
+                cpu.set_L_reg(0x08);
             }
-            _ => {},
+            _ => {}
         }
 
         println!("Testing {:02X} {:?}", a, OpCode::from_byte(a, false));
@@ -520,24 +544,24 @@ fn test_ld_X_Y() {
             0x41 | 0x51 | 0x61 | 0x71 | 0x49 | 0x59 | 0x69 | 0x79 => 0x03,
             0x42 | 0x52 | 0x62 | 0x72 | 0x4A | 0x5A | 0x6A | 0x7A => 0x04,
             0x43 | 0x53 | 0x63 | 0x73 | 0x4B | 0x5B | 0x6B | 0x7B => 0x05,
-            0x44 | 0x54 | 0x64 |        0x4C | 0x5C | 0x6C | 0x7C => 0x06,
-            0x74                                                  => 0x00,
-            0x75                                                  => 0x08,
-            0x45 | 0x55 | 0x65 |        0x4D | 0x5D | 0x6D | 0x7D => 0x07,
-            0x46 | 0x56 | 0x66 |        0x4E | 0x5E | 0x6E | 0x7E => 0x08,
+            0x44 | 0x54 | 0x64 | 0x4C | 0x5C | 0x6C | 0x7C => 0x06,
+            0x74 => 0x00,
+            0x75 => 0x08,
+            0x45 | 0x55 | 0x65 | 0x4D | 0x5D | 0x6D | 0x7D => 0x07,
+            0x46 | 0x56 | 0x66 | 0x4E | 0x5E | 0x6E | 0x7E => 0x08,
             0x47 | 0x57 | 0x67 | 0x77 | 0x4F | 0x5F | 0x6F | 0x7F => 0x01,
             _ => panic!(),
         };
 
         match a {
-            0x40 ..= 0x47 => assert_eq!(cpu.get_B_reg(), expected),
-            0x48 ..= 0x4F => assert_eq!(cpu.get_C_reg(), expected),
-            0x50 ..= 0x57 => assert_eq!(cpu.get_D_reg(), expected),
-            0x58 ..= 0x5F => assert_eq!(cpu.get_E_reg(), expected),
-            0x60 ..= 0x67 => assert_eq!(cpu.get_H_reg(), expected),
-            0x68 ..= 0x6F => assert_eq!(cpu.get_L_reg(), expected),
-            0x70 ..= 0x77 => assert_eq!(cpu.deref(0x0008), expected),
-            0x78 ..= 0x7F => assert_eq!(cpu.get_A_reg(), expected),
+            0x40..=0x47 => assert_eq!(cpu.get_B_reg(), expected),
+            0x48..=0x4F => assert_eq!(cpu.get_C_reg(), expected),
+            0x50..=0x57 => assert_eq!(cpu.get_D_reg(), expected),
+            0x58..=0x5F => assert_eq!(cpu.get_E_reg(), expected),
+            0x60..=0x67 => assert_eq!(cpu.get_H_reg(), expected),
+            0x68..=0x6F => assert_eq!(cpu.get_L_reg(), expected),
+            0x70..=0x77 => assert_eq!(cpu.deref(0x0008), expected),
+            0x78..=0x7F => assert_eq!(cpu.get_A_reg(), expected),
             _ => panic!(),
         }
     }
@@ -564,18 +588,18 @@ fn inc(x: u8, y: u8, exp_x: u8, exp_y: u8) {
             0x03 => {
                 cpu.set_B_reg(x);
                 cpu.set_C_reg(y);
-            },
+            }
             0x13 => {
                 cpu.set_D_reg(x);
                 cpu.set_E_reg(y);
-            },
+            }
             0x23 => {
                 cpu.set_H_reg(x);
                 cpu.set_L_reg(y);
-            },
+            }
             0x33 => {
                 cpu.set_SP((y as u16) + ((x as u16) << 8));
-            },
+            }
             _ => panic!(),
         }
 
@@ -585,18 +609,18 @@ fn inc(x: u8, y: u8, exp_x: u8, exp_y: u8) {
             0x03 => {
                 assert_eq!(cpu.get_B_reg(), exp_x);
                 assert_eq!(cpu.get_C_reg(), exp_y);
-            },
+            }
             0x13 => {
                 assert_eq!(cpu.get_D_reg(), exp_x);
                 assert_eq!(cpu.get_E_reg(), exp_y);
-            },
+            }
             0x23 => {
                 assert_eq!(cpu.get_H_reg(), exp_x);
                 assert_eq!(cpu.get_L_reg(), exp_y);
-            },
+            }
             0x33 => {
                 assert_eq!(cpu.get_SP(), (exp_y as u16) + ((exp_x as u16) << 8));
-            },
+            }
             _ => panic!(),
         }
 
@@ -647,9 +671,14 @@ fn test_call_nn() {
 }
 
 fn and(a: u8, x: u8, expected: u8) {
-    for op in 0xA0 .. 0xA7 {
-        println!("Testing {} a={:02X} x={:02X} expected={:02X}",
-                 OpCode::from_byte(op, false).to_string(), a, x, expected);
+    for op in 0xA0..0xA7 {
+        println!(
+            "Testing {} a={:02X} x={:02X} expected={:02X}",
+            OpCode::from_byte(op, false).to_string(),
+            a,
+            x,
+            expected
+        );
 
         let mut handler = MockHandlerHolder::new();
         handler.memory[0x0000] = op;
@@ -661,15 +690,29 @@ fn and(a: u8, x: u8, expected: u8) {
         cpu.set_A_reg(a);
 
         match op {
-            0xA0 => { cpu.set_B_reg(x); },
-            0xA1 => { cpu.set_C_reg(x); },
-            0xA2 => { cpu.set_D_reg(x); },
-            0xA3 => { cpu.set_E_reg(x); },
-            0xA4 => { cpu.set_H_reg(x); },
-            0xA5 => { cpu.set_L_reg(x); },
+            0xA0 => {
+                cpu.set_B_reg(x);
+            }
+            0xA1 => {
+                cpu.set_C_reg(x);
+            }
+            0xA2 => {
+                cpu.set_D_reg(x);
+            }
+            0xA3 => {
+                cpu.set_E_reg(x);
+            }
+            0xA4 => {
+                cpu.set_H_reg(x);
+            }
+            0xA5 => {
+                cpu.set_L_reg(x);
+            }
             // AND (HL)
-            0xA6 => { cpu.set_H_reg(0x00); cpu.set_L_reg(0x10);
-            },
+            0xA6 => {
+                cpu.set_H_reg(0x00);
+                cpu.set_L_reg(0x10);
+            }
             _ => panic!(),
         }
 
@@ -748,7 +791,7 @@ fn test_add_SP_n() {
     add_SP_n(0x000F, 0x01, 0x0010, true, false);
     add_SP_n(0x0008, 0x08, 0x0010, true, false);
     add_SP_n(0x000F, 0x01, 0x0010, true, false);
-add_SP_n(0x0001, 0xFF, 0x0000, true, true);
+    add_SP_n(0x0001, 0xFF, 0x0000, true, true);
     add_SP_n(0x00FF, 0x01, 0x0100, true, true);
     add_SP_n(0x0080, 0x80, 0x0000, false, true);
 
@@ -819,16 +862,16 @@ fn sbc_A(a: u8, b: u8, expected: u8, init_C: bool, Z: bool, H: bool, C: bool) {
 #[test]
 fn test_sbc_A_B() {
     //    A     B     exp   init_C Z      H      C
-    sbc_A(0x00, 0x00, 0x00, false, true,  false, false);
-    sbc_A(0x01, 0x00, 0x00, true,  true,  false, false);
-    sbc_A(0x00, 0x00, 0xFF, true,  false, true,  true);
-    sbc_A(0x10, 0x00, 0x0F, true,  false, true,  false);
-    sbc_A(0x10, 0x1F, 0xF0, true,  false, true,  true);
-    sbc_A(0x11, 0x1F, 0xF2, false, false, true,  true);
-    sbc_A(0xFF, 0x00, 0xFE, true,  false, false, false);
-    sbc_A(0x80, 0x7F, 0x00, true,  true,  true,  false);
-    sbc_A(0x81, 0x7F, 0x01, true,  false, true,  false);
-    sbc_A(0x81, 0x70, 0x10, true,  false, false, false);
+    sbc_A(0x00, 0x00, 0x00, false, true, false, false);
+    sbc_A(0x01, 0x00, 0x00, true, true, false, false);
+    sbc_A(0x00, 0x00, 0xFF, true, false, true, true);
+    sbc_A(0x10, 0x00, 0x0F, true, false, true, false);
+    sbc_A(0x10, 0x1F, 0xF0, true, false, true, true);
+    sbc_A(0x11, 0x1F, 0xF2, false, false, true, true);
+    sbc_A(0xFF, 0x00, 0xFE, true, false, false, false);
+    sbc_A(0x80, 0x7F, 0x00, true, true, true, false);
+    sbc_A(0x81, 0x7F, 0x01, true, false, true, false);
+    sbc_A(0x81, 0x70, 0x10, true, false, false, false);
 }
 
 fn rlc_A(a: u8, expected: u8, C: bool) {
@@ -882,9 +925,15 @@ fn daa(a: u8, expected: u8, C: bool, H: bool, N: bool, exp_C: bool, exp_Z: bool)
     reset_all_registers(&mut cpu);
 
     cpu.set_A_reg(a);
-    if C { cpu.set_C_flag(); }
-    if H { cpu.set_H_flag(); }
-    if N { cpu.set_N_flag(); }
+    if C {
+        cpu.set_C_flag();
+    }
+    if H {
+        cpu.set_H_flag();
+    }
+    if N {
+        cpu.set_N_flag();
+    }
 
     cpu.next_instruction();
 
@@ -908,14 +957,22 @@ fn test_daa() {
     for j in 0x0..0x9 {
         for i in 0xA..0x10 {
             let x = i + (j << 4);
-            daa(x, (x as u16 + 0x06) as u8, false, false, false, false, false);
+            daa(
+                x,
+                (x as u16 + 0x06) as u8,
+                false,
+                false,
+                false,
+                false,
+                false,
+            );
         }
     }
 
     for j in 0x0..0xA {
         for i in 0x0..0x4 {
             let x = i + (j << 4);
-            daa(x, (x as u16 + 0x06) as u8, false, true,  false, false, false);
+            daa(x, (x as u16 + 0x06) as u8, false, true, false, false, false);
         }
     }
 
@@ -923,7 +980,7 @@ fn test_daa() {
         for i in 0x0..0xA {
             let x = i + (j << 4);
             let result = (x as u16 + 0x60) as u8;
-            daa(x, result, false, false,  false, true, result == 0);
+            daa(x, result, false, false, false, true, result == 0);
         }
     }
 
