@@ -11,6 +11,21 @@ pub fn bin_dir() -> String {
     path.join("gb-rust-frontend").to_str().unwrap().to_string()
 }
 
+pub fn gekkio_test_rom(name: &str, timeout: usize) {
+    let test_rom = "tests/gekkio/".to_owned() + name + ".gb";
+    let output = Command::new(bin_dir())
+        .args(&[&test_rom, "--headless", "--timeout", &timeout.to_string()])
+        .output()
+        .unwrap();
+
+    // Gekkio's tests output this magin number on success,
+    // a failure will be 42, 42, 42, 42, 42
+    assert_eq!(
+        str::from_utf8(&output.stdout[..]).unwrap_or(""),
+        "\u{3}\u{5}\u{8}\r\u{15}\""
+    );
+}
+
 pub fn blargg_test_rom_with_address(name: &str, expected: &str, address: u16, timeout: usize) {
     let test_rom = "tests/blargg/".to_owned() + name + ".gb";
     let output = Command::new(bin_dir())
@@ -68,9 +83,9 @@ pub fn blargg_halt_bug() {
     // TODO:
     blargg_test_rom_with_address(
         "halt_bug",
-        "halt bug\n\nIE IF IF DE\n01 10 11 0C04 \n01 00 01 0C04 \n01 \
-01 01 0C04 \n11 00 01 0C04 \n11 10 11 0C04 \n11 11 11 0C04 \n\
-E1 00 01 0C04 \nE1 E0 01 0C04 \nE1 E1 01 0C04 \n1783F602 \n\
+        "halt bug\n\nIE IF IF DE\n01 10 F1 0C04 \n01 00 E1 0C04 \n01 \
+01 E1 0C04 \n11 00 E1 0C04 \n11 10 F1 0C04 \n11 11 F1 0C04 \n\
+E1 00 E1 0C04 \nE1 E0 E1 0C04 \nE1 E1 E1 0C04 \n2A6CE34B \n\
 Failed\n",
         0xA004,
         2,
@@ -82,8 +97,8 @@ pub fn blargg_interrupt_time() {
     // TODO:
     blargg_test_rom_with_address(
         "interrupt_time",
-        "interrupt time\n\n00 00 00 \n00 08 00 \n00 00 00 \n00 08 00 \
-\n60E957D2 \nFailed\n",
+        "interrupt time\n\n00 00 00 \n00 08 0D \n00 00 00 \n00 08 0D \n\
+7F8F4AAF \nFailed\n",
         0xA004,
         1,
     );
@@ -100,4 +115,34 @@ details.\n\nFailed #9\n",
         0xA004,
         30,
     );
+}
+
+#[test]
+pub fn gekkio_acceptance_ei_sequence() {
+    gekkio_test_rom("acceptance/ei_sequence", 1);
+}
+
+#[test]
+pub fn gekkio_acceptance_ei_timing() {
+    gekkio_test_rom("acceptance/ei_timing", 1);
+}
+
+#[test]
+pub fn gekkio_acceptance_div_timing() {
+    gekkio_test_rom("acceptance/div_timing", 1);
+}
+
+#[test]
+pub fn gekkio_acceptance_interrupts_ie_push() {
+    gekkio_test_rom("acceptance/interrupts/ie_push", 1);
+}
+
+#[test]
+pub fn gekkio_acceptance_intr_timing() {
+    gekkio_test_rom("acceptance/intr_timing", 1);
+}
+
+#[test]
+pub fn gekkio_acceptance_di_timing_gs() {
+    gekkio_test_rom("acceptance/di_timing-GS", 1);
 }

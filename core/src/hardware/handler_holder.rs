@@ -276,7 +276,7 @@ impl cpu::Handler for SerialTransfer {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Key {
     Up,
     Down,

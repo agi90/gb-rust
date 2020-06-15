@@ -10,6 +10,17 @@ use std::slice;
 
 use gb::{Emulator, Hardware, Interrupt, Key};
 
+const KEYS: [Key; 8] = [
+    Key::A,
+    Key::B,
+    Key::Up,
+    Key::Down,
+    Key::Left,
+    Key::Right,
+    Key::Select,
+    Key::Start,
+];
+
 fn store_frame(screen: &gb::ScreenBuffer, data: &mut [u8]) {
     for i in 0..gb::SCREEN_X {
         for j in 0..gb::SCREEN_Y {
@@ -23,6 +34,7 @@ static mut SCREEN: *mut u8 = 0 as *mut u8;
 static mut SOUND: *mut u8 = 0 as *mut u8;
 static mut SAVE: &mut [u8] = &mut [];
 static mut GAMEPAD: &mut [u8] = &mut [];
+static mut PREVIOUS_GAMEPAD: Option<GamepadStatus> = None;
 
 #[derive(Debug)]
 struct GamepadStatus {
@@ -34,6 +46,34 @@ struct GamepadStatus {
     down: bool,
     left: bool,
     right: bool,
+}
+
+impl GamepadStatus {
+    fn new() -> GamepadStatus {
+        GamepadStatus {
+            a: false,
+            b: false,
+            start: false,
+            select: false,
+            up: false,
+            down: false,
+            left: false,
+            right: false,
+        }
+    }
+
+    fn get(&self, key: &Key) -> bool {
+        match key {
+            Key::A => self.a,
+            Key::B => self.b,
+            Key::Select => self.select,
+            Key::Start => self.start,
+            Key::Up => self.up,
+            Key::Down => self.down,
+            Key::Left => self.left,
+            Key::Right => self.right,
+        }
+    }
 }
 
 #[no_mangle]
@@ -57,6 +97,7 @@ pub unsafe extern "C" fn main_loop() {
         || GAMEPAD.len() == 0
         || SOUND == ptr::null_mut()
         || SCREEN == ptr::null_mut()
+        || PREVIOUS_GAMEPAD.is_none()
     {
         return;
     }
@@ -67,7 +108,8 @@ pub unsafe extern "C" fn main_loop() {
         EMULATOR.as_mut().unwrap(),
         screen,
         sound,
-        &GamepadStatus::from_raw(GAMEPAD),
+        GamepadStatus::from_raw(GAMEPAD),
+        &mut PREVIOUS_GAMEPAD,
     );
 }
 
@@ -86,11 +128,19 @@ impl GamepadStatus {
     }
 }
 
-fn update_button(emulator: &mut Emulator, button: Key, pressed: bool) {
-    if pressed {
-        emulator.cpu.key_down(button);
-    } else {
-        emulator.cpu.key_up(button);
+fn update_gamepad(emulator: &mut Emulator, gamepad: &GamepadStatus, previous: &GamepadStatus) {
+    for key in KEYS.iter() {
+        if gamepad.get(key) != previous.get(key) {
+            // State didn't change, nothing to do
+            continue;
+        }
+
+        if gamepad.get(key) {
+            emulator.cpu.key_down(*key);
+            emulator.cpu.interrupt(Interrupt::Joypad);
+        } else {
+            emulator.cpu.key_up(*key);
+        }
     }
 }
 
@@ -98,17 +148,10 @@ fn main_loop_internal(
     emulator: &mut Emulator,
     screen: &mut [u8],
     sound: &mut [i16],
-    gamepad: &GamepadStatus,
+    gamepad: GamepadStatus,
+    previous_gamepad: &mut Option<GamepadStatus>,
 ) {
-    update_button(emulator, Key::A, gamepad.a);
-    update_button(emulator, Key::B, gamepad.b);
-    update_button(emulator, Key::Select, gamepad.select);
-    update_button(emulator, Key::Start, gamepad.start);
-    update_button(emulator, Key::Up, gamepad.up);
-    update_button(emulator, Key::Down, gamepad.down);
-    update_button(emulator, Key::Left, gamepad.left);
-    update_button(emulator, Key::Right, gamepad.right);
-    emulator.cpu.interrupt(Interrupt::Joypad);
+    update_gamepad(emulator, &gamepad, previous_gamepad.as_ref().unwrap());
 
     loop {
         emulator.cpu.next_instruction();
@@ -116,6 +159,8 @@ fn main_loop_internal(
             break;
         }
     }
+
+    previous_gamepad.replace(gamepad);
 
     store_frame(emulator.cpu.handler_holder.get_screen_buffer(), screen);
 
@@ -159,6 +204,7 @@ pub fn init(
         SCREEN = screen_data;
         SOUND = sound_data;
         GAMEPAD = slice::from_raw_parts_mut(gamepad_data, 8);
+        PREVIOUS_GAMEPAD = Some(GamepadStatus::new());
     }
 
     CString::new("OK").unwrap().into_raw()

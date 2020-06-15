@@ -247,7 +247,7 @@ fn add_n(a: u8, n: u8, H: bool, C: bool, Z: bool) {
 
 #[test]
 fn test_pop_XY() {
-    for a in [0xC1, 0xD1, 0xE1, 0xF1].into_iter() {
+    for a in [0xC1, 0xD1, 0xE1, 0xF1].iter() {
         let mut handler = MockHandlerHolder::new();
 
         handler.memory[0x0000] = *a;
@@ -294,7 +294,7 @@ fn test_pop_XY() {
 
 #[test]
 fn test_push_XY() {
-    for a in [0xC5, 0xD5, 0xE5, 0xF5].into_iter() {
+    for a in [0xC5, 0xD5, 0xE5, 0xF5].iter() {
         let mut handler = MockHandlerHolder::new();
 
         handler.memory[0x0000] = *a;
@@ -434,7 +434,7 @@ fn test_add_A_X() {
 #[test]
 fn test_adc_A_X() {
     for a in 0x88..0x90 {
-        for carry_flag in [false, true].into_iter() {
+        for carry_flag in [false, true].iter() {
             let mut handler = MockHandlerHolder::new();
             handler.memory[0x0000] = a;
             handler.memory[0x0001] = 0x08;
@@ -577,7 +577,7 @@ fn test_inc() {
 }
 
 fn inc(x: u8, y: u8, exp_x: u8, exp_y: u8) {
-    for a in [0x03, 0x13, 0x23, 0x33].into_iter() {
+    for a in [0x03, 0x13, 0x23, 0x33].iter() {
         let mut handler = MockHandlerHolder::new();
         handler.memory[0x0000] = *a;
 

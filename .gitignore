@@ -2,6 +2,7 @@ target
 Cargo.lock
 *.gbc
 *.srm
+*.sym
 *.sav
 *.state
 rom

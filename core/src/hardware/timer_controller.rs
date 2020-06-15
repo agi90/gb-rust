@@ -15,7 +15,7 @@ u8_enum! {
 pub struct TimerController {
     clock: usize,
     last_clock: usize,
-    last_divider: usize,
+    divider_counter: usize,
 
     mapper: TimerMemoryMapper,
 }
@@ -25,7 +25,7 @@ impl TimerController {
         TimerController {
             clock: 0,
             last_clock: 0,
-            last_divider: 0,
+            divider_counter: 0,
 
             mapper: TimerMemoryMapper::new(),
         }
@@ -33,18 +33,22 @@ impl TimerController {
 
     pub fn cpu_step(&mut self) -> Option<cpu::Interrupt> {
         self.last_clock += cpu::CYCLES_PER_STEP;
-        self.last_divider += cpu::CYCLES_PER_STEP;
+        self.divider_counter += cpu::CYCLES_PER_STEP;
 
         let mut interrupt = None;
+        if self.divider_counter == 256 {
+            self.mapper.divider = (Wrapping(self.mapper.divider) + Wrapping(1)).0;
+            if self.mapper.divider == 0x00 {
+                interrupt = Some(cpu::Interrupt::Timer);
+            }
+            self.divider_counter = 0;
+        }
+
         while self.last_clock >= 16 {
             self.last_clock -= 16;
 
             self.clock = (Wrapping(self.clock) + Wrapping(1)).0;
-
-            let clock = self.inc_clock();
-            let divider = self.inc_divider();
-
-            if clock || divider {
+            if self.inc_clock() {
                 interrupt = Some(cpu::Interrupt::Timer);
             }
         }
@@ -77,18 +81,12 @@ impl TimerController {
         }
     }
 
-    fn inc_divider(&mut self) -> bool {
-        if self.clock % 16 == 0 {
-            self.mapper.divider = (Wrapping(self.mapper.divider) + Wrapping(1)).0;
-            self.mapper.divider == 0x00
-        } else {
-            false
-        }
-    }
-
     pub fn write_callback(&mut self, address: u16) {
         match address {
-            0xFF04 => self.mapper.divider = 0,
+            0xFF04 => {
+                self.mapper.divider = 0;
+                self.divider_counter = 0;
+            }
             _ => {}
         }
     }

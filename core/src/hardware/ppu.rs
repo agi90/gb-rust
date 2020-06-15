@@ -409,7 +409,7 @@ impl Ppu {
         for _ in 0..2 {
             let raw = self.pixel_fifo.pop();
             if self.x < SCREEN_X {
-              self.background[self.x] = raw;
+                self.background[self.x] = raw;
             }
             let color = self.background_color_from_raw(raw);
             self.write_raw_pixel(self.x, self.scanline() as usize, color);

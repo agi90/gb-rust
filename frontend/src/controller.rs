@@ -95,10 +95,12 @@ impl Controller {
 
                     if let Some(k) = key {
                         match keyboard_input.state {
-                            ElementState::Pressed => emulator.cpu.key_down(k),
+                            ElementState::Pressed => {
+                                emulator.cpu.key_down(k);
+                                emulator.cpu.interrupt(Interrupt::Joypad);
+                            }
                             ElementState::Released => emulator.cpu.key_up(k),
                         }
-                        emulator.cpu.interrupt(Interrupt::Joypad);
                     };
                 }
                 _ => {}

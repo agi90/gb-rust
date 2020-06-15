@@ -430,24 +430,43 @@ impl Cpu {
         self.cycles
     }
 
-    fn interrupt(&mut self, interrupt: Interrupt) {
-        self.interrupt_handler.disable();
+    fn interrupt(&mut self) {
+        self.add_cycles(8);
+
         let next = self.get_PC();
 
         let h = (next >> 8) as u8;
         self.push_SP(h);
 
+        // The Gameboy uses the interrupt at this stage rather than
+        // the one 8 cycles ago. Not sure what happens if we _don't_
+        // end up having an interrupt anymore? for now we use the
+        // triggering one
+        let interrupt = self.interrupt_handler.get_interrupt();
+
         let l = ((next << 8) >> 8) as u8;
         self.push_SP(l);
 
         let address = match interrupt {
-            Interrupt::VBlank => 0x0040,
-            Interrupt::Stat => 0x0048,
-            Interrupt::Timer => 0x0050,
-            Interrupt::Joypad => 0x0060,
+            None => {
+                // This means the interrupt was cleared during dispatch, in this
+                // case we jump to 0x0000
+                0x0000
+            }
+            Some(Interrupt::VBlank) => 0x0040,
+            Some(Interrupt::Stat) => 0x0048,
+            Some(Interrupt::Timer) => 0x0050,
+            Some(Interrupt::Serial) => 0x0058,
+            Some(Interrupt::Joypad) => 0x0060,
         };
 
+        interrupt.map(|i| self.interrupt_handler.reset(i));
+
+        self.interrupt_handler.disable();
+
         self.set_PC(address);
+        self.add_cycles(4);
+
         self.reset_call_set_PC();
     }
 
@@ -505,21 +524,18 @@ impl Cpu {
         self.set_deref(address, v);
     }
 
-    fn set_deref_SP(&mut self, v: u8) {
-        let address = self.get_SP();
-        self.set_deref(address, v);
-    }
-
     pub fn inc_SP(&mut self) {
         self.SP_reg += 1;
     }
+
     fn dec_SP(&mut self) {
         self.SP_reg -= 1;
     }
 
     pub fn push_SP(&mut self, v: u8) {
         self.dec_SP();
-        self.set_deref_SP(v);
+        let address = self.get_SP();
+        self.set_deref(address, v);
     }
 
     pub fn pop_SP(&mut self) -> u8 {
@@ -548,10 +564,9 @@ impl Cpu {
             self.state = CpuState::Running;
         }
 
-        let interrupt = self.interrupt_handler.get_interrupt();
-
-        if let Some(int) = interrupt {
-            self.interrupt(int);
+        if self.interrupt_handler.get_interrupt().is_some() {
+            // The actual interrupt will be read later
+            self.interrupt();
             return;
         }
 
@@ -580,7 +595,7 @@ impl Cpu {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 enum InterruptStatus {
     Disabled,
     Enabling,
@@ -599,6 +614,7 @@ pub enum Interrupt {
     Timer,
     Joypad,
     Stat,
+    Serial,
 }
 
 impl InterruptHandler {
@@ -616,15 +632,22 @@ impl InterruptHandler {
             Interrupt::Timer => self.register.timer = true,
             Interrupt::Joypad => self.register.joypad = true,
             Interrupt::Stat => self.register.stat = true,
+            Interrupt::Serial => self.register.serial = true,
         }
     }
 
     pub fn enable(&mut self) {
-        self.enabled = InterruptStatus::Enabling;
+        if self.enabled == InterruptStatus::Disabled {
+            self.enabled = InterruptStatus::Enabling;
+        }
     }
 
     pub fn disable(&mut self) {
         self.enabled = InterruptStatus::Disabled;
+    }
+
+    pub fn reset(&mut self, interrupt: Interrupt) {
+        self.register.reset(interrupt);
     }
 
     pub fn read(&self, address: u16) -> u8 {
@@ -670,22 +693,22 @@ impl InterruptHandler {
         }
 
         if self.register.v_blank_enabled && self.register.v_blank {
-            self.register.v_blank = false;
             return Some(Interrupt::VBlank);
         }
 
         if self.register.stat_enabled && self.register.stat {
-            self.register.stat = false;
             return Some(Interrupt::Stat);
         }
 
         if self.register.timer_enabled && self.register.timer {
-            self.register.timer = false;
             return Some(Interrupt::Timer);
         }
 
+        if self.register.serial_enabled && self.register.serial {
+            return Some(Interrupt::Serial);
+        }
+
         if self.register.joypad_enabled && self.register.joypad {
-            self.register.joypad = false;
             return Some(Interrupt::Joypad);
         }
 
@@ -763,6 +786,18 @@ impl InterruptRegister {
             + (if self.timer { 0b00000100 } else { 0 })
             + (if self.serial { 0b00001000 } else { 0 })
             + (if self.joypad { 0b00010000 } else { 0 })
+            // Rest is open bus
+            + 0b11100000
+    }
+
+    fn reset(&mut self, interrupt: Interrupt) {
+        match interrupt {
+            Interrupt::VBlank => self.v_blank = false,
+            Interrupt::Stat => self.stat = false,
+            Interrupt::Timer => self.timer = false,
+            Interrupt::Serial => self.serial = false,
+            Interrupt::Joypad => self.joypad = false,
+        }
     }
 
     fn write_interrupt(&mut self, v: u8) {
